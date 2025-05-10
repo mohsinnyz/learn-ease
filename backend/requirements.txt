@@ -3,7 +3,7 @@ anyio==4.9.0
 asgiref==3.8.1
 attrs==25.3.0
 backoff==2.2.1
-bcrypt==4.3.0
+bcrypt==3.2.2
 build==1.2.2.post1
 cachetools==5.5.2
 certifi==2025.4.26
