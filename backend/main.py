@@ -2,10 +2,11 @@
 from fastapi import FastAPI, Depends
 from contextlib import asynccontextmanager
 import os
+from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
-from core.db import connect_to_mongo, close_mongo_connection, get_database # Import new functions
+from core.db import connect_to_mongo, close_mongo_connection, get_database 
 from motor.motor_asyncio import AsyncIOMotorDatabase
-from routers import auth_router# For dependency type hint
+from routers import auth_router
 
 load_dotenv()
 
@@ -20,23 +21,28 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan) # Pass lifespan manager to app
 
+origins = [
+    "http://localhost:3000", 
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],  
+)
+
 app.include_router(auth_router.router)
 
 @app.get("/")
 async def root():
-    return {"message": "Hello from Learn-Ease Backend!"} # Simpler root
+    return {"message": "Hello from Learn-Ease Backend!"}
 
 @app.get("/api/test")
-async def get_test_message(db: AsyncIOMotorDatabase = Depends(get_database)): # Inject DB dependency
+async def get_test_message(db: AsyncIOMotorDatabase = Depends(get_database)): 
     try:
-        # Perform a simple DB operation to test connection
         collection_names = await db.list_collection_names()
         return {"message": "Data fetched successfully from backend!", "db_status": "connected", "collections": collection_names}
     except Exception as e:
         return {"message": "Backend running, but DB connection failed!", "db_status": "error", "detail": str(e)}
-
-# Include routers later...
-# from routers import auth, books, ai
-# app.include_router(auth.router)
-# app.include_router(books.router)
-# app.include_router(ai.router)
