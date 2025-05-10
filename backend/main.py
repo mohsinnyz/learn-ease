@@ -4,7 +4,8 @@ from contextlib import asynccontextmanager
 import os
 from dotenv import load_dotenv
 from core.db import connect_to_mongo, close_mongo_connection, get_database # Import new functions
-from motor.motor_asyncio import AsyncIOMotorDatabase # For dependency type hint
+from motor.motor_asyncio import AsyncIOMotorDatabase
+from routers import auth_router# For dependency type hint
 
 load_dotenv()
 
@@ -19,12 +20,10 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan) # Pass lifespan manager to app
 
+app.include_router(auth_router.router)
+
 @app.get("/")
 async def root():
-    # Example using dependency injection (optional here, more useful in routers)
-    # db = await get_database()
-    # Example: list collections to test connection
-    # collections = await db.list_collection_names()
     return {"message": "Hello from Learn-Ease Backend!"} # Simpler root
 
 @app.get("/api/test")

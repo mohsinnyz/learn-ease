@@ -19,6 +19,7 @@ distro==1.9.0
 dnspython==2.7.0
 durationpy==0.9
 ecdsa==0.19.1
+email_validator==2.2.0
 fastapi==0.115.9
 filelock==3.18.0
 flatbuffers==25.2.10
@@ -67,6 +68,8 @@ passlib==1.7.4
 pillow==11.2.1
 posthog==4.0.1
 protobuf==5.29.4
+pyasn1==0.4.8
+pyasn1_modules==0.4.2
 pycparser==2.22
 pydantic==2.11.4
 pydantic_core==2.33.2
@@ -79,7 +82,8 @@ pyproject_hooks==1.2.0
 pyreadline3==3.5.4
 python-dateutil==2.9.0.post0
 python-dotenv==1.1.0
-python-jose>=3.3.0,<3.5.0
+python-jose==3.4.0
+python-multipart==0.0.20
 PyYAML==6.0.2
 qrcode==8.2
 referencing==0.36.2
