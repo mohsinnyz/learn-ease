@@ -29,3 +29,6 @@ chroma_data/
 *.log
 *.tmp
 *.swp
+user-book-files/
+books/
+extracted-texts/
