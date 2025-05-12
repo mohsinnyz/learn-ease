@@ -3,6 +3,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from typing import List, Annotated
 from pydantic import BaseModel
+import os
 
 from models.book_schemas import BookPublic, PyObjectId
 from models.user_schemas import UserInDB # Or the precise type get_current_user returns

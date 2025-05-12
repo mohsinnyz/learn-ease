@@ -4,7 +4,14 @@
 export interface Book {
   id: string;
   title: string;
-  filename: string; // Or other relevant fields your backend will provide
+  filename: string;
+  upload_date: string;
+}
+
+export interface BookTextContent {
+  id: string;
+  title: string;
+  content: string;
 }
 
 const API_BASE_URL = 'http://localhost:8000';
@@ -76,6 +83,63 @@ export async function uploadBook(file: File): Promise<Book> {
 
   if (!response.ok) {
     await handleApiError(response, 'Failed to upload the book. The backend service may not be ready.');
+  }
+  return response.json();
+}
+
+export async function fetchBookDetails(bookId: string): Promise<Book> {
+  const token = getAuthToken();
+  if (!token) {
+    throw new Error('Authentication token not found.');
+  }
+  const response = await fetch(`${API_BASE_URL}/books/${bookId}`, {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+  if (!response.ok) {
+    await handleApiError(response, 'Failed to fetch book details.');
+  }
+  return response.json();
+}
+
+export async function fetchBookPdfAsBlob(bookId: string): Promise<Blob> {
+  const token = getAuthToken();
+  if (!token) {
+    throw new Error('Authentication token not found.');
+  }
+  const response = await fetch(`${API_BASE_URL}/books/${bookId}/pdf`, {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+  if (!response.ok) {
+    // For blob responses, .json() will fail. Handle error based on status.
+    if (response.status === 404) {
+        throw new Error('PDF not found.');
+    } else if (response.status === 401 || response.status === 403) {
+        throw new Error('Unauthorized to access PDF.');
+    }
+    throw new Error(`Failed to fetch PDF. Status: ${response.status}`);
+  }
+  return response.blob(); // Get the response body as a Blob
+}
+
+export async function fetchBookExtractedText(bookId: string): Promise<BookTextContent> {
+  const token = getAuthToken();
+  if (!token) {
+    throw new Error('Authentication token not found.');
+  }
+  const response = await fetch(`${API_BASE_URL}/books/${bookId}/extracted-text`, {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+  if (!response.ok) {
+    await handleApiError(response, 'Failed to fetch extracted text.');
   }
   return response.json();
 }

@@ -30,5 +30,5 @@ chroma_data/
 *.tmp
 *.swp
 user-book-files/
-books/
-extracted-texts/
+user-book-files/books/
+user-book-files/extracted-texts/

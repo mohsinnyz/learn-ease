@@ -4,6 +4,7 @@ import { useEffect, useState, FormEvent, ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 // Import Book from its new location in bookService.ts
 import { Book, fetchUserBooks, uploadBook } from "@/services/bookService";
+import Link from "next/link";
 
 // Simple Modal Component (Consider moving to its own file: src/components/Modal.tsx)
 interface ModalProps {
@@ -236,9 +237,12 @@ export default function DashboardPage() {
                     )}
                   </div>
                   <div className="mt-auto pt-3 border-t border-gray-200 dark:border-gray-600">
-                    <button className="w-full text-sm px-4 py-2 bg-indigo-500 text-white rounded-md hover:bg-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-400 transition-colors">
-                      View Details {/* Placeholder for future actions */}
-                    </button>
+                    <Link
+                      href={`/books/${book.id}`}
+                      className="block w-full text-center text-sm px-4 py-2 bg-indigo-500 text-white rounded-md hover:bg-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-400 transition-colors"
+                    >
+                      View Book
+                    </Link>
                   </div>
                 </div>
               ))}
