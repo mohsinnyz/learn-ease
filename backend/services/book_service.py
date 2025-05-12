@@ -102,3 +102,43 @@ async def get_user_books(db: AsyncIOMotorDatabase, user_id: PyObjectId) -> List[
     books_cursor = db["books"].find({"user_id": user_id}).sort("upload_date", -1) # Sort by newest first
     db_books = await books_cursor.to_list(length=None) # Fetch all for user
     return [BookPublic.from_db_model(BookInDB(**book_doc)) for book_doc in db_books]
+
+async def get_book_by_id_for_user(
+    db: AsyncIOMotorDatabase, 
+    book_id_str: str, 
+    user_id: PyObjectId
+) -> Optional[BookInDB]:
+    try:
+        book_oid = PyObjectId(book_id_str) # Validate and convert string ID to ObjectId
+    except Exception:
+        return None # Invalid book_id format
+
+    book_doc = await db["books"].find_one({"_id": book_oid, "user_id": user_id})
+    if book_doc:
+        return BookInDB(**book_doc)
+    return None
+
+async def get_book_pdf_filepath(
+    db: AsyncIOMotorDatabase, 
+    book_id_str: str, 
+    user_id: PyObjectId
+) -> Optional[str]:
+    book = await get_book_by_id_for_user(db, book_id_str, user_id)
+    if book and book.file_path_local and os.path.exists(book.file_path_local):
+        return book.file_path_local
+    return None
+
+async def get_book_extracted_text(
+    db: AsyncIOMotorDatabase, 
+    book_id_str: str, 
+    user_id: PyObjectId
+) -> Optional[str]:
+    book = await get_book_by_id_for_user(db, book_id_str, user_id)
+    if book and book.extracted_text_path_local and os.path.exists(book.extracted_text_path_local):
+        try:
+            with open(book.extracted_text_path_local, "r", encoding="utf-8") as f:
+                return f.read()
+        except Exception as e:
+            print(f"Error reading extracted text file {book.extracted_text_path_local}: {e}")
+            return None # Or raise an internal server error
+    return None
