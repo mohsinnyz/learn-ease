@@ -2,7 +2,8 @@ import os
 from dotenv import load_dotenv
 
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '.env')
-load_dotenv() # Loads variables from .env
+load_dotenv(dotenv_path) 
+
 
 MONGO_DATABASE_URL = os.getenv("DATABASE_URL")
 DATABASE_NAME = "learn_ease_db" # Or load from env if preferred
