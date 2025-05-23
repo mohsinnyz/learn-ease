@@ -14,6 +14,31 @@ export interface BookTextContent {
   content: string;
 }
 
+export interface SummarizeResponse { // Ensure this interface is defined
+  summary: string;
+}
+
+export async function summarizeTextService(text: string): Promise<SummarizeResponse> {
+  const token = getAuthToken();
+  if (!token) {
+    throw new Error('Authentication token not found. Please log in again.');
+  }
+
+  const response = await fetch(`${API_BASE_URL}/ai/summarize-text`, { // Corrected endpoint
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ text_to_summarize: text }), // Ensure key matches Pydantic model
+  });
+
+  if (!response.ok) {
+    await handleApiError(response, 'Failed to get summary from the server.');
+  }
+  return response.json();
+}
+
 const API_BASE_URL = 'http://localhost:8000';
 
 // Helper to get the auth token from localStorage

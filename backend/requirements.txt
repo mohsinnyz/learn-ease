@@ -58,4 +58,8 @@ typing_extensions==4.13.2
 urllib3==2.4.0
 uvicorn==0.34.2
 watchfiles==1.0.5
+<<<<<<< HEAD
 websockets==15.0.1
+=======
+websockets==15.0.1
+>>>>>>> fb09c368d208590c7a5a886d4e271b27e56f2cf2
