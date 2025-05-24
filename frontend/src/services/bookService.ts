@@ -4,7 +4,7 @@
 export interface Book {
   id: string;
   title: string;
-  filename: string;
+  filename: string; 
   upload_date: string;
 }
 
@@ -14,34 +14,23 @@ export interface BookTextContent {
   content: string;
 }
 
-export interface SummarizeResponse { // Ensure this interface is defined
+export interface SummarizeResponse { 
   summary: string;
 }
 
-export async function summarizeTextService(text: string): Promise<SummarizeResponse> {
-  const token = getAuthToken();
-  if (!token) {
-    throw new Error('Authentication token not found. Please log in again.');
-  }
-
-  const response = await fetch(`${API_BASE_URL}/ai/summarize-text`, { // Corrected endpoint
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ text_to_summarize: text }), // Ensure key matches Pydantic model
-  });
-
-  if (!response.ok) {
-    await handleApiError(response, 'Failed to get summary from the server.');
-  }
-  return response.json();
+// --- New Interfaces for Flashcard Generation ---
+export interface Flashcard { // Ensure this is exported
+  front: string;
+  back: string;
 }
+
+export interface FlashcardsApiResponse { // Ensure this is exported
+  flashcards: Flashcard[];
+}
+// --- End New Interfaces ---
 
 const API_BASE_URL = 'http://localhost:8000';
 
-// Helper to get the auth token from localStorage
 function getAuthToken(): string | null {
   if (typeof window !== 'undefined') {
     return localStorage.getItem('authToken');
@@ -49,7 +38,6 @@ function getAuthToken(): string | null {
   return null;
 }
 
-// Helper function to process API error responses
 async function handleApiError(response: Response, defaultErrorMessage: string): Promise<never> {
   let processedErrorMessage = defaultErrorMessage;
   try {
@@ -60,15 +48,61 @@ async function handleApiError(response: Response, defaultErrorMessage: string): 
         processedErrorMessage = detail;
       } else if (Array.isArray(detail) && detail.length > 0 && typeof detail[0].msg === 'string') {
         processedErrorMessage = detail[0].msg;
+      } else if (typeof detail === 'object' && detail !== null && 'msg' in detail && typeof (detail as {msg: unknown}).msg === 'string') {
+        processedErrorMessage = (detail as {msg: string}).msg;
       } else {
         processedErrorMessage = JSON.stringify(detail);
       }
     }
   } catch (e) {
-    console.error("Error parsing API error response:", e);
+    console.error("Error parsing API error response in bookService:", e);
   }
   throw new Error(processedErrorMessage);
 }
+
+export async function summarizeTextService(text: string): Promise<SummarizeResponse> {
+  const token = getAuthToken();
+  if (!token) {
+    throw new Error('Authentication token not found. Please log in again.');
+  }
+
+  const response = await fetch(`${API_BASE_URL}/ai/summarize-text`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ text_to_summarize: text }),
+  });
+
+  if (!response.ok) {
+    await handleApiError(response, 'Failed to get summary from the server.');
+  }
+  return response.json();
+}
+
+// --- New Function for Flashcard Generation Service ---
+export async function generateFlashcardsService(text: string): Promise<FlashcardsApiResponse> { // Ensure this function is exported
+  const token = getAuthToken();
+  if (!token) {
+    throw new Error('Authentication token not found. Please log in again.');
+  }
+
+  const response = await fetch(`${API_BASE_URL}/ai/generate-flashcards`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ text_to_generate_from: text }), 
+  });
+
+  if (!response.ok) {
+    await handleApiError(response, 'Failed to generate flashcards from the server.');
+  }
+  return response.json() as Promise<FlashcardsApiResponse>; 
+}
+// --- End New Function ---
 
 export async function fetchUserBooks(): Promise<Book[]> {
   const token = getAuthToken();
@@ -141,7 +175,6 @@ export async function fetchBookPdfAsBlob(bookId: string): Promise<Blob> {
     },
   });
   if (!response.ok) {
-    // For blob responses, .json() will fail. Handle error based on status.
     if (response.status === 404) {
         throw new Error('PDF not found.');
     } else if (response.status === 401 || response.status === 403) {
@@ -149,7 +182,7 @@ export async function fetchBookPdfAsBlob(bookId: string): Promise<Blob> {
     }
     throw new Error(`Failed to fetch PDF. Status: ${response.status}`);
   }
-  return response.blob(); // Get the response body as a Blob
+  return response.blob();
 }
 
 export async function fetchBookExtractedText(bookId: string): Promise<BookTextContent> {

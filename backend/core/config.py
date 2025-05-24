@@ -1,3 +1,4 @@
+#C:\Users\mohsi\Projects\learn-ease-fyp\backend\core\config.py
 import os
 from dotenv import load_dotenv
 

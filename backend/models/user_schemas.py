@@ -1,4 +1,5 @@
 # backend/models/user_schemas.py
+#C:\Users\mohsi\Projects\learn-ease-fyp\backend\models\user_schemas.py
 from pydantic import BaseModel, EmailStr, Field
 from typing import Optional
 from bson import ObjectId # For MongoDB ObjectId handling

@@ -1,4 +1,5 @@
 # backend/core/db.py
+#C:\Users\mohsi\Projects\learn-ease-fyp\backend\core\db.py
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 from .config import MONGO_DATABASE_URL, DATABASE_NAME
 

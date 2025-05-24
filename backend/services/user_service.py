@@ -1,4 +1,6 @@
 # backend/services/user_service.py
+#C:\Users\mohsi\Projects\learn-ease-fyp\backend\services\user_service.py
+
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from typing import Optional
 from models.user_schemas import UserCreate, UserInDB, UserPublic

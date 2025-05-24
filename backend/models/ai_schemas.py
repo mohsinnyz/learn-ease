@@ -1,3 +1,5 @@
+#C:\Users\mohsi\Projects\learn-ease-fyp\backend\models\ai_schemas.py
+
 from pydantic import BaseModel, Field
 
 class TextForSummarization(BaseModel):
