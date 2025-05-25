@@ -19,82 +19,125 @@ interface TokenResponse {
   token_type: string;
 }
 
-interface UserPublic {
+export interface UserPublic { // Ensure this matches your backend UserPublic, including new fields
   id: string;
   firstname: string;
   lastname: string;
   email: string;
-  age?: number;
-  university_name?: string;
+  age?: number | null; // Allow null if backend can return it
+  university_name?: string | null; // Allow null
+  image?: string | null; // Assuming HttpUrl becomes string for frontend
+  verified: boolean;
 }
 
-// Helper function to process API error responses
+// --- New Interface for User Update Payload ---
+export interface UserUpdatePayload {
+  firstname?: string;
+  lastname?: string;
+  age?: number | null;
+  university_name?: string | null;
+  image?: string | null; // URL for profile picture
+}
+// --- End New Interface ---
+
+
+// Existing handleApiError function should be here
+// async function handleApiError(response: Response, defaultErrorMessage: string): Promise<never> { ... }
 async function handleApiError(response: Response, defaultErrorMessage: string): Promise<never> {
   let processedErrorMessage = defaultErrorMessage;
   try {
     const errorData = await response.json();
-    console.log("AUTH_SERVICE_RECEIVED_ERROR_DATA:", errorData); // Log raw error data
+    console.log("API_SERVICE_RECEIVED_ERROR_DATA:", errorData); 
 
     if (errorData && errorData.detail) {
       const detail = errorData.detail;
       if (Array.isArray(detail) && detail.length > 0) {
-        // If detail is an array, try to get the 'msg' from the first error object
         const firstError = detail[0];
         if (typeof firstError === 'object' && firstError !== null && 'msg' in firstError && typeof (firstError as { msg: unknown }).msg === 'string') {
           processedErrorMessage = (firstError as { msg: string }).msg;
         } else {
-          // Fallback if detail is an array of non-strings or unexpected objects
-          processedErrorMessage = `Multiple validation errors occurred. Please check your input. (Details: ${JSON.stringify(detail)})`;
+          processedErrorMessage = `Multiple validation errors. (Details: ${JSON.stringify(detail)})`;
         }
       } else if (typeof detail === 'string') {
-        // If detail is already a string
         processedErrorMessage = detail;
       } else if (typeof detail === 'object' && detail !== null) {
-        // If detail is a single object, try to get a 'msg' or stringify
         if ('msg' in detail && typeof (detail as {msg: unknown}).msg === 'string') {
-             processedErrorMessage = (detail as {msg: string}).msg;
+            processedErrorMessage = (detail as {msg: string}).msg;
         } else {
             processedErrorMessage = JSON.stringify(detail);
         }
       }
     }
   } catch (e) {
-    // If response.json() fails or errorData.detail is not helpful, stick to default
-    console.error("AUTH_SERVICE_ERROR_PARSING_JSON or UNEXPECTED_ERROR_STRUCTURE:", e);
+    console.error("API_SERVICE_ERROR_PARSING_JSON or UNEXPECTED_ERROR_STRUCTURE:", e);
   }
-  console.log("AUTH_SERVICE_THROWING_ERROR_MESSAGE:", processedErrorMessage);
-  throw new Error(processedErrorMessage); // Throw a new Error with the processed string message
+  console.log("API_SERVICE_THROWING_ERROR_MESSAGE:", processedErrorMessage);
+  throw new Error(processedErrorMessage);
+}
+
+// Helper to get the auth token from localStorage (can be shared or duplicated if not already in a util)
+function getAuthToken(): string | null {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('authToken');
+    }
+    return null;
+  }
+
+// Existing signupUser and loginUser functions should be here
+// export async function signupUser(userData: SignupData): Promise<UserPublic> { ... }
+// export async function loginUser(credentials: LoginData): Promise<TokenResponse> { ... }
+export async function signupUser(userData: SignupData): Promise<UserPublic> { // Use 'any' if SignupData not fully shown
+    const response = await fetch(`${API_BASE_URL}/auth/signup`, { /* ... */ body: JSON.stringify(userData), headers: {'Content-Type': 'application/json'}, method: 'POST' });
+    if (!response.ok) { await handleApiError(response, 'Signup failed.'); }
+    return response.json();
+}
+export async function loginUser(credentials: LoginData): Promise<TokenResponse> { // Use 'any' if LoginData not fully shown
+    const response = await fetch(`${API_BASE_URL}/auth/login`, { /* ... */ body: JSON.stringify(credentials), headers: {'Content-Type': 'application/json'}, method: 'POST' });
+    if (!response.ok) { await handleApiError(response, 'Login failed.'); }
+    return response.json();
 }
 
 
-export async function signupUser(userData: SignupData): Promise<UserPublic> {
-  const response = await fetch(`${API_BASE_URL}/auth/signup`, {
-    method: 'POST',
+// --- New Function to Fetch User Profile ---
+export async function fetchUserProfile(): Promise<UserPublic> {
+  const token = getAuthToken();
+  if (!token) {
+    throw new Error('Authentication token not found. Please log in again.');
+  }
+
+  // Assuming your user router in main.py has a prefix like "/api/v1"
+  const response = await fetch(`${API_BASE_URL}/users/me`, {
+    method: 'GET',
     headers: {
-      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
     },
-    body: JSON.stringify(userData),
   });
 
   if (!response.ok) {
-    // Use the helper to process the error and throw
-    await handleApiError(response, 'Signup failed. Please check your details.');
+    await handleApiError(response, 'Failed to fetch user profile.');
   }
-  return response.json();
+  return response.json() as Promise<UserPublic>;
 }
+// --- End New Function ---
 
-export async function loginUser(credentials: LoginData): Promise<TokenResponse> {
-  const response = await fetch(`${API_BASE_URL}/auth/login`, {
-    method: 'POST',
+// --- New Function to Update User Profile ---
+export async function updateUserProfile(profileData: UserUpdatePayload): Promise<UserPublic> {
+  const token = getAuthToken();
+  if (!token) {
+    throw new Error('Authentication token not found. Please log in again.');
+  }
+
+  const response = await fetch(`${API_BASE_URL}/users/me`, {
+    method: 'PUT',
     headers: {
+      'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify(credentials),
+    body: JSON.stringify(profileData),
   });
 
   if (!response.ok) {
-    // Use the helper to process the error and throw
-    await handleApiError(response, 'Login failed. Please check your credentials.');
+    await handleApiError(response, 'Failed to update user profile.');
   }
-  return response.json();
+  return response.json() as Promise<UserPublic>;
 }
