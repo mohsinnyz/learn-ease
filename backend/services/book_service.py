@@ -13,42 +13,55 @@ from bson import ObjectId
 from models.book_schemas import BookCreateInternal, BookInDB, BookPublic, PyObjectId
 from models.user_schemas import UserInDB 
 from core.config import LOCAL_BOOK_UPLOAD_DIR, LOCAL_EXTRACTED_TEXT_DIR
+from . import category_service
 
 # Ensure upload directories exist when the service module is loaded
 os.makedirs(LOCAL_BOOK_UPLOAD_DIR, exist_ok=True)
 os.makedirs(LOCAL_EXTRACTED_TEXT_DIR, exist_ok=True)
 
+BOOKS_COLLECTION = "books"
+
 async def process_and_save_book(
     db: AsyncIOMotorDatabase,
     file: UploadFile,
-    current_user: UserInDB
+    current_user: UserInDB,
+    title_from_user: Optional[str] = None, # Optional title from user
+    category_id_str: Optional[str] = None  # <<< NEW Optional category_id string
 ) -> BookPublic:
-    if not current_user.id or not isinstance(current_user.id, ObjectId): # <--- Changed PyObjectId to ObjectId
+    if not current_user.id or not isinstance(current_user.id, ObjectId):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
             detail="User ID is invalid or not available for book association."
         )
 
-    user_id_for_path = str(current_user.id) # Use string version for path compatibility if needed
+    # --- Validate category_id if provided ---
+    category_oid: Optional[PyObjectId] = None
+    if category_id_str:
+        try:
+            # Check if category exists and belongs to the user
+            category_obj = await category_service.get_category_by_id_for_user(db, category_id_str, current_user.id)
+            if not category_obj:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Category ID '{category_id_str}' not found or does not belong to user.")
+            category_oid = category_obj.id
+        except ValueError as ve: # Catch errors from PyObjectId conversion or from category_service
+             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(ve))
+        except Exception: # Catch PyObjectId invalid format error
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid Category ID format: {category_id_str}")
+    # --- End category_id validation ---
 
-    # Sanitize original filename for safer paths
-    original_filename_sanitized = "".join(c if c.isalnum() or c in ['.', '_', '-'] else '_' for c in file.filename)
-    
+    user_id_for_path = str(current_user.id)
+    original_filename_sanitized = "".join(c if c.isalnum() or c in ['.', '_', '-'] else '_' for c in (file.filename or "unknown_file"))
     file_extension = os.path.splitext(original_filename_sanitized)[1]
-    if not file_extension.lower() == ".pdf": # Double check, though router should also
+    if not file_extension.lower() == ".pdf":
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid file type. Only PDF is allowed.")
 
     unique_filename_stem = f"{user_id_for_path}_{uuid.uuid4()}"
-    
     stored_pdf_filename = f"{unique_filename_stem}{file_extension}"
     pdf_save_path = os.path.join(LOCAL_BOOK_UPLOAD_DIR, stored_pdf_filename)
-    
     stored_text_filename = f"{unique_filename_stem}.txt"
     text_save_path = os.path.join(LOCAL_EXTRACTED_TEXT_DIR, stored_text_filename)
-
     file_size_bytes: int = 0
 
-    # 1. Save PDF
     try:
         with open(pdf_save_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
@@ -56,9 +69,8 @@ async def process_and_save_book(
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Could not save PDF: {str(e)}")
     finally:
-        await file.close() # Ensure UploadFile is closed
+        await file.close()
 
-    # 2. Extract Text
     try:
         doc = fitz.open(pdf_save_path)
         extracted_text = "".join(page.get_text() for page in doc)
@@ -66,38 +78,94 @@ async def process_and_save_book(
         with open(text_save_path, "w", encoding="utf-8") as text_f:
             text_f.write(extracted_text)
     except Exception as e:
-        if os.path.exists(pdf_save_path): os.remove(pdf_save_path) # Clean up PDF if text extraction fails
+        if os.path.exists(pdf_save_path): os.remove(pdf_save_path)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to extract text from PDF: {str(e)}")
 
-    # 3. Create DB Record
     book_meta = BookCreateInternal(
-        title=file.filename or "Untitled Book", # Or allow user to set title via another form field
+        title=title_from_user or file.filename or "Untitled Book",
         original_filename=file.filename,
         content_type=file.content_type,
         file_size_bytes=file_size_bytes,
-        user_id=current_user.id, # This MUST be PyObjectId
-        stored_filename=stored_pdf_filename, # Just the filename, relative to its dir
+        user_id=current_user.id,
+        stored_filename=stored_pdf_filename,
         file_path_local=pdf_save_path,
-        extracted_text_path_local=text_save_path
+        extracted_text_path_local=text_save_path,
+        category_id=category_oid # <<< ASSIGN VALIDATED category_oid
     )
     
-    # Use model_dump for preparing data for MongoDB, ensuring alias _id is handled by BookInDB
     book_doc_for_db = BookInDB(
         **book_meta.model_dump(), 
-        status="ready" # Set status to ready after successful processing
-    ).model_dump(by_alias=True, exclude={"id"} if BookInDB.__fields__["id"].default_factory else {})
+        status="ready"
+    ).model_dump(by_alias=True, exclude_none=True) # Use exclude_none=True
+
+    if book_doc_for_db.get("_id") is None: # Ensure _id is not sent if it's meant to be auto-generated by MongoDB
+        book_doc_for_db.pop("_id", None)
 
 
-    result = await db["books"].insert_one(book_doc_for_db)
-    
-    created_book_doc = await db["books"].find_one({"_id": result.inserted_id})
-    if not created_book_doc:
-        # Critical error: data saved to disk but not DB. Requires cleanup.
+    result = await db[BOOKS_COLLECTION].insert_one(book_doc_for_db)
+    created_book_doc_from_db = await db[BOOKS_COLLECTION].find_one({"_id": result.inserted_id})
+    if not created_book_doc_from_db:
         if os.path.exists(pdf_save_path): os.remove(pdf_save_path)
         if os.path.exists(text_save_path): os.remove(text_save_path)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to save book metadata after file processing.")
     
-    return BookPublic.from_db_model(BookInDB(**created_book_doc))
+    # Explicitly try to print what's in created_book_doc_from_db before Pydantic conversion
+    print(f"DEBUG: Raw doc from DB before BookInDB instantiation: {created_book_doc_from_db}")
+
+    try:
+        # Ensure all fields including inherited ones are passed correctly
+        # Pydantic should handle the _id to id aliasing due to Config.populate_by_name = True
+        # and alias="_id" on the id field.
+        book_in_db_instance = BookInDB(**created_book_doc_from_db)
+        print(f"DEBUG: BookInDB instance original_filename: {getattr(book_in_db_instance, 'original_filename', 'NOT FOUND')}")
+    except Exception as pydantic_error:
+        print(f"ERROR: Pydantic validation/instantiation error for BookInDB: {pydantic_error}")
+        print(f"ERROR: Data passed to BookInDB: {created_book_doc_from_db}")
+        raise # Re-raise the Pydantic error to see its traceback
+
+    return book_in_db_instance # Return BookInDB instance
+
+# ... (existing functions like get_user_books, get_book_by_id_for_user, etc.) ...
+
+# --- New Function to Update a Book's Category ---
+async def update_book_category(
+    db: AsyncIOMotorDatabase,
+    book_id_str: str,
+    new_category_id_str: Optional[str], # String from API, can be None for uncategorized
+    user_id: PyObjectId
+) -> Optional[BookInDB]:
+    """
+    Updates the category of a specific book for a user.
+    If new_category_id_str is None, the book becomes uncategorized.
+    """
+    book_to_update = await get_book_by_id_for_user(db, book_id_str, user_id)
+    if not book_to_update:
+        return None # Book not found or doesn't belong to user
+
+    new_category_oid: Optional[PyObjectId] = None
+    if new_category_id_str:
+        # Validate that the new category exists and belongs to the user
+        category_obj = await category_service.get_category_by_id_for_user(db, new_category_id_str, user_id)
+        if not category_obj:
+            raise ValueError(f"Target category ID '{new_category_id_str}' not found or does not belong to user.")
+        new_category_oid = category_obj.id
+    
+    update_result = await db[BOOKS_COLLECTION].update_one(
+        {"_id": book_to_update.id, "user_id": user_id},
+        {"$set": {"category_id": new_category_oid}}
+    )
+
+    if update_result.modified_count == 1:
+        updated_book_doc = await db[BOOKS_COLLECTION].find_one({"_id": book_to_update.id})
+        if updated_book_doc:
+            return BookInDB(**updated_book_doc)
+    
+    # If no modification (e.g. same category_id) or failed to fetch, return current state or None
+    # For simplicity, let's return the current state if fetched, else None
+    current_book_doc_after_attempt = await db[BOOKS_COLLECTION].find_one({"_id": book_to_update.id})
+    if current_book_doc_after_attempt:
+        return BookInDB(**current_book_doc_after_attempt)
+    return None
 
 
 async def get_user_books(db: AsyncIOMotorDatabase, user_id: PyObjectId) -> List[BookPublic]:

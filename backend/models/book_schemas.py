@@ -1,11 +1,9 @@
-#C:\Users\mohsi\Projects\learn-ease-fyp\backend\models\book_schemas.py
-
 from pydantic import BaseModel, Field
-from typing import Optional, List
+from typing import Optional, List # Keep List if used elsewhere
 from datetime import datetime
 from bson import ObjectId
 
-from .user_schemas import PyObjectId
+from .user_schemas import PyObjectId # This should already be there
 
 class BookBase(BaseModel):
     title: str = Field(..., min_length=1, max_length=255)
@@ -15,14 +13,16 @@ class BookBase(BaseModel):
 
 class BookCreateInternal(BookBase): # Data for creating DB entry
     user_id: PyObjectId
-    stored_filename: str         # Unique filename on server (e.g., UUID_original.pdf)
-    file_path_local: str         # Full path to the PDF on server
-    extracted_text_path_local: Optional[str] = None # Full path to extracted text file
+    stored_filename: str
+    file_path_local: str
+    extracted_text_path_local: Optional[str] = None
+    category_id: Optional[PyObjectId] = None # <<< NEW FIELD
 
 class BookInDB(BookCreateInternal):
     id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
     upload_date: datetime = Field(default_factory=datetime.utcnow)
-    status: str = "processing" # e.g., "processing", "ready", "error_extraction", "error_upload"
+    status: str = "processing" 
+    # category_id is inherited from BookCreateInternal <<< ALREADY INCLUDED IF ADDED ABOVE
 
     class Config:
         populate_by_name = True
@@ -35,8 +35,9 @@ class BookInDB(BookCreateInternal):
 class BookPublic(BaseModel): # Data returned to client
     id: str
     title: str
-    filename: Optional[str] = None # Typically the original_filename for display
+    filename: Optional[str] = None
     upload_date: str
+    category_id: Optional[str] = None # <<< NEW FIELD
 
     @classmethod
     def from_db_model(cls, db_book: BookInDB):
@@ -44,5 +45,10 @@ class BookPublic(BaseModel): # Data returned to client
             id=str(db_book.id),
             title=db_book.title,
             filename=db_book.original_filename,
-            upload_date=db_book.upload_date.isoformat()
+            upload_date=db_book.upload_date.isoformat(),
+            category_id=str(db_book.category_id) if db_book.category_id else None # <<< UPDATE THIS
         )
+
+# Schema for updating a book's category
+class BookCategoryUpdate(BaseModel):
+    category_id: Optional[str] = Field(default=None, description="The new category ID for the book. Null to make it uncategorized.")
