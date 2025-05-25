@@ -2,11 +2,11 @@
 "use client";
 import { useEffect, useState, FormEvent, ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
-import { Book, fetchUserBooks, uploadBook, updateBookCategory } from "@/services/bookService"; // Added updateBookCategory
+import { Book, fetchUserBooks, uploadBook, updateBookCategory } from "@/services/bookService";
 import { Category, fetchUserCategories, createCategory } from "@/services/categoryService";
 import Link from "next/link";
 
-// --- Modal component (ensure this is robust or a shared component) ---
+// --- Modal component ---
 interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -56,9 +56,9 @@ export default function DashboardPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploadSuccess, setUploadSuccess] = useState<string | null>(null);
-  const [uploadTargetCategoryId, setUploadTargetCategoryId] = useState<string | null>(null); // For upload modal
+  const [uploadTargetCategoryId, setUploadTargetCategoryId] = useState<string | null>(null);
 
-  // --- Category State ---
+  // Category State
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoadingCategories, setIsLoadingCategories] = useState(true);
   const [errorCategories, setErrorCategories] = useState<string | null>(null);
@@ -66,7 +66,10 @@ export default function DashboardPage() {
   const [newCategoryName, setNewCategoryName] = useState("");
   const [isCreatingCategory, setIsCreatingCategory] = useState(false);
   const [createCategoryError, setCreateCategoryError] = useState<string | null>(null);
-  // --- End Category State ---
+
+  // --- New State for Active Filter ---
+  const [activeFilter, setActiveFilter] = useState<string | 'all' | 'uncategorized'>('all'); 
+  // --- End New State for Active Filter ---
 
   useEffect(() => {
     setIsClient(true);
@@ -79,16 +82,19 @@ export default function DashboardPage() {
   }, [router]);
 
   const loadInitialData = async () => {
-    await loadBooks();
-    await loadCategories();
+    // Set loading states to true at the beginning of data fetching
+    setIsLoadingBooks(true);
+    setIsLoadingCategories(true);
+    // Using Promise.all to fetch books and categories concurrently
+    await Promise.all([loadBooks(), loadCategories()]);
+    // Loading states will be set to false inside loadBooks and loadCategories respectively
   };
 
   const loadBooks = async () => {
-    setIsLoadingBooks(true);
     setErrorBooks(null);
     try {
       const userBooks = await fetchUserBooks();
-      setBooks(userBooks);
+      setBooks(userBooks.sort((a,b) => new Date(b.upload_date).getTime() - new Date(a.upload_date).getTime()));
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : "An unknown error occurred.";
       setErrorBooks(`Failed to load books: ${errorMessage}`);
@@ -99,11 +105,10 @@ export default function DashboardPage() {
   };
 
   const loadCategories = async () => {
-    setIsLoadingCategories(true);
     setErrorCategories(null);
     try {
       const userCategories = await fetchUserCategories();
-      setCategories(userCategories);
+      setCategories(userCategories.sort((a,b) => a.name.localeCompare(b.name)));
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : "An unknown error occurred.";
       setErrorCategories(`Failed to load categories: ${errorMessage}`);
@@ -142,14 +147,12 @@ export default function DashboardPage() {
     setUploadError(null);
     setUploadSuccess(null);
     try {
-      // Pass title (if you add a field for it) and uploadTargetCategoryId to uploadBook
-      // For now, uploadBook service might need adjustment to take categoryId, or use default
-      const newBook = await uploadBook(selectedFile, selectedFile.name, uploadTargetCategoryId); // Assuming uploadBook can take categoryId
+      const newBook = await uploadBook(selectedFile, selectedFile.name, uploadTargetCategoryId);
       setBooks((prevBooks) => [newBook, ...prevBooks].sort((a,b) => new Date(b.upload_date).getTime() - new Date(a.upload_date).getTime()));
       setUploadSuccess(`"${newBook.title || selectedFile.name}" uploaded successfully!`);
       setSelectedFile(null);
       if (document.getElementById("bookFile")) (document.getElementById("bookFile") as HTMLInputElement).value = "";
-      setUploadTargetCategoryId(null); // Reset category for next upload
+      setUploadTargetCategoryId(null);
       setTimeout(() => { setShowUploadModal(false); setUploadSuccess(null); }, 2500);
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : "An unknown error occurred.";
@@ -181,8 +184,6 @@ export default function DashboardPage() {
   };
 
   const handleBookCategoryChange = async (bookId: string, newCategoryId: string | null) => {
-    // Find the book and update its category optimistically or after success
-    // For simplicity, we'll update after success for now.
     try {
       const updatedBook = await updateBookCategory(bookId, newCategoryId);
       setBooks(prevBooks => 
@@ -190,154 +191,115 @@ export default function DashboardPage() {
       );
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to update book category.";
-      // Display this error to the user (e.g., using a toast notification library)
       console.error("Error updating book category:", msg);
-      alert(`Error updating category: ${msg}`); // Simple alert for now
+      alert(`Error updating category: ${msg}`);
     }
   };
   
   const getCategoryNameById = (categoryId: string | null | undefined): string => {
     if (!categoryId) return "Uncategorized";
     const category = categories.find(cat => cat.id === categoryId);
-    return category ? category.name : "Unknown Category";
+    return category ? category.name : "Unknown Category"; // Changed from "Unknown"
   };
 
-
-    if (!isClient || isLoadingBooks || isLoadingCategories) { 
+  if (!isClient) { // Show a generic loading for client-side hydration
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900">
-        <p className="text-lg text-gray-700 dark:text-gray-300">Loading Dashboard...</p>
+        <p className="text-lg text-gray-700 dark:text-gray-300">Initializing Dashboard...</p>
       </div>
     );
   }
+  
+  // Derived state for filtered books
+  const filteredBooks = books.filter(book => {
+    if (activeFilter === 'all') return true;
+    if (activeFilter === 'uncategorized') return !book.category_id;
+    return book.category_id === activeFilter;
+  });
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white p-4 sm:p-6 lg:p-8">
-      {/* Ensure all buttons are present in the header */}
       <header className="mb-8 pb-4 border-b border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row justify-between items-center">
         <h1 className="text-3xl sm:text-4xl font-bold text-indigo-600 dark:text-indigo-400 mb-4 sm:mb-0">
           Learn-Ease Dashboard
         </h1>
         <div className="flex items-center space-x-2 sm:space-x-3">
-          <button
-            onClick={() => { 
-              setShowUploadModal(true); 
-              setUploadError(null); // Reset states when opening modal
-              setUploadSuccess(null);
-              setSelectedFile(null);
-              setUploadTargetCategoryId(null);
-              if (document.getElementById("bookFile")) {
-                (document.getElementById("bookFile") as HTMLInputElement).value = "";
-              }
-            }}
-            className="px-4 py-2 bg-green-500 text-white rounded-lg shadow-md hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500 text-sm font-medium"
-          >
-            Upload Book
-          </button>
-          <button
-            onClick={() => { 
-              setShowCreateCategoryModal(true); 
-              setCreateCategoryError(null); 
-              setNewCategoryName(""); 
-            }}
-            className="px-4 py-2 bg-blue-500 text-white rounded-lg shadow-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium"
-          >
-            New Category
-          </button>
-          <button
-            onClick={handleLogout}
-            className="px-4 py-2 bg-red-500 text-white rounded-lg shadow-md hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500 text-sm font-medium"
-          >
-            Logout
-          </button>
+          <button onClick={() => { setShowUploadModal(true); setUploadError(null); setUploadSuccess(null); setSelectedFile(null); setUploadTargetCategoryId(null); if (document.getElementById("bookFile")) (document.getElementById("bookFile") as HTMLInputElement).value = ""; }} className="px-4 py-2 bg-green-500 text-white rounded-lg shadow-md hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500 text-sm font-medium">Upload Book</button>
+          <button onClick={() => { setShowCreateCategoryModal(true); setCreateCategoryError(null); setNewCategoryName(""); }} className="px-4 py-2 bg-blue-500 text-white rounded-lg shadow-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium">New Category</button>
+          <button onClick={handleLogout} className="px-4 py-2 bg-red-500 text-white rounded-lg shadow-md hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500 text-sm font-medium">Logout</button>
         </div>
       </header>
 
       <main>
-        {isLoadingCategories && (
-          <div className="text-center py-4 text-gray-500 dark:text-gray-400">
-            Loading categories...
-          </div>
-        )}
-        {errorCategories && !isLoadingCategories && (
-          <div className="mb-4 p-3 text-sm text-red-700 bg-red-100 rounded-md dark:bg-red-900 dark:text-red-300">
-            <strong>Category Error:</strong> {errorCategories}
-          </div>
-        )}
+        {isLoadingCategories && ( <div className="text-center py-4 text-gray-500 dark:text-gray-400">Loading categories...</div> )}
+        {errorCategories && !isLoadingCategories && ( <div className="mb-4 p-3 text-sm text-red-700 bg-red-100 rounded-md dark:bg-red-900 dark:text-red-300"><strong>Category Error:</strong> {errorCategories}</div> )}
         
-        {/* Optional: Display list of categories - can be enhanced later */}
-        {!isLoadingCategories && !errorCategories && categories.length > 0 && (
-          <section className="mb-6 bg-gray-100 dark:bg-gray-800 shadow-md rounded-lg p-4">
-            <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-2">Your Categories</h3>
-            <div className="flex flex-wrap gap-2">
+        {/* --- Category Filter Section --- */}
+        {!isLoadingCategories && !errorCategories && (categories.length > 0 || activeFilter !== 'all') && ( // Show filters if categories exist or a filter is active
+          <section className="mb-6 p-4 bg-gray-100 dark:bg-gray-800 rounded-lg shadow">
+            <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-3">Filter by Category:</h3>
+            <div className="flex flex-wrap gap-2 items-center">
+              <button onClick={() => setActiveFilter('all')} className={`px-4 py-1.5 text-sm rounded-full transition-colors ${ activeFilter === 'all' ? 'bg-indigo-600 text-white font-semibold shadow-md' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600' }`}>All Books</button>
+              <button onClick={() => setActiveFilter('uncategorized')} className={`px-4 py-1.5 text-sm rounded-full transition-colors ${ activeFilter === 'uncategorized' ? 'bg-indigo-600 text-white font-semibold shadow-md' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600' }`}>Uncategorized</button>
               {categories.map(cat => (
-                <span key={cat.id} className="px-3 py-1 text-xs font-medium bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-full">
-                  {cat.name}
-                  {/* TODO: Add edit/delete buttons for categories here in a future iteration */}
-                </span>
+                <button key={cat.id} onClick={() => setActiveFilter(cat.id)} className={`px-4 py-1.5 text-sm rounded-full transition-colors truncate max-w-[150px] sm:max-w-xs ${ activeFilter === cat.id ? 'bg-indigo-600 text-white font-semibold shadow-md' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600' }`} title={cat.name}>{cat.name}</button>
               ))}
             </div>
           </section>
         )}
-
+        {/* --- End Category Filter Section --- */}
 
         <section className="bg-white dark:bg-gray-800 shadow-xl rounded-xl p-6">
-          <h2 className="text-2xl font-semibold mb-6 text-gray-700 dark:text-gray-200">
-            Your Uploaded Books
-          </h2>
-          {/* ... rest of your book listing JSX (including errorBooks, no books message, and the grid of books) ... */}
-          {isLoadingBooks && (
-            <div className="text-center py-10 text-gray-500 dark:text-gray-400">
-              Loading your books...
-            </div>
-          )}
-          {!isLoadingBooks && errorBooks && (
-            <div className="text-center py-10 text-red-500 bg-red-50 dark:bg-red-900 dark:text-red-300 p-4 rounded-md">
-              <strong>Error loading books:</strong> {errorBooks}
-            </div>
-          )}
-          {!isLoadingBooks && !errorBooks && books.length === 0 && (
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-2xl font-semibold text-gray-700 dark:text-gray-200">
+              {activeFilter === 'all' ? 'All Your Books' : activeFilter === 'uncategorized' ? 'Uncategorized Books' : `Books in "${getCategoryNameById(activeFilter)}"`}
+            </h2>
+            <span className="text-sm text-gray-500 dark:text-gray-400">{filteredBooks.length} book(s)</span>
+          </div>
+
+          {isLoadingBooks && ( <div className="text-center py-10 text-gray-500 dark:text-gray-400">Loading your books...</div> )}
+          {!isLoadingBooks && errorBooks && ( <div className="text-center py-10 text-red-500 bg-red-50 dark:bg-red-900 dark:text-red-300 p-4 rounded-md"><strong>Error loading books:</strong> {errorBooks}</div> )}
+          
+          {!isLoadingBooks && !errorBooks && books.length === 0 && ( // Original "no books uploaded yet" message
             <div className="text-center py-10 text-gray-500 dark:text-gray-400">
               <p className="mb-2 text-lg">No books uploaded yet.</p>
               <p>Click &quot;Upload Book&quot; to add your first textbook!</p>
             </div>
           )}
+
           {!isLoadingBooks && !errorBooks && books.length > 0 && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {books.map((book) => (
-                <div key={book.id} className="p-5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300 ease-in-out flex flex-col">
-                  <div className="flex-grow">
-                    <h3 className="text-xl font-semibold text-indigo-700 dark:text-indigo-400 mb-2 truncate" title={book.title}>{book.title}</h3>
-                    {book.filename && <p className="text-xs text-gray-500 dark:text-gray-400 mb-1 truncate" title={book.filename}>Filename: {book.filename}</p>}
-                    <p className="text-xs text-gray-600 dark:text-gray-300 mb-3">
-                      Category: {getCategoryNameById(book.category_id)}
-                    </p>
-                  </div>
-                  <div className="mt-auto space-y-2">
-                     <select
-                        value={book.category_id || ""} 
-                        onChange={(e) => handleBookCategoryChange(book.id, e.target.value === "" ? null : e.target.value)}
-                        className="w-full text-xs p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 focus:ring-indigo-500 focus:border-indigo-500"
-                      >
-                        <option value="">Uncategorized</option>
-                        {categories.map(cat => (
-                          <option key={cat.id} value={cat.id}>{cat.name}</option>
-                        ))}
-                      </select>
-                    <Link href={`/books/${book.id}`} className="block w-full text-center text-sm px-4 py-2 bg-indigo-500 text-white rounded-md hover:bg-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-400 transition-colors">
-                      View Book
-                    </Link>
-                  </div>
+            <>
+              {filteredBooks.length === 0 ? (
+                <div className="text-center py-10 text-gray-500 dark:text-gray-400">
+                  <p className="mb-2 text-lg">No books found in &quot;{activeFilter === 'uncategorized' ? 'Uncategorized' : activeFilter === 'all' ? 'All Books' : getCategoryNameById(activeFilter)}&quot;.</p>
                 </div>
-              ))}
-            </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                  {filteredBooks.map((book) => (
+                    <div key={book.id} className="p-5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300 ease-in-out flex flex-col">
+                      <div className="flex-grow">
+                        <h3 className="text-xl font-semibold text-indigo-700 dark:text-indigo-400 mb-2 truncate" title={book.title}>{book.title}</h3>
+                        {book.filename && <p className="text-xs text-gray-500 dark:text-gray-400 mb-1 truncate" title={book.filename}>Filename: {book.filename}</p>}
+                        <p className="text-xs text-gray-600 dark:text-gray-300 mb-3">Category: {getCategoryNameById(book.category_id)}</p>
+                      </div>
+                      <div className="mt-auto space-y-2">
+                        <select value={book.category_id || ""} onChange={(e) => handleBookCategoryChange(book.id, e.target.value === "" ? null : e.target.value)} className="w-full text-xs p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 focus:ring-indigo-500 focus:border-indigo-500">
+                          <option value="">Uncategorized</option>
+                          {categories.map(cat => (<option key={cat.id} value={cat.id}>{cat.name}</option>))}
+                        </select>
+                        <Link href={`/books/${book.id}`} className="block w-full text-center text-sm px-4 py-2 bg-indigo-500 text-white rounded-md hover:bg-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-400 transition-colors">View Book</Link>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </section>
       </main>
 
-      {/* ... Modals (Upload Book Modal, Create Category Modal) ... */}
-       {/* Upload Book Modal */}
-       <Modal isOpen={showUploadModal} onClose={() => setShowUploadModal(false)} title="Upload Your Textbook (PDF)">
+      {/* Upload Book Modal */}
+      <Modal isOpen={showUploadModal} onClose={() => setShowUploadModal(false)} title="Upload Your Textbook (PDF)">
         <form onSubmit={handleUploadSubmit} className="space-y-5">
           <div>
             <label htmlFor="bookFile" className="sr-only">Select PDF file:</label>
@@ -345,19 +307,10 @@ export default function DashboardPage() {
             {selectedFile && <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">Selected: {selectedFile.name} ({(selectedFile.size / 1024).toFixed(2)} KB)</p>}
           </div>
           <div>
-            <label htmlFor="uploadCategorySelect" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Assign to Category (Optional):
-            </label>
-            <select
-              id="uploadCategorySelect"
-              value={uploadTargetCategoryId || ""}
-              onChange={(e) => setUploadTargetCategoryId(e.target.value === "" ? null : e.target.value)}
-              className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-            >
+            <label htmlFor="uploadCategorySelect" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Assign to Category (Optional):</label>
+            <select id="uploadCategorySelect" value={uploadTargetCategoryId || ""} onChange={(e) => setUploadTargetCategoryId(e.target.value === "" ? null : e.target.value)} className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 focus:ring-indigo-500 focus:border-indigo-500 text-sm">
               <option value="">Uncategorized</option>
-              {categories.map(cat => (
-                <option key={cat.id} value={cat.id}>{cat.name}</option>
-              ))}
+              {categories.map(cat => (<option key={cat.id} value={cat.id}>{cat.name}</option>))}
             </select>
           </div>
           {uploadError && <p className="text-sm text-red-600 bg-red-50 dark:bg-red-900 dark:text-red-300 p-3 rounded-md">{uploadError}</p>}
@@ -373,14 +326,7 @@ export default function DashboardPage() {
         <form onSubmit={handleCreateCategorySubmit} className="space-y-4">
           <div>
             <label htmlFor="newCategoryName" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Category Name:</label>
-            <input 
-              id="newCategoryName" 
-              type="text" 
-              value={newCategoryName}
-              onChange={(e) => setNewCategoryName(e.target.value)}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200"
-              required 
-            />
+            <input id="newCategoryName" type="text" value={newCategoryName} onChange={(e) => setNewCategoryName(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200" required />
           </div>
           {createCategoryError && <p className="text-sm text-red-600">{createCategoryError}</p>}
           <button type="submit" disabled={isCreatingCategory} className="w-full px-4 py-2 bg-blue-500 text-white font-medium rounded-lg shadow-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50">
