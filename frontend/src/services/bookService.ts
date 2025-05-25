@@ -24,6 +24,10 @@ export interface Flashcard { // Ensure this is exported
   back: string;
 }
 
+export interface StudyNotesApiResponse {
+  study_notes: string;
+}
+
 export interface FlashcardsApiResponse { // Ensure this is exported
   flashcards: Flashcard[];
 }
@@ -103,6 +107,28 @@ export async function generateFlashcardsService(text: string): Promise<Flashcard
   return response.json() as Promise<FlashcardsApiResponse>; 
 }
 // --- End New Function ---
+
+export async function generateStudyNotesService(text: string): Promise<StudyNotesApiResponse> {
+  const token = getAuthToken();
+  if (!token) {
+    throw new Error('Authentication token not found. Please log in again.');
+  }
+
+  const response = await fetch(`${API_BASE_URL}/ai/generate-study-notes`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ text_to_generate_from: text }),
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to generate study notes.');
+  }
+
+  return await response.json();
+}
 
 export async function fetchUserBooks(): Promise<Book[]> {
   const token = getAuthToken();
