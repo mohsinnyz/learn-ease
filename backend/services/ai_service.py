@@ -193,3 +193,66 @@ Flashcards:
     except Exception as e:
         print(f"ERROR: AI Service - Unexpected error during flashcard generation: {e}")
         raise Exception(f"An unexpected error occurred while generating flashcards: {str(e)}")
+    
+async def generate_study_notes_from_text(text_to_generate_from: str) -> str:
+    """
+    Generates structured study notes from the given text using a Llama API.
+    """
+    if not text_to_generate_from or len(text_to_generate_from.strip()) < 20:
+        print("WARN: AI Service - Input text for study notes is too short.")
+        return "Input text is too short to generate effective study notes."
+
+    # Prompt for the Llama model
+    prompt = f"""Generate comprehensive, well-structured study notes from the following text.
+The notes should identify key concepts, provide explanations, use bullet points for important details, and maintain a clear, organized format.
+
+Text:
+"{text_to_generate_from}"
+
+Study Notes:
+"""
+    headers = {"Content-Type": "application/json"}
+    if HF_TOKEN:
+        headers["Authorization"] = f"Bearer {HF_TOKEN}"
+
+    payload = {
+        "inputs": prompt,
+        "parameters": {
+            "max_new_tokens": 500, 
+            "return_full_text": False,
+            "temperature": 0.6,
+        }
+    }
+    if LLAMA_API_URL == "YOUR_LLAMA_API_ENDPOINT_HERE": # This check still needs LLAMA_API_URL to be set in .env
+        print("ERROR: AI Service - LLAMA_API_URL is not configured for study notes.") # Clarified error message
+        raise Exception("Study notes generation service is not configured (API URL missing).")
+    try:
+        async with httpx.AsyncClient(timeout=90.0) as client:
+            print(f"INFO: AI Service - Calling Llama API at {LLAMA_API_URL} for study notes.")
+            response = await client.post(LLAMA_API_URL, headers=headers, json=payload)
+            response.raise_for_status()
+            api_response_data = response.json()
+            print(f"DEBUG: AI Service - Llama API Raw Response (Study Notes): {api_response_data}")
+            generated_text_content = ""
+            if isinstance(api_response_data, list) and len(api_response_data) > 0 and "generated_text" in api_response_data[0]:
+                generated_text_content = api_response_data[0]["generated_text"].strip()
+            elif isinstance(api_response_data, dict) and "generated_text" in api_response_data:
+                generated_text_content = api_response_data["generated_text"].strip()
+            elif isinstance(api_response_data, str):
+                generated_text_content = api_response_data.strip()
+            else:
+                print(f"ERROR: AI Service - Unexpected Llama API response structure (Study Notes): {api_response_data}")
+                raise Exception("Failed to parse study notes from Llama API due to unexpected format.")
+            if not generated_text_content:
+                print("ERROR: AI Service - Llama API returned empty 'generated_text' for study notes.")
+                return "The AI could not generate study notes from the selected text."
+            return generated_text_content
+    except httpx.HTTPStatusError as e:
+        print(f"ERROR: AI Service - Llama API request (Study Notes) failed with status {e.response.status_code}: {e.response.text}")
+        raise Exception(f"Llama API request for study notes failed (status {e.response.status_code}).")
+    except httpx.RequestError as e:
+        print(f"ERROR: AI Service - Llama API request (Study Notes) failed due to network issue: {e}")
+        raise Exception(f"Could not connect to Llama API for study notes: {e}")
+    except Exception as e:
+        print(f"ERROR: AI Service - Unexpected error during study notes generation: {e}")
+        raise Exception(f"An unexpected error occurred while generating study notes: {str(e)}")

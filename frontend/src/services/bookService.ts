@@ -120,14 +120,17 @@ export async function generateStudyNotesService(text: string): Promise<StudyNote
       'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ text_to_generate_from: text }),
+    // Key here is "text_to_generate_notes_from" which matches Pydantic model
+    body: JSON.stringify({ text_to_generate_notes_from: text }), 
   });
 
   if (!response.ok) {
-    throw new Error('Failed to generate study notes.');
+    // This error handling was simplified; let's use handleApiError
+    // throw new Error('Failed to generate study notes.'); 
+    await handleApiError(response, 'Failed to generate study notes from the server.'); // Use the consistent error handler
   }
 
-  return await response.json();
+  return await response.json(); // No need for "as Promise<StudyNotesApiResponse>" if handleApiError throws
 }
 
 export async function fetchUserBooks(): Promise<Book[]> {

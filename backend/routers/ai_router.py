@@ -4,7 +4,14 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from typing import Annotated
 
-from models.ai_schemas import TextForSummarization, SummarizationResponse
+from models.ai_schemas import (
+    TextForSummarization,
+    SummarizationResponse,
+    TextForFlashcards,
+    FlashcardsResponse,
+    TextForStudyNotes,
+    StudyNotesResponse
+)
 from services import ai_service
 from core.security import get_current_user
 from models.user_schemas import UserInDB # Or your specific user model returned by get_current_user
@@ -33,4 +40,36 @@ async def http_summarize_text(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to generate summary: {str(e)}" # Send a generic or specific error
+        )
+
+@router.post("/generate-flashcards", response_model=FlashcardsResponse)
+async def http_generate_flashcards(
+    request_data: TextForFlashcards,
+):
+    try:
+        flashcards_list = await ai_service.generate_flashcards_from_text(request_data.text_to_generate_from)
+        return FlashcardsResponse(flashcards=flashcards_list)
+    except HTTPException as he: 
+        raise he
+    except Exception as e:
+        print(f"ERROR: /generate-flashcards endpoint - Unexpected error: {type(e).__name__} - {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An unexpected error occurred while generating flashcards. Please try again later."
+        )
+
+@router.post("/generate-study-notes", response_model=StudyNotesResponse)
+async def http_generate_study_notes(
+    request_data: TextForStudyNotes,
+):
+    try:
+        notes_content = await ai_service.generate_study_notes_from_text(request_data.text_to_generate_notes_from)
+        return StudyNotesResponse(study_notes=notes_content)
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        print(f"ERROR: /generate-study-notes endpoint - Unexpected error: {type(e).__name__} - {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An unexpected error occurred while generating study notes."
         )
