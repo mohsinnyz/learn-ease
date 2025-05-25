@@ -264,3 +264,31 @@ export async function fetchBookExtractedText(bookId: string): Promise<BookTextCo
   }
   return response.json();
 }
+
+export async function deleteBook(bookId: string): Promise<void> {
+  const token = getAuthToken();
+  if (!token) {
+    throw new Error('Authentication token not found. Please log in again.');
+  }
+
+  const response = await fetch(`${API_BASE_URL}/books/${bookId}`, {
+    method: 'DELETE',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    // Status 204 means success but no content, so don't treat as error
+    if (response.status === 204) {
+      return; // Successfully deleted
+    }
+    // For other errors, use handleApiError
+    await handleApiError(response, `Failed to delete book (ID: ${bookId}).`);
+  }
+  // If response.ok and not 204 (though DELETE usually is 204 on success),
+  // it implies success without content.
+  // If there was content (e.g. a success message), you could parse it:
+  // return response.json(); 
+  // But for a 204, there's no body.
+}

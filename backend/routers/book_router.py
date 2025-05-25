@@ -146,3 +146,38 @@ async def api_get_book_extracted_text(
         title=book_db.title,
         content=extracted_text
     )
+    
+@router.delete("/{book_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def api_delete_book(
+    book_id: Annotated[str, Path(description="The ID of the book to delete")],
+    current_user: Annotated[UserInDB, Depends(get_current_user)],
+    db: Annotated[AsyncIOMotorDatabase, Depends(get_database)],
+):
+    """
+    Delete a specific book for the current authenticated user,
+    including its associated files.
+    """
+    try:
+        success = await book_service.delete_book_for_user(
+            db=db, book_id_str=book_id, user_id=current_user.id
+        )
+        if not success:
+            # This means the service layer determined the book wasn't found for this user
+            # or some other issue occurred that it handled by returning False.
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, 
+                detail="Book not found or you do not have permission to delete it."
+            )
+        # For 204 No Content, we don't return a body
+        return None 
+    except HTTPException as he:
+        # Re-raise HTTPExceptions that might have been raised explicitly in the service
+        raise he
+    except Exception as e:
+        # Log the detailed error on the server for diagnostics
+        print(f"ERROR: /books/{book_id} DELETE endpoint - Unexpected error: {type(e).__name__} - {e}")
+        # Return a generic error response to the client
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An unexpected error occurred while trying to delete the book."
+        )

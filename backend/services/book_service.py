@@ -212,3 +212,51 @@ async def get_book_extracted_text(
             print(f"Error reading extracted text file {book.extracted_text_path_local}: {e}")
             return None # Or raise an internal server error
     return None
+
+async def delete_book_for_user(
+    db: AsyncIOMotorDatabase, 
+    book_id_str: str, 
+    user_id: PyObjectId
+) -> bool:
+    """
+    Deletes a specific book for a user, including its associated files.
+    Returns True if deletion was successful, False otherwise.
+    """
+    book_to_delete = await get_book_by_id_for_user(db, book_id_str, user_id)
+
+    if not book_to_delete:
+        # Book not found or does not belong to the user
+        return False
+
+    # 1. Delete physical files
+    if book_to_delete.file_path_local and os.path.exists(book_to_delete.file_path_local):
+        try:
+            os.remove(book_to_delete.file_path_local)
+            print(f"INFO: Deleted PDF file: {book_to_delete.file_path_local}")
+        except Exception as e:
+            print(f"ERROR: Could not delete PDF file {book_to_delete.file_path_local}: {e}")
+            # Decide if you want to proceed with DB deletion if file deletion fails.
+            # For now, we'll proceed but log the error.
+            # In a production system, you might want more robust error handling here (e.g., retry or flag for cleanup).
+
+    if book_to_delete.extracted_text_path_local and os.path.exists(book_to_delete.extracted_text_path_local):
+        try:
+            os.remove(book_to_delete.extracted_text_path_local)
+            print(f"INFO: Deleted extracted text file: {book_to_delete.extracted_text_path_local}")
+        except Exception as e:
+            print(f"ERROR: Could not delete extracted text file {book_to_delete.extracted_text_path_local}: {e}")
+            # Similar consideration as above.
+
+    # 2. Delete the book document from MongoDB
+    delete_result = await db[BOOKS_COLLECTION].delete_one(
+        {"_id": book_to_delete.id, "user_id": user_id} # Ensure we only delete the user's book
+    )
+
+    if delete_result.deleted_count == 1:
+        print(f"INFO: Deleted book record from DB: {book_to_delete.id}")
+        return True
+    else:
+        # This case should ideally not be reached if book_to_delete was found initially
+        # and the _id and user_id matched. Could indicate a race condition or other issue.
+        print(f"WARN: Book {book_to_delete.id} was found but DB deletion reported 0 records deleted.")
+        return False
