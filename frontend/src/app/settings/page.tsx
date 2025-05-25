@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState, FormEvent } from "react";
+import { useEffect, useState, FormEvent, ChangeEvent } from "react"; // Added ChangeEvent
 import { useRouter } from "next/navigation";
-import Link from "next/link"; // For a "Back to Dashboard" link or navigation
+import Link from "next/link";
+import Image from "next/image"; // For Profile Image
 
 // Import category services and types
 import { 
@@ -13,7 +14,15 @@ import {
     deleteCategory 
 } from "@/services/categoryService";
 
-// Re-using the Modal component (ensure it's either here or imported from a shared location)
+// Import user profile services and types
+import { 
+    UserPublic, 
+    UserUpdatePayload, 
+    fetchUserProfile, 
+    updateUserProfile 
+} from "@/services/authService"; 
+
+// --- Modal component ---
 interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -23,7 +32,7 @@ interface ModalProps {
 const Modal: React.FC<ModalProps> = ({ isOpen, onClose, children, title }) => {
   if (!isOpen) return null;
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
       <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl w-full max-w-md animate-modalShow">
         <div className="flex justify-between items-center mb-4 pb-3 border-b dark:border-gray-700">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white">{title}</h2>
@@ -31,7 +40,6 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, children, title }) => {
         </div>
         {children}
       </div>
-      {/* Animation style (can be global) */}
       <style jsx global>{`
         @keyframes modalShow { to { transform: scale(1); opacity: 1; } }
         .animate-modalShow { transform: scale(0.95); opacity: 0; animation: modalShow 0.3s forwards; }
@@ -39,31 +47,35 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, children, title }) => {
     </div>
   );
 };
+// --- End Modal ---
 
 
 export default function SettingsPage() {
   const router = useRouter();
   const [isClient, setIsClient] = useState(false);
 
+  // Profile Details State
+  const [profile, setProfile] = useState<UserPublic | null>(null);
+  const [editableProfile, setEditableProfile] = useState<UserUpdatePayload>({});
+  const [isLoadingProfile, setIsLoadingProfile] = useState(true);
+  const [errorProfile, setErrorProfile] = useState<string | null>(null);
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
+  const [updateProfileSuccess, setUpdateProfileSuccess] = useState<string | null>(null);
+
   // Category State
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoadingCategories, setIsLoadingCategories] = useState(true);
-  const [errorCategories, setErrorCategories] = useState<string | null>(null);
-  
-  // Create Category Modal State
+  const [errorCategories, setErrorCategories] = useState<string | null>(null); // For category loading errors
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
-  const [isCreating, setIsCreating] = useState(false);
-  const [createError, setCreateError] = useState<string | null>(null);
-
-  // Rename Category Modal State
+  const [isCreatingCategory, setIsCreatingCategory] = useState(false); // Renamed from isCreating
+  const [createCategoryError, setCreateCategoryError] = useState<string | null>(null); // For create modal errors
   const [showRenameModal, setShowRenameModal] = useState(false);
   const [categoryToRename, setCategoryToRename] = useState<Category | null>(null);
   const [renamedCategoryName, setRenamedCategoryName] = useState("");
   const [isRenaming, setIsRenaming] = useState(false);
   const [renameError, setRenameError] = useState<string | null>(null);
-
-  // Delete Category Confirmation Modal State
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -76,105 +88,116 @@ export default function SettingsPage() {
     if (!token) {
       router.push("/login?message=Please log in to access settings.");
     } else {
-      loadCategories();
+      loadPageData();
     }
   }, [router]);
 
-  const loadCategories = async () => {
+  const loadPageData = async () => {
+    await Promise.all([loadUserProfile(), loadCategories()]);
+  };
+
+  const loadUserProfile = async () => {
+    setIsLoadingProfile(true);
+    setErrorProfile(null);
+    try {
+      const userProfileData = await fetchUserProfile();
+      setProfile(userProfileData);
+      setEditableProfile({ 
+        firstname: userProfileData.firstname,
+        lastname: userProfileData.lastname,
+        age: userProfileData.age,
+        university_name: userProfileData.university_name,
+        image: userProfileData.image,
+      });
+    } catch (err: unknown) {
+      setErrorProfile(err instanceof Error ? err.message : "Failed to load profile.");
+    } finally {
+      setIsLoadingProfile(false);
+    }
+  };
+
+  const handleProfileInputChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setEditableProfile(prev => ({ ...prev, [name]: name === 'age' ? (value === '' ? null : parseInt(value, 10)) : value }));
+  };
+
+  const handleProfileUpdateSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setIsUpdatingProfile(true);
+    setErrorProfile(null);
+    setUpdateProfileSuccess(null);
+    try {
+      const updatedProfileData = await updateUserProfile(editableProfile);
+      setProfile(updatedProfileData); 
+      setIsEditingProfile(false); 
+      setUpdateProfileSuccess("Profile updated successfully!");
+      setTimeout(() => setUpdateProfileSuccess(null), 3000); 
+    } catch (err: unknown) {
+      setErrorProfile(err instanceof Error ? err.message : "Failed to update profile.");
+    } finally {
+      setIsUpdatingProfile(false);
+    }
+  };
+
+  const loadCategories = async () => { 
     setIsLoadingCategories(true);
-    setErrorCategories(null);
+    setErrorCategories(null); // Initialize/clear error before fetching
     try {
       const userCategories = await fetchUserCategories();
       setCategories(userCategories.sort((a, b) => a.name.localeCompare(b.name)));
     } catch (err: unknown) {
-      setErrorCategories(err instanceof Error ? err.message : "Failed to load categories.");
+      setErrorCategories(err instanceof Error ? err.message : "Failed to load categories."); // Set error on catch
     } finally {
       setIsLoadingCategories(false);
     }
   };
 
-  // --- Create Category Handlers ---
-  const handleOpenCreateModal = () => {
-    setNewCategoryName("");
-    setCreateError(null);
-    setShowCreateModal(true);
-  };
-
-  const handleCreateCategory = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!newCategoryName.trim()) {
-      setCreateError("Category name cannot be empty.");
-      return;
+  const handleOpenCreateModal = () => { setNewCategoryName(""); setCreateCategoryError(null); setShowCreateModal(true); };
+  
+  const handleCreateCategory = async (event: FormEvent<HTMLFormElement>) => { 
+    event.preventDefault(); if (!newCategoryName.trim()) { setCreateCategoryError("Category name cannot be empty."); return; }
+    setIsCreatingCategory(true); setCreateCategoryError(null); // Use isCreatingCategory
+    try { 
+      const newCat = await createCategory({ name: newCategoryName }); 
+      setCategories(prev => [...prev, newCat].sort((a, b) => a.name.localeCompare(b.name))); 
+      setShowCreateModal(false); 
+      setNewCategoryName(""); // Clear input after successful creation
     }
-    setIsCreating(true);
-    setCreateError(null);
-    try {
-      const newCat = await createCategory({ name: newCategoryName });
-      setCategories(prev => [...prev, newCat].sort((a, b) => a.name.localeCompare(b.name)));
-      setShowCreateModal(false);
-    } catch (err: unknown) {
-      setCreateError(err instanceof Error ? err.message : "An unknown error occurred.");
-    } finally {
-      setIsCreating(false);
+    catch (err: unknown) { setCreateCategoryError(err instanceof Error ? err.message : "An unknown error occurred."); }
+    finally { setIsCreatingCategory(false); } // Use isCreatingCategory
+  };
+  
+  const handleOpenRenameModal = (category: Category) => { setCategoryToRename(category); setRenamedCategoryName(category.name); setRenameError(null); setShowRenameModal(true);};
+  
+  const handleRenameCategory = async (event: FormEvent<HTMLFormElement>) => { 
+    event.preventDefault(); if (!categoryToRename || !renamedCategoryName.trim()) { setRenameError("Category name cannot be empty."); return; }
+    setIsRenaming(true); setRenameError(null);
+    try { 
+      const updatedCategory = await updateCategoryName(categoryToRename.id, { name: renamedCategoryName }); 
+      setCategories(prev => prev.map(cat => cat.id === updatedCategory.id ? updatedCategory : cat).sort((a, b) => a.name.localeCompare(b.name))); 
+      setShowRenameModal(false); 
+      setCategoryToRename(null); 
     }
+    catch (err: unknown) { setRenameError(err instanceof Error ? err.message : "An unknown error occurred."); }
+    finally { setIsRenaming(false); }
   };
 
-  // --- Rename Category Handlers ---
-  const handleOpenRenameModal = (category: Category) => {
-    setCategoryToRename(category);
-    setRenamedCategoryName(category.name);
-    setRenameError(null);
-    setShowRenameModal(true);
-  };
-
-  const handleRenameCategory = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!categoryToRename || !renamedCategoryName.trim()) {
-      setRenameError("Category name cannot be empty.");
-      return;
+  const handleOpenDeleteModal = (category: Category) => { setCategoryToDelete(category); setDeleteError(null); setShowDeleteModal(true);};
+  
+  const handleConfirmDeleteCategory = async () => { 
+    if (!categoryToDelete) return; 
+    setIsDeleting(true); setDeleteError(null);
+    try { 
+      await deleteCategory(categoryToDelete.id); 
+      setCategories(prev => prev.filter(cat => cat.id !== categoryToDelete.id)); 
+      setShowDeleteModal(false); 
+      setCategoryToDelete(null); 
     }
-    setIsRenaming(true);
-    setRenameError(null);
-    try {
-      const updatedCategory = await updateCategoryName(categoryToRename.id, { name: renamedCategoryName });
-      setCategories(prev => 
-        prev.map(cat => cat.id === updatedCategory.id ? updatedCategory : cat)
-            .sort((a, b) => a.name.localeCompare(b.name))
-      );
-      setShowRenameModal(false);
-      setCategoryToRename(null);
-    } catch (err: unknown) {
-      setRenameError(err instanceof Error ? err.message : "An unknown error occurred.");
-    } finally {
-      setIsRenaming(false);
-    }
+    catch (err: unknown) { setDeleteError(err instanceof Error ? err.message : "An unknown error occurred."); }
+    finally { setIsDeleting(false); }
   };
 
-  // --- Delete Category Handlers ---
-  const handleOpenDeleteModal = (category: Category) => {
-    setCategoryToDelete(category);
-    setDeleteError(null);
-    setShowDeleteModal(true);
-  };
-
-  const handleConfirmDeleteCategory = async () => {
-    if (!categoryToDelete) return;
-    setIsDeleting(true);
-    setDeleteError(null);
-    try {
-      await deleteCategory(categoryToDelete.id);
-      setCategories(prev => prev.filter(cat => cat.id !== categoryToDelete.id));
-      setShowDeleteModal(false);
-      setCategoryToDelete(null);
-    } catch (err: unknown) {
-      setDeleteError(err instanceof Error ? err.message : "An unknown error occurred.");
-    } finally {
-      setIsDeleting(false);
-    }
-  };
-
-
-  if (!isClient || isLoadingCategories) {
+  if (!isClient || isLoadingProfile || isLoadingCategories) {
     return <div className="flex items-center justify-center min-h-screen"><p>Loading settings...</p></div>;
   }
 
@@ -188,21 +211,81 @@ export default function SettingsPage() {
         </div>
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-8">User Settings</h1>
 
-        {/* Placeholder for Tabs - For now, just "Manage Categories" section */}
-        {/* <div className="mb-6 border-b border-gray-200 dark:border-gray-700">
-          <nav className="-mb-px flex space-x-8" aria-label="Tabs">
-            <button className="border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
-              Profile Details (Coming Soon)
-            </button>
-            <button className="border-indigo-500 text-indigo-600 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm" aria-current="page">
-              Manage Categories
-            </button>
-            <button className="border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
-              Account (Coming Soon)
-            </button>
-          </nav>
-        </div>
-        */}
+        {/* Tab Section 1: Profile Details */}
+        <section id="profile-details" className="bg-white dark:bg-gray-800 shadow-xl rounded-lg p-6 mb-8">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-2xl font-semibold text-gray-800 dark:text-gray-100">Profile Details</h2>
+            {!isEditingProfile && profile && (
+              <button 
+                onClick={() => {
+                  setIsEditingProfile(true); 
+                  setErrorProfile(null); 
+                  setUpdateProfileSuccess(null);
+                  if (profile) {
+                    setEditableProfile({
+                      firstname: profile.firstname,
+                      lastname: profile.lastname,
+                      age: profile.age,
+                      university_name: profile.university_name,
+                      image: profile.image,
+                    });
+                  }
+                }}
+                className="px-4 py-2 bg-indigo-500 text-white text-sm font-medium rounded-md hover:bg-indigo-600"
+              >
+                Edit Profile
+              </button>
+            )}
+          </div>
+
+          {errorProfile && <div className="p-3 text-sm text-red-700 bg-red-100 rounded-md mb-4 dark:bg-red-900 dark:text-red-200">{errorProfile}</div>}
+          {updateProfileSuccess && <div className="p-3 text-sm text-green-700 bg-green-100 rounded-md mb-4 dark:bg-green-900 dark:text-green-200">{updateProfileSuccess}</div>}
+
+          {!profile && !isLoadingProfile && !errorProfile && <p className="dark:text-gray-400">No profile data found.</p>}
+          
+          {profile && !isEditingProfile && (
+            <div className="space-y-4 text-sm">
+              {profile.image && <Image src={profile.image} alt="Profile" width={96} height={96} className="rounded-full mx-auto mb-4 object-cover" />}
+              <p><strong className="font-medium text-gray-700 dark:text-gray-300">First Name:</strong> <span className="text-gray-900 dark:text-gray-100">{profile.firstname}</span></p>
+              <p><strong className="font-medium text-gray-700 dark:text-gray-300">Last Name:</strong> <span className="text-gray-900 dark:text-gray-100">{profile.lastname}</span></p>
+              <p><strong className="font-medium text-gray-700 dark:text-gray-300">Email:</strong> <span className="text-gray-900 dark:text-gray-100">{profile.email}</span></p>
+              <p><strong className="font-medium text-gray-700 dark:text-gray-300">Age:</strong> <span className="text-gray-900 dark:text-gray-100">{profile.age ?? 'N/A'}</span></p>
+              <p><strong className="font-medium text-gray-700 dark:text-gray-300">University:</strong> <span className="text-gray-900 dark:text-gray-100">{profile.university_name ?? 'N/A'}</span></p>
+              <p><strong className="font-medium text-gray-700 dark:text-gray-300">Verified:</strong> <span className="text-gray-900 dark:text-gray-100">{profile.verified ? 'Yes' : 'No'}</span></p>
+            </div>
+          )}
+
+          {isEditingProfile && profile && (
+            <form onSubmit={handleProfileUpdateSubmit} className="space-y-4">
+              <div>
+                <label htmlFor="firstname" className="block text-sm font-medium text-gray-700 dark:text-gray-300">First Name</label>
+                <input type="text" name="firstname" id="firstname" value={editableProfile.firstname || ''} onChange={handleProfileInputChange} className="mt-1 block w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
+              </div>
+              <div>
+                <label htmlFor="lastname" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Last Name</label>
+                <input type="text" name="lastname" id="lastname" value={editableProfile.lastname || ''} onChange={handleProfileInputChange} className="mt-1 block w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
+              </div>
+              <div>
+                <label htmlFor="age" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Age</label>
+                <input type="number" name="age" id="age" value={editableProfile.age ?? ''} onChange={handleProfileInputChange} className="mt-1 block w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
+              </div>
+              <div>
+                <label htmlFor="university_name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">University Name</label>
+                <input type="text" name="university_name" id="university_name" value={editableProfile.university_name || ''} onChange={handleProfileInputChange} className="mt-1 block w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
+              </div>
+              <div>
+                <label htmlFor="image" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Image URL</label>
+                <input type="url" name="image" id="image" value={editableProfile.image || ''} onChange={handleProfileInputChange} placeholder="https://example.com/image.png" className="mt-1 block w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
+              </div>
+              <div className="flex justify-end space-x-3">
+                <button type="button" onClick={() => setIsEditingProfile(false)} className="px-4 py-2 text-sm bg-gray-200 dark:bg-gray-600 rounded-md hover:bg-gray-300">Cancel</button>
+                <button type="submit" disabled={isUpdatingProfile} className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50">
+                  {isUpdatingProfile ? "Saving..." : "Save Changes"}
+                </button>
+              </div>
+            </form>
+          )}
+        </section>
 
         {/* Section 2: Manage Categories */}
         <section id="manage-categories" className="bg-white dark:bg-gray-800 shadow-xl rounded-lg p-6">
@@ -216,7 +299,7 @@ export default function SettingsPage() {
             </button>
           </div>
 
-          {errorCategories && <div className="p-3 text-sm text-red-700 bg-red-100 rounded-md dark:bg-red-900 dark:text-red-300 mb-4">Error: {errorCategories}</div>}
+          {errorCategories && !isLoadingCategories && <div className="p-3 text-sm text-red-700 bg-red-100 rounded-md dark:bg-red-900 dark:text-red-300 mb-4">Error: {errorCategories}</div>}
           
           {categories.length === 0 && !isLoadingCategories && !errorCategories && (
             <p className="text-gray-500 dark:text-gray-400">You haven&apos;t created any categories yet.</p>
@@ -258,9 +341,9 @@ export default function SettingsPage() {
               className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white mb-4" 
               required
             />
-            {createError && <p className="text-red-500 text-sm mb-2">{createError}</p>}
-            <button type="submit" disabled={isCreating} className="w-full px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50">
-              {isCreating ? "Creating..." : "Create"}
+            {createCategoryError && <p className="text-red-500 text-sm mb-2">{createCategoryError}</p>}
+            <button type="submit" disabled={isCreatingCategory} className="w-full px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50">
+              {isCreatingCategory ? "Creating..." : "Create"}
             </button>
           </form>
         </Modal>
