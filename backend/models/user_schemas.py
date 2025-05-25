@@ -1,56 +1,64 @@
 # backend/models/user_schemas.py
-#C:\Users\mohsi\Projects\learn-ease-fyp\backend\models\user_schemas.py
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, HttpUrl # Add HttpUrl
 from typing import Optional
-from bson import ObjectId # For MongoDB ObjectId handling
+from bson import ObjectId 
 
-# Helper for MongoDB ObjectId
 class PyObjectId(ObjectId):
     @classmethod
     def __get_validators__(cls):
         yield cls.validate
 
     @classmethod
-    def validate(cls, v, field): # Changed from `values` to `field` for Pydantic v2 compatibility
+    def validate(cls, v, field): 
         if not ObjectId.is_valid(v):
             raise ValueError("Invalid ObjectId")
         return ObjectId(v)
 
     @classmethod
-    def __get_pydantic_json_schema__(cls, field_schema): # Changed from `core_schema` to `field_schema` for Pydantic v2 compatibility
+    def __get_pydantic_json_schema__(cls, field_schema): 
         field_schema.update(type="string")
 
-
-# Properties to receive via API on user creation
 class UserCreate(BaseModel):
     email: EmailStr
     password: str
     firstname: str = Field(..., min_length=1)
     lastname: str = Field(..., min_length=1)
-    age: int = Field(..., gt=0) # Assuming age must be a positive integer
+    age: int = Field(..., gt=0) 
     university_name: str = Field(...)
 
-# Properties to receive via API on user login
 class UserLogin(BaseModel):
-    email: EmailStr # Changed from username to email to match UserCreate
+    email: EmailStr 
     password: str
 
-# Properties stored in DB (includes hashed_password)
+# --- New schema for updating user details ---
+class UserUpdate(BaseModel):
+    firstname: Optional[str] = Field(None, min_length=1)
+    lastname: Optional[str] = Field(None, min_length=1)
+    age: Optional[int] = Field(None, gt=0)
+    university_name: Optional[str] = Field(None)
+    image: Optional[HttpUrl] = None # URL for profile picture
+
+    class Config:
+        # Ensure that at least one field is provided for an update
+        str_min_length = 1 # Not a standard Pydantic config, custom validation might be needed if you want to enforce at least one field.
+                              # For now, allowing all optional means an empty update is possible (which does nothing).
+
 class UserInDB(BaseModel):
     id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
     firstname: str
     lastname: str
-    email: EmailStr
+    email: EmailStr # Typically not changed easily
     hashed_password: str
-    age: Optional[int] = None # Make it optional in DB if not all users might have it initially
-    university_name: Optional[str] = None # Make it optional in DB
+    age: Optional[int] = None 
+    university_name: Optional[str] = None
+    image: Optional[HttpUrl] = None  # <<< NEW FIELD (stores URL to image)
+    verified: bool = False          # <<< NEW FIELD (defaults to False)
 
     class Config:
-        populate_by_name = True # Changed from allow_population_by_field_name for Pydantic v2
-        arbitrary_types_allowed = True # To allow ObjectId
+        populate_by_name = True 
+        arbitrary_types_allowed = True 
         json_encoders = {ObjectId: str}
 
-# Properties to return to client (omits hashed_password)
 class UserPublic(BaseModel):
     id: str
     firstname: str
@@ -58,6 +66,8 @@ class UserPublic(BaseModel):
     email: EmailStr
     age: Optional[int] = None
     university_name: Optional[str] = None
+    image: Optional[HttpUrl] = None  # <<< NEW FIELD
+    verified: bool                  # <<< NEW FIELD
 
     @classmethod
     def from_user_in_db(cls, user_in_db: UserInDB):
@@ -67,10 +77,11 @@ class UserPublic(BaseModel):
             lastname=user_in_db.lastname,
             email=user_in_db.email,
             age=user_in_db.age,
-            university_name=user_in_db.university_name
+            university_name=user_in_db.university_name,
+            image=user_in_db.image,         # Add image
+            verified=user_in_db.verified    # Add verified status
         )
 
-# Token schemas
 class Token(BaseModel):
     access_token: str
     token_type: str
