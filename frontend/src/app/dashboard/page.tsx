@@ -2,21 +2,19 @@
 "use client";
 import { useEffect, useState, FormEvent, ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
-// Import Book from its new location in bookService.ts
-import { Book, fetchUserBooks, uploadBook } from "@/services/bookService";
+import { Book, fetchUserBooks, uploadBook, updateBookCategory } from "@/services/bookService"; // Added updateBookCategory
+import { Category, fetchUserCategories, createCategory } from "@/services/categoryService";
 import Link from "next/link";
 
-// Simple Modal Component (Consider moving to its own file: src/components/Modal.tsx)
+// --- Modal component (ensure this is robust or a shared component) ---
 interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
   children: React.ReactNode;
   title: string;
 }
-
 const Modal: React.FC<ModalProps> = ({ isOpen, onClose, children, title }) => {
   if (!isOpen) return null;
-
   return (
     <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4 transition-opacity duration-300 ease-in-out">
       <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl w-full max-w-lg transform transition-all duration-300 ease-in-out scale-95 opacity-0 animate-modalShow">
@@ -34,34 +32,41 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, children, title }) => {
         </div>
         {children}
       </div>
-      {/* Add this animation to your globals.css or a style tag for the modal */}
       <style jsx global>{`
-        @keyframes modalShow {
-          to {
-            transform: scale(1);
-            opacity: 1;
-          }
-        }
-        .animate-modalShow {
-          animation: modalShow 0.3s forwards;
-        }
+        @keyframes modalShow { to { transform: scale(1); opacity: 1; } }
+        .animate-modalShow { animation: modalShow 0.3s forwards; }
       `}</style>
     </div>
   );
 };
+// --- End Modal ---
 
 export default function DashboardPage() {
   const router = useRouter();
   const [isClient, setIsClient] = useState(false);
+
+  // Book State
   const [books, setBooks] = useState<Book[]>([]);
   const [isLoadingBooks, setIsLoadingBooks] = useState(true);
   const [errorBooks, setErrorBooks] = useState<string | null>(null);
 
+  // Upload Modal State
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploadSuccess, setUploadSuccess] = useState<string | null>(null);
+  const [uploadTargetCategoryId, setUploadTargetCategoryId] = useState<string | null>(null); // For upload modal
+
+  // --- Category State ---
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [isLoadingCategories, setIsLoadingCategories] = useState(true);
+  const [errorCategories, setErrorCategories] = useState<string | null>(null);
+  const [showCreateCategoryModal, setShowCreateCategoryModal] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [isCreatingCategory, setIsCreatingCategory] = useState(false);
+  const [createCategoryError, setCreateCategoryError] = useState<string | null>(null);
+  // --- End Category State ---
 
   useEffect(() => {
     setIsClient(true);
@@ -69,9 +74,14 @@ export default function DashboardPage() {
     if (!token) {
       router.push("/login");
     } else {
-      loadBooks();
+      loadInitialData();
     }
   }, [router]);
+
+  const loadInitialData = async () => {
+    await loadBooks();
+    await loadCategories();
+  };
 
   const loadBooks = async () => {
     setIsLoadingBooks(true);
@@ -80,8 +90,7 @@ export default function DashboardPage() {
       const userBooks = await fetchUserBooks();
       setBooks(userBooks);
     } catch (err: unknown) {
-      const errorMessage =
-        err instanceof Error ? err.message : "An unknown error occurred.";
+      const errorMessage = err instanceof Error ? err.message : "An unknown error occurred.";
       setErrorBooks(`Failed to load books: ${errorMessage}`);
       setBooks([]);
     } finally {
@@ -89,10 +98,23 @@ export default function DashboardPage() {
     }
   };
 
-  const handleLogout = () => {
-    if (isClient) {
-      localStorage.removeItem("authToken");
+  const loadCategories = async () => {
+    setIsLoadingCategories(true);
+    setErrorCategories(null);
+    try {
+      const userCategories = await fetchUserCategories();
+      setCategories(userCategories);
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : "An unknown error occurred.";
+      setErrorCategories(`Failed to load categories: ${errorMessage}`);
+      setCategories([]);
+    } finally {
+      setIsLoadingCategories(false);
     }
+  };
+
+  const handleLogout = () => {
+    if (isClient) localStorage.removeItem("authToken");
     router.push("/login");
   };
 
@@ -116,71 +138,115 @@ export default function DashboardPage() {
       setUploadError("Invalid file type. Please upload a PDF.");
       return;
     }
-
     setIsUploading(true);
     setUploadError(null);
     setUploadSuccess(null);
-
     try {
-      const newBook = await uploadBook(selectedFile);
-      setBooks((prevBooks) => [newBook, ...prevBooks]);
-      setUploadSuccess(
-        `"${newBook.title || selectedFile.name}" uploaded successfully!`
-      );
+      // Pass title (if you add a field for it) and uploadTargetCategoryId to uploadBook
+      // For now, uploadBook service might need adjustment to take categoryId, or use default
+      const newBook = await uploadBook(selectedFile, selectedFile.name, uploadTargetCategoryId); // Assuming uploadBook can take categoryId
+      setBooks((prevBooks) => [newBook, ...prevBooks].sort((a,b) => new Date(b.upload_date).getTime() - new Date(a.upload_date).getTime()));
+      setUploadSuccess(`"${newBook.title || selectedFile.name}" uploaded successfully!`);
       setSelectedFile(null);
-      if (document.getElementById("bookFile")) {
-        (document.getElementById("bookFile") as HTMLInputElement).value = "";
-      }
-
-      setTimeout(() => {
-        setShowUploadModal(false);
-        setUploadSuccess(null);
-      }, 2500);
+      if (document.getElementById("bookFile")) (document.getElementById("bookFile") as HTMLInputElement).value = "";
+      setUploadTargetCategoryId(null); // Reset category for next upload
+      setTimeout(() => { setShowUploadModal(false); setUploadSuccess(null); }, 2500);
     } catch (err: unknown) {
-      const errorMessage =
-        err instanceof Error ? err.message : "An unknown error occurred.";
+      const errorMessage = err instanceof Error ? err.message : "An unknown error occurred.";
       setUploadError(`Upload failed: ${errorMessage}`);
     } finally {
       setIsUploading(false);
     }
   };
 
-  if (!isClient) {
+  const handleCreateCategorySubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!newCategoryName.trim()) {
+      setCreateCategoryError("Category name cannot be empty.");
+      return;
+    }
+    setIsCreatingCategory(true);
+    setCreateCategoryError(null);
+    try {
+      const newCat = await createCategory({ name: newCategoryName });
+      setCategories((prev) => [...prev, newCat].sort((a,b) => a.name.localeCompare(b.name)));
+      setNewCategoryName("");
+      setShowCreateCategoryModal(false);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to create category.";
+      setCreateCategoryError(msg);
+    } finally {
+      setIsCreatingCategory(false);
+    }
+  };
+
+  const handleBookCategoryChange = async (bookId: string, newCategoryId: string | null) => {
+    // Find the book and update its category optimistically or after success
+    // For simplicity, we'll update after success for now.
+    try {
+      const updatedBook = await updateBookCategory(bookId, newCategoryId);
+      setBooks(prevBooks => 
+        prevBooks.map(b => b.id === bookId ? { ...b, category_id: updatedBook.category_id } : b)
+      );
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to update book category.";
+      // Display this error to the user (e.g., using a toast notification library)
+      console.error("Error updating book category:", msg);
+      alert(`Error updating category: ${msg}`); // Simple alert for now
+    }
+  };
+  
+  const getCategoryNameById = (categoryId: string | null | undefined): string => {
+    if (!categoryId) return "Uncategorized";
+    const category = categories.find(cat => cat.id === categoryId);
+    return category ? category.name : "Unknown Category";
+  };
+
+
+    if (!isClient || isLoadingBooks || isLoadingCategories) { 
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900">
-        <p className="text-lg text-gray-700 dark:text-gray-300">
-          Initializing Dashboard...
-        </p>
+        <p className="text-lg text-gray-700 dark:text-gray-300">Loading Dashboard...</p>
       </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white p-4 sm:p-6 lg:p-8">
+      {/* Ensure all buttons are present in the header */}
       <header className="mb-8 pb-4 border-b border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row justify-between items-center">
         <h1 className="text-3xl sm:text-4xl font-bold text-indigo-600 dark:text-indigo-400 mb-4 sm:mb-0">
           Learn-Ease Dashboard
         </h1>
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center space-x-2 sm:space-x-3">
           <button
-            onClick={() => {
-              setShowUploadModal(true);
-              setUploadError(null);
+            onClick={() => { 
+              setShowUploadModal(true); 
+              setUploadError(null); // Reset states when opening modal
               setUploadSuccess(null);
               setSelectedFile(null);
+              setUploadTargetCategoryId(null);
               if (document.getElementById("bookFile")) {
-                (
-                  document.getElementById("bookFile") as HTMLInputElement
-                ).value = "";
+                (document.getElementById("bookFile") as HTMLInputElement).value = "";
               }
             }}
-            className="px-5 py-2.5 bg-green-500 text-white rounded-lg shadow-md hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 transition ease-in-out duration-150 text-sm font-medium"
+            className="px-4 py-2 bg-green-500 text-white rounded-lg shadow-md hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500 text-sm font-medium"
           >
-            Upload New Book
+            Upload Book
+          </button>
+          <button
+            onClick={() => { 
+              setShowCreateCategoryModal(true); 
+              setCreateCategoryError(null); 
+              setNewCategoryName(""); 
+            }}
+            className="px-4 py-2 bg-blue-500 text-white rounded-lg shadow-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium"
+          >
+            New Category
           </button>
           <button
             onClick={handleLogout}
-            className="px-5 py-2.5 bg-red-500 text-white rounded-lg shadow-md hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 transition ease-in-out duration-150 text-sm font-medium"
+            className="px-4 py-2 bg-red-500 text-white rounded-lg shadow-md hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500 text-sm font-medium"
           >
             Logout
           </button>
@@ -188,10 +254,38 @@ export default function DashboardPage() {
       </header>
 
       <main>
+        {isLoadingCategories && (
+          <div className="text-center py-4 text-gray-500 dark:text-gray-400">
+            Loading categories...
+          </div>
+        )}
+        {errorCategories && !isLoadingCategories && (
+          <div className="mb-4 p-3 text-sm text-red-700 bg-red-100 rounded-md dark:bg-red-900 dark:text-red-300">
+            <strong>Category Error:</strong> {errorCategories}
+          </div>
+        )}
+        
+        {/* Optional: Display list of categories - can be enhanced later */}
+        {!isLoadingCategories && !errorCategories && categories.length > 0 && (
+          <section className="mb-6 bg-gray-100 dark:bg-gray-800 shadow-md rounded-lg p-4">
+            <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-2">Your Categories</h3>
+            <div className="flex flex-wrap gap-2">
+              {categories.map(cat => (
+                <span key={cat.id} className="px-3 py-1 text-xs font-medium bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-full">
+                  {cat.name}
+                  {/* TODO: Add edit/delete buttons for categories here in a future iteration */}
+                </span>
+              ))}
+            </div>
+          </section>
+        )}
+
+
         <section className="bg-white dark:bg-gray-800 shadow-xl rounded-xl p-6">
           <h2 className="text-2xl font-semibold mb-6 text-gray-700 dark:text-gray-200">
             Your Uploaded Books
           </h2>
+          {/* ... rest of your book listing JSX (including errorBooks, no books message, and the grid of books) ... */}
           {isLoadingBooks && (
             <div className="text-center py-10 text-gray-500 dark:text-gray-400">
               Loading your books...
@@ -199,48 +293,38 @@ export default function DashboardPage() {
           )}
           {!isLoadingBooks && errorBooks && (
             <div className="text-center py-10 text-red-500 bg-red-50 dark:bg-red-900 dark:text-red-300 p-4 rounded-md">
-              <strong>Error:</strong> {errorBooks} <br /> Please ensure the
-              backend services are running or try again later.
+              <strong>Error loading books:</strong> {errorBooks}
             </div>
           )}
           {!isLoadingBooks && !errorBooks && books.length === 0 && (
             <div className="text-center py-10 text-gray-500 dark:text-gray-400">
               <p className="mb-2 text-lg">No books uploaded yet.</p>
-              <p>
-                Click &quot;Upload New Book&quot; to add your first textbook!
-              </p>
+              <p>Click &quot;Upload Book&quot; to add your first textbook!</p>
             </div>
           )}
           {!isLoadingBooks && !errorBooks && books.length > 0 && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {books.map((book) => (
-                <div
-                  key={book.id}
-                  className="p-5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300 ease-in-out flex flex-col" // Added flex-col for button alignment
-                >
+                <div key={book.id} className="p-5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300 ease-in-out flex flex-col">
                   <div className="flex-grow">
-                    {" "}
-                    {/* Added flex-grow for content */}
-                    <h3
-                      className="text-xl font-semibold text-indigo-700 dark:text-indigo-400 mb-2 truncate"
-                      title={book.title}
-                    >
-                      {book.title}
-                    </h3>
-                    {book.filename && (
-                      <p
-                        className="text-xs text-gray-500 dark:text-gray-400 mb-3 truncate"
-                        title={book.filename}
-                      >
-                        Filename: {book.filename}
-                      </p>
-                    )}
+                    <h3 className="text-xl font-semibold text-indigo-700 dark:text-indigo-400 mb-2 truncate" title={book.title}>{book.title}</h3>
+                    {book.filename && <p className="text-xs text-gray-500 dark:text-gray-400 mb-1 truncate" title={book.filename}>Filename: {book.filename}</p>}
+                    <p className="text-xs text-gray-600 dark:text-gray-300 mb-3">
+                      Category: {getCategoryNameById(book.category_id)}
+                    </p>
                   </div>
-                  <div className="mt-auto pt-3 border-t border-gray-200 dark:border-gray-600">
-                    <Link
-                      href={`/books/${book.id}`}
-                      className="block w-full text-center text-sm px-4 py-2 bg-indigo-500 text-white rounded-md hover:bg-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-400 transition-colors"
-                    >
+                  <div className="mt-auto space-y-2">
+                     <select
+                        value={book.category_id || ""} 
+                        onChange={(e) => handleBookCategoryChange(book.id, e.target.value === "" ? null : e.target.value)}
+                        className="w-full text-xs p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 focus:ring-indigo-500 focus:border-indigo-500"
+                      >
+                        <option value="">Uncategorized</option>
+                        {categories.map(cat => (
+                          <option key={cat.id} value={cat.id}>{cat.name}</option>
+                        ))}
+                      </select>
+                    <Link href={`/books/${book.id}`} className="block w-full text-center text-sm px-4 py-2 bg-indigo-500 text-white rounded-md hover:bg-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-400 transition-colors">
                       View Book
                     </Link>
                   </div>
@@ -251,46 +335,56 @@ export default function DashboardPage() {
         </section>
       </main>
 
-      <Modal
-        isOpen={showUploadModal}
-        onClose={() => setShowUploadModal(false)}
-        title="Upload Your Textbook (PDF)"
-      >
+      {/* ... Modals (Upload Book Modal, Create Category Modal) ... */}
+       {/* Upload Book Modal */}
+       <Modal isOpen={showUploadModal} onClose={() => setShowUploadModal(false)} title="Upload Your Textbook (PDF)">
         <form onSubmit={handleUploadSubmit} className="space-y-5">
           <div>
-            <label htmlFor="bookFile" className="sr-only">
-              Select PDF file:
-            </label>
-            <input
-              id="bookFile"
-              type="file"
-              accept=".pdf" // Only accept PDF files
-              onChange={handleFileSelect}
-              className="block w-full text-sm text-gray-900 dark:text-gray-200 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-300 dark:border-gray-600 cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 file:mr-4 file:py-2.5 file:px-5 file:rounded-l-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-100 dark:file:bg-gray-600 file:text-indigo-700 dark:file:text-indigo-300 hover:file:bg-indigo-200 dark:hover:file:bg-gray-500"
-            />
-            {selectedFile && (
-              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                Selected: {selectedFile.name} (
-                {(selectedFile.size / 1024).toFixed(2)} KB)
-              </p>
-            )}
+            <label htmlFor="bookFile" className="sr-only">Select PDF file:</label>
+            <input id="bookFile" type="file" accept=".pdf" onChange={handleFileSelect} className="block w-full text-sm text-gray-900 dark:text-gray-200 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-300 dark:border-gray-600 cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500 file:mr-4 file:py-2.5 file:px-5 file:rounded-l-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-100 dark:file:bg-gray-600 file:text-indigo-700 dark:file:text-indigo-300 hover:file:bg-indigo-200 dark:hover:file:bg-gray-500" />
+            {selectedFile && <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">Selected: {selectedFile.name} ({(selectedFile.size / 1024).toFixed(2)} KB)</p>}
           </div>
-          {uploadError && (
-            <p className="text-sm text-red-600 bg-red-50 dark:bg-red-900 dark:text-red-300 p-3 rounded-md">
-              {uploadError}
-            </p>
-          )}
-          {uploadSuccess && (
-            <p className="text-sm text-green-600 bg-green-50 dark:bg-green-900 dark:text-green-300 p-3 rounded-md">
-              {uploadSuccess}
-            </p>
-          )}
-          <button
-            type="submit"
-            disabled={isUploading || !selectedFile}
-            className="w-full px-4 py-2.5 bg-indigo-600 text-white font-medium rounded-lg shadow-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 disabled:opacity-60 disabled:cursor-not-allowed transition ease-in-out duration-150"
-          >
+          <div>
+            <label htmlFor="uploadCategorySelect" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Assign to Category (Optional):
+            </label>
+            <select
+              id="uploadCategorySelect"
+              value={uploadTargetCategoryId || ""}
+              onChange={(e) => setUploadTargetCategoryId(e.target.value === "" ? null : e.target.value)}
+              className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+            >
+              <option value="">Uncategorized</option>
+              {categories.map(cat => (
+                <option key={cat.id} value={cat.id}>{cat.name}</option>
+              ))}
+            </select>
+          </div>
+          {uploadError && <p className="text-sm text-red-600 bg-red-50 dark:bg-red-900 dark:text-red-300 p-3 rounded-md">{uploadError}</p>}
+          {uploadSuccess && <p className="text-sm text-green-600 bg-green-50 dark:bg-green-900 dark:text-green-300 p-3 rounded-md">{uploadSuccess}</p>}
+          <button type="submit" disabled={isUploading || !selectedFile} className="w-full px-4 py-2.5 bg-indigo-600 text-white font-medium rounded-lg shadow-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-60 disabled:cursor-not-allowed">
             {isUploading ? "Uploading..." : "Start Upload"}
+          </button>
+        </form>
+      </Modal>
+
+      {/* Create Category Modal */}
+      <Modal isOpen={showCreateCategoryModal} onClose={() => setShowCreateCategoryModal(false)} title="Create New Category">
+        <form onSubmit={handleCreateCategorySubmit} className="space-y-4">
+          <div>
+            <label htmlFor="newCategoryName" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Category Name:</label>
+            <input 
+              id="newCategoryName" 
+              type="text" 
+              value={newCategoryName}
+              onChange={(e) => setNewCategoryName(e.target.value)}
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200"
+              required 
+            />
+          </div>
+          {createCategoryError && <p className="text-sm text-red-600">{createCategoryError}</p>}
+          <button type="submit" disabled={isCreatingCategory} className="w-full px-4 py-2 bg-blue-500 text-white font-medium rounded-lg shadow-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50">
+            {isCreatingCategory ? "Creating..." : "Create Category"}
           </button>
         </form>
       </Modal>

@@ -6,7 +6,9 @@ export interface Book {
   title: string;
   filename: string; 
   upload_date: string;
+  category_id?: string | null; // <<< ADD THIS LINE (optional string or null)
 }
+
 
 export interface BookTextContent {
   id: string;
@@ -62,6 +64,32 @@ async function handleApiError(response: Response, defaultErrorMessage: string): 
     console.error("Error parsing API error response in bookService:", e);
   }
   throw new Error(processedErrorMessage);
+}
+
+export async function updateBookCategory(bookId: string, categoryId: string | null): Promise<Book> { 
+  // The backend for updating book category returns the updated BookPublic, which matches our Book interface
+  const token = getAuthToken();
+  if (!token) {
+    throw new Error('Authentication token not found. Please log in again.');
+  }
+
+  const payload = {
+    category_id: categoryId, // This matches the BookCategoryUpdate Pydantic model on backend
+  };
+
+  const response = await fetch(`${API_BASE_URL}/books/${bookId}/category`, {
+    method: 'PUT',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    await handleApiError(response, 'Failed to update book category.');
+  }
+  return response.json() as Promise<Book>; // Assuming the response is the updated Book object
 }
 
 export async function summarizeTextService(text: string): Promise<SummarizeResponse> {
@@ -152,7 +180,7 @@ export async function fetchUserBooks(): Promise<Book[]> {
   return response.json();
 }
 
-export async function uploadBook(file: File): Promise<Book> {
+export async function uploadBook(file: File, title: string, categoryId: string | null): Promise<Book> {
   const token = getAuthToken();
   if (!token) {
     throw new Error('Authentication token not found. Please log in again.');
@@ -160,6 +188,12 @@ export async function uploadBook(file: File): Promise<Book> {
 
   const formData = new FormData();
   formData.append('file', file);
+  if (title) {
+    formData.append('title', title);
+  }
+  if (categoryId) {
+    formData.append('category_id', categoryId);
+  }
 
   const response = await fetch(`${API_BASE_URL}/books/upload`, {
     method: 'POST',
