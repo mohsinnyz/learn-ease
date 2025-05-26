@@ -47,24 +47,28 @@ if model_summarize is None:
     load_summarization_model()
 
 async def generate_summary(text_to_summarize: str) -> str:
-    if not ai_service.model_summarize or not ai_service.tokenizer_summarize:
-        print("ERROR: AI Service - Summarization model/tokenizer is not available.")
-        raise Exception("Summarization model/tokenizer is not available or failed to load.")
-    
+    # The check for model_summarize and tokenizer_summarize being loaded
+    # should be done in the ROUTER before calling this service function.
+    # This service function assumes they are loaded if it's called.
+
+    if not model_summarize or not tokenizer_summarize: # This check can remain as an internal safeguard in the service
+        print("ERROR: AI Service (generate_summary) - Summarization model/tokenizer is not available. This should have been caught by the router.")
+        raise Exception("Summarization model/tokenizer is not available internally.")
+
     if not text_to_summarize or len(text_to_summarize.strip()) < 20:
         return "Input text is too short to summarize effectively."
 
     try:
         input_text_with_prefix = "summarize: " + text_to_summarize
-        inputs = tokenizer_summarize.encode(
+        inputs = tokenizer_summarize.encode( # Use specific summarization tokenizer
             input_text_with_prefix,
             return_tensors='pt',
             max_length=512,
             truncation=True,
             padding='max_length'
-        ).to(device_summarize)
+        ).to(device_summarize) # Use specific summarization device
 
-        summary_ids = model_summarize.generate(
+        summary_ids = model_summarize.generate( # Use specific summarization model
             inputs,
             num_beams=4,
             max_length=150,
