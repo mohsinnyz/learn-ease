@@ -1,5 +1,5 @@
 # backend/models/user_schemas.py
-from pydantic import BaseModel, EmailStr, Field, HttpUrl # Add HttpUrl
+from pydantic import BaseModel, EmailStr, Field, HttpUrl, model_validator # Add HttpUrl
 from typing import Optional
 from bson import ObjectId 
 
@@ -88,3 +88,18 @@ class Token(BaseModel):
 
 class TokenData(BaseModel):
     email: Optional[str] = None
+
+# ... (other imports and schemas) ...
+
+class UserPasswordChange(BaseModel):
+    current_password: str = Field(..., description="The user's current password")
+    new_password: str = Field(..., min_length=6, description="The new desired password (min length 6)")
+    confirm_new_password: str = Field(..., description="Confirmation of the new password")
+
+    @model_validator(mode='after') # Pydantic V2 style model validator
+    def passwords_match(self) -> 'UserPasswordChange':
+        pw1 = self.new_password
+        pw2 = self.confirm_new_password
+        if pw1 is not None and pw2 is not None and pw1 != pw2:
+            raise ValueError('New password and confirmation password do not match')
+        return self
