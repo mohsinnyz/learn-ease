@@ -18,7 +18,7 @@ else:
     print("WARNING: GOOGLE_API_KEY not found in environment. AI generation features (Flashcards, Study Notes) will not work.")
 
 # --- Summarization Model (existing) ---
-MODEL_NAME_SUMMARIZE = "mohsinnyz/Booksum-Edu" # Renamed to avoid conflict if you had a global MODEL_NAME
+MODEL_NAME_SUMMARIZE = "mohsinnyz/Booksum-Edu"
 tokenizer_summarize = None
 model_summarize = None
 device_summarize = None
@@ -43,11 +43,11 @@ def load_summarization_model():
         tokenizer_summarize = None
         model_summarize = None
 
-if model_summarize is None: # Check specific summarization model
+if model_summarize is None: 
     load_summarization_model()
 
 async def generate_summary(text_to_summarize: str) -> str:
-    if not model_summarize or not tokenizer_summarize:
+    if not ai_service.model_summarize or not ai_service.tokenizer_summarize:
         print("ERROR: AI Service - Summarization model/tokenizer is not available.")
         raise Exception("Summarization model/tokenizer is not available or failed to load.")
     
@@ -88,8 +88,8 @@ async def _call_gemini_for_json_list(prompt: str, error_context: str) -> List[Di
         print(f"ERROR: AI Service ({error_context}) - GEMINI_MODEL_NAME is not configured.")
         raise Exception(f"{error_context} service is not configured (Model Name missing).")
 
-    generated_text_content = "" # Initialize for broader scope in error handling
-    flashcards_data = [] # Initialize
+    raw_generated_text = "" 
+    parsed_flashcard_data = [] 
 
     try:
         print(f"INFO: AI Service ({error_context}) - Calling Gemini API ({GEMINI_MODEL_NAME}).")
@@ -98,59 +98,81 @@ async def _call_gemini_for_json_list(prompt: str, error_context: str) -> List[Di
             temperature=0.2, 
             max_output_tokens=1024 
         )
-        full_prompt = f"{prompt}\nOutput:\n" 
-
+        # The prompt for flashcards already asks for JSON, so no need to add "Output:\n" here
+        # if it makes the model add conversational fluff.
+        
         if hasattr(gemini_model, 'generate_content_async'):
-            response = await gemini_model.generate_content_async(full_prompt, generation_config=generation_config)
+            response = await gemini_model.generate_content_async(prompt, generation_config=generation_config)
         else:
             print(f"WARN: AI Service ({error_context}) - generate_content_async not found. Update 'google-generativeai'. This will block.")
-            response = gemini_model.generate_content(full_prompt, generation_config=generation_config)
+            response = gemini_model.generate_content(prompt, generation_config=generation_config)
         
-        # It's safer to check if response.parts exists and has content
         if not response.parts:
             print(f"ERROR: AI Service ({error_context}) - Gemini API response has no parts. Full response: {response}")
             if response.prompt_feedback and response.prompt_feedback.block_reason:
                 raise Exception(f"Gemini API call blocked for {error_context}: {response.prompt_feedback.block_reason_message}")
             return []
 
-        generated_text_content = response.text.strip()
-        print(f"DEBUG: AI Service ({error_context}) - Gemini API Raw Response Text: {generated_text_content}")
+        raw_generated_text = response.text.strip()
+        print(f"DEBUG: AI Service ({error_context}) - Gemini API Raw Response Text: {raw_generated_text}")
         
-        if generated_text_content.startswith("json"):
-            generated_text_content = generated_text_content[7:]
-        if generated_text_content.endswith(""):
-            generated_text_content = generated_text_content[:-3]
-        generated_text_content = generated_text_content.strip()
+        # --- More Robust JSON Cleaning and Extraction ---
+        # Attempt to remove markdown code block fences if present
+        cleaned_text = raw_generated_text
+        if cleaned_text.startswith("```json"):
+            cleaned_text = cleaned_text[len("```json"):]
+        elif cleaned_text.startswith("```"):
+            cleaned_text = cleaned_text[len("```"):]
+        
+        if cleaned_text.endswith("```"):
+            cleaned_text = cleaned_text[:-len("```")]
+        
+        cleaned_text = cleaned_text.strip() # Final strip
 
-        if not generated_text_content:
-            print(f"ERROR: AI Service ({error_context}) - Gemini API returned empty content after stripping markers.")
+        if not cleaned_text:
+            print(f"ERROR: AI Service ({error_context}) - Content became empty after cleaning attempts.")
             return []
+        
+        print(f"DEBUG: AI Service ({error_context}) - Text after initial cleaning for JSON: '{cleaned_text}'")
 
-        flashcards_data = json.loads(generated_text_content)
-        if not isinstance(flashcards_data, list):
+        # Find the first '[' and the last ']'
+        json_start_index = cleaned_text.find('[')
+        json_end_index = cleaned_text.rfind(']')
+
+        if json_start_index != -1 and json_end_index != -1 and json_end_index > json_start_index:
+            json_string_to_parse = cleaned_text[json_start_index : json_end_index+1]
+            print(f"DEBUG: AI Service ({error_context}) - Extracted JSON string for parsing: '{json_string_to_parse}'")
+            parsed_flashcard_data = json.loads(json_string_to_parse)
+        else:
+            # If no clear array found, try parsing the whole cleaned string (might fail)
+            print(f"WARN: AI Service ({error_context}) - Could not find clear JSON array [..] in Gemini output. Attempting to parse cleaned string as is: '{cleaned_text}'")
+            parsed_flashcard_data = json.loads(cleaned_text) 
+        # --- End Robust JSON Cleaning ---
+
+        if not isinstance(parsed_flashcard_data, list):
             raise ValueError("Parsed data is not a list.")
         
         validated_items = []
-        for item in flashcards_data:
+        for item in parsed_flashcard_data:
             if isinstance(item, dict) and "front" in item and "back" in item:
                 validated_items.append({"front": str(item["front"]), "back": str(item["back"])})
             else:
                 print(f"WARN: AI Service ({error_context}) - Skipping invalid item: {item}")
         
-        if not validated_items and flashcards_data:
+        if not validated_items and parsed_flashcard_data:
             raise ValueError("No valid items found after validation.")
         return validated_items
 
     except json.JSONDecodeError as e:
-        print(f"ERROR: AI Service ({error_context}) - Failed to decode JSON. Output was: '{generated_text_content}'. Error: {e}")
+        # Use raw_generated_text in error if cleaned_text parsing failed, or json_string_to_parse if that was attempted
+        text_that_failed_parsing = json_string_to_parse if 'json_string_to_parse' in locals() and json_string_to_parse else cleaned_text if 'cleaned_text' in locals() and cleaned_text else raw_generated_text
+        print(f"ERROR: AI Service ({error_context}) - Failed to decode JSON. Text attempted for parsing was: '{text_that_failed_parsing}'. Error: {e}")
         raise Exception(f"Failed to parse {error_context} data from Gemini API (JSONDecodeError).")
-    except ValueError as e:
-        print(f"ERROR: AI Service ({error_context}) - Data structure validation failed. Parsed data: {flashcards_data}. Error: {e}")
+    except ValueError as e: # Catches validation errors for list/dict structure
+        print(f"ERROR: AI Service ({error_context}) - Data structure validation failed. Parsed data: {parsed_flashcard_data}. Error: {e}")
         raise Exception(f"{error_context} data from Gemini API has incorrect structure: {e}")
     except Exception as e:
-        print(f"ERROR: AI Service ({error_context}) - Error during Gemini API call: {type(e)._name_} - {e}")
-        # Check for specific Gemini API error details if available in 'e'
-        # For instance, hasattr(e, ' কিছু ') if the library provides structured errors.
+        print(f"ERROR: AI Service ({error_context}) - Error during Gemini API call: {type(e).__name__} - {e}")
         raise Exception(f"An unexpected error occurred while generating {error_context} with Gemini: {str(e)}")
 
 
@@ -160,21 +182,24 @@ async def generate_flashcards_from_text(text_to_generate_from: str) -> List[Dict
         print("WARN: AI Service - Input text for flashcards is too short.")
         return []
 
-    prompt = f"""From the following text, create a list of flashcards.
-Each flashcard must be a JSON object with two keys: "front" (containing a question or term) and "back" (containing the answer or definition).
-Return ONLY a valid JSON list of these objects, and nothing else. Do not add any introductory or concluding text outside the JSON structure.
+    prompt = f"""From the following text, generate a concise list of flashcards focusing on the most essential concepts.
 
-Example of desired output format:
-[
-  {{"front": "What is the capital of France?", "back": "Paris."}},
-  {{"front": "Define 'photosynthesis'.", "back": "The process by which green plants use sunlight, water, and carbon dioxide to create their own food and release oxygen."}}
-]
+    Guidelines:
+    - Output only a *JSON array* (no code block, no markdown, no extra text).
+- Each flashcard must be a JSON object with:
+  - "front": a question or term
+  - "back": the correct answer or explanation
+- For short text (under 300 words), return only 3 flashcards.
+- For long text (300+ words), return a *maximum of 5 flashcards*.
+- Prioritize uniqueness, depth, and relevance of the concepts.
+
+Only output valid JSON, no markdown formatting or introductory/explanatory text.
 
 Text to process:
 ---
 {text_to_generate_from}
 ---
-""" # Removed the "JSON Output:" line from prompt to let the model directly start with JSON.
+""" # Added "Flashcards JSON:" to guide the model to start the JSON immediately.
     return await _call_gemini_for_json_list(prompt, "flashcards")
 
 
@@ -184,15 +209,31 @@ async def generate_study_notes_from_text(text_to_generate_from: str) -> str:
         print("WARN: AI Service - Input text for study notes is too short.")
         return "Input text is too short to generate effective study notes."
 
-    prompt = f"""Generate comprehensive and well-structured study notes from the following text.
-The notes should clearly identify key concepts, provide concise explanations for each, and use bullet points or numbered lists for important details and sub-points.
-The output should be formatted as a single block of text, suitable for direct display. Use markdown for headings (e.g., ## Heading, ### Subheading) and lists (e.g., * item or - item).
+    prompt = f"""You are an expert educational assistant. Your task is to generate *comprehensive, clearly structured, and visually well-formatted study notes* from the following academic text.
+
+### Instructions:
+- Carefully read and analyze the input content.
+- Identify and extract all major concepts, terms, and themes.
+- Present the information using a hierarchical structure with *headings* and *subheadings*.
+- Under each heading, give a *concise but informative explanation* of the concept in your own words.
+- Use bullet points or numbered lists to break down key details, facts, definitions, or processes under each sub-topic.
+- Use clear and consistent *markdown formatting*:
+  - ## for major headings (main concepts)
+  - ### for subheadings (supporting ideas, components, or examples)
+  - - for bullet points under each section
+- Avoid copying long phrases directly from the source — rephrase and simplify for easier learning.
+- Ensure that *all relevant ideas are covered*; do not skip minor but useful points.
+- At the end, write a *Conclusion* section summarizing the key takeaways from the entire content.
+
+### Output Style:
+- The final output should be a *single markdown-formatted text block* ready for display in a study application.
+- The tone should be academic but accessible to students.
 
 Text to process:
 ---
 {text_to_generate_from}
 ---
-""" # Removed "Formatted Study Notes:" and "\nOutput:\n" to let the model generate more freely as text
+""" 
     
     if not GOOGLE_API_KEY:
         print("ERROR: AI Service (Study Notes) - GOOGLE_API_KEY is not configured.")
@@ -201,7 +242,7 @@ Text to process:
         print(f"ERROR: AI Service (Study Notes) - GEMINI_MODEL_NAME is not configured.")
         raise Exception(f"Study notes service is not configured (Model Name missing).")
     
-    generated_text_content = "" # Initialize for error reporting scope
+    raw_generated_text_notes = ""
 
     try:
         print(f"INFO: AI Service (Study Notes) - Calling Gemini API ({GEMINI_MODEL_NAME}).")
@@ -220,18 +261,19 @@ Text to process:
         if not response.parts:
             print(f"ERROR: AI Service (Study Notes) - Gemini API response has no parts. Full response: {response}")
             if response.prompt_feedback and response.prompt_feedback.block_reason:
-                 raise Exception(f"Gemini API call blocked for Study Notes: {response.prompt_feedback.block_reason_message}")
+                raise Exception(f"Gemini API call blocked for Study Notes: {response.prompt_feedback.block_reason_message}")
             return "The AI could not generate study notes (empty response parts)."
 
-        generated_text_content = response.text.strip()
-        print(f"DEBUG: AI Service (Study Notes) - Gemini API Raw Response Text: {generated_text_content}")
+        raw_generated_text_notes = response.text.strip()
+        print(f"DEBUG: AI Service (Study Notes) - Gemini API Raw Response Text: {raw_generated_text_notes}")
         
-        if not generated_text_content:
+        if not raw_generated_text_notes:
             print("ERROR: AI Service (Study Notes) - Gemini API returned empty content.")
             return "The AI could not generate study notes from the selected text."
         
-        return generated_text_content
+        return raw_generated_text_notes
 
     except Exception as e:
-        print(f"ERROR: AI Service (Study Notes) - Error during Gemini API call: {type(e)._name_} - {e}")
-        raise Exception(f"An unexpected error occurred while generating study notes with Gemini: {str(e)}")
+        print(f"ERROR: AI Service (Study Notes) - Error during Gemini API call: {type(e).__name__} - {e}") # Corrected typo
+        raise Exception(f"An unexpected error occurred while generating study notes with Gemini: {str(e)}")
+
