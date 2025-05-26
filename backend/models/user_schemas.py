@@ -1,7 +1,7 @@
-# backend/models/user_schemas.py
-from pydantic import BaseModel, EmailStr, Field, model_validator # Removed HttpUrl, added model_validator
-from typing import Optional, Any, Dict # Added Any, Dict for model_validator
-from bson import ObjectId 
+from pydantic import BaseModel, EmailStr, Field, model_validator, field_validator
+from typing import Optional
+from bson import ObjectId
+import re
 
 class PyObjectId(ObjectId):
     @classmethod
@@ -9,26 +9,47 @@ class PyObjectId(ObjectId):
         yield cls.validate
 
     @classmethod
-    def validate(cls, v, field): # field is a placeholder for FieldInfo in Pydantic V2
+    def validate(cls, v, field): 
         if not ObjectId.is_valid(v):
             raise ValueError("Invalid ObjectId")
         return ObjectId(v)
 
     @classmethod
-    def __get_pydantic_json_schema__(cls, core_schema, handler): # Corrected for Pydantic V2
-        # Pydantic V2 uses core_schema and handler
+    def __get_pydantic_json_schema__(cls, core_schema, handler): 
         json_schema = handler(core_schema)
         json_schema.update(type="string", example="507f1f77bcf86cd799439011")
         return json_schema
 
+# --- Password Validation Logic ---
+def validate_password_strength(password: str) -> str:
+    if len(password) < 8:
+        raise ValueError("Password must be at least 8 characters long.")
+    if not re.search(r"[A-Z]", password):
+        raise ValueError("Password must contain at least one uppercase letter.")
+    if not re.search(r"[a-z]", password):
+        raise ValueError("Password must contain at least one lowercase letter.")
+    if not re.search(r"[0-9]", password):
+        raise ValueError("Password must contain at least one number.")
+    if not re.search(r"[!@#$%^&*()_+\-=\[\]{};':\"\\|,.<>\/?~`]", password): # Common special characters
+        raise ValueError("Password must contain at least one special character.")
+    return password
+# --- End Password Validation Logic ---
+
 
 class UserCreate(BaseModel):
     email: EmailStr
-    password: str
+    password: str # We will add a validator for this
     firstname: str = Field(..., min_length=1)
     lastname: str = Field(..., min_length=1)
     age: int = Field(..., gt=0) 
     university_name: str = Field(...)
+
+    # Pydantic V2 validator for password field
+    @field_validator('password')
+    @classmethod
+    def validate_password(cls, value: str) -> str:
+        return validate_password_strength(value)
+
 
 class UserLogin(BaseModel):
     email: EmailStr 
@@ -39,11 +60,9 @@ class UserUpdate(BaseModel):
     lastname: Optional[str] = Field(None, min_length=1)
     age: Optional[int] = Field(None, gt=0)
     university_name: Optional[str] = Field(None)
-    image: Optional[str] = None # <<< CHANGED HttpUrl to str
+    image: Optional[str] = None 
 
     class Config:
-        # str_min_length = 1 # This was for Pydantic V1 'min_anystr_length'
-        # If you need to ensure at least one field is provided, use a model_validator
         pass
 
 
@@ -55,7 +74,7 @@ class UserInDB(BaseModel):
     hashed_password: str
     age: Optional[int] = None 
     university_name: Optional[str] = None
-    image: Optional[str] = None  # <<< CHANGED HttpUrl to str
+    image: Optional[str] = None  
     verified: bool = False          
 
     class Config:
@@ -63,7 +82,7 @@ class UserInDB(BaseModel):
         arbitrary_types_allowed = True 
         json_encoders = {
             ObjectId: str,
-            PyObjectId: str # Also good to have for PyObjectId if it's used directly
+            PyObjectId: str 
         }
 
 class UserPublic(BaseModel):
@@ -73,8 +92,8 @@ class UserPublic(BaseModel):
     email: EmailStr
     age: Optional[int] = None
     university_name: Optional[str] = None
-    image: Optional[str] = None  # <<< CHANGED HttpUrl to str
-    verified: bool                  
+    image: Optional[str] = None  
+    verified: bool                      
 
     @classmethod
     def from_user_in_db(cls, user_in_db: UserInDB):
@@ -91,10 +110,16 @@ class UserPublic(BaseModel):
 
 class UserPasswordChange(BaseModel):
     current_password: str = Field(..., description="The user's current password")
-    new_password: str = Field(..., min_length=6, description="The new desired password (min length 6)")
+    new_password: str = Field(..., description="The new desired password") # min_length removed here, will be handled by validator
     confirm_new_password: str = Field(..., description="Confirmation of the new password")
 
-    @model_validator(mode='after')
+    # Pydantic V2 validator for new_password field
+    @field_validator('new_password')
+    @classmethod
+    def validate_new_password(cls, value: str) -> str:
+        return validate_password_strength(value)
+
+    @model_validator(mode='after') 
     def passwords_match(self) -> 'UserPasswordChange':
         pw1 = self.new_password
         pw2 = self.confirm_new_password
