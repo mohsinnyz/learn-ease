@@ -58,18 +58,22 @@ async def http_generate_flashcards(
             detail="An unexpected error occurred while generating flashcards. Please try again later."
         )
 
+# --- New Endpoint for Study Notes Generation ---
 @router.post("/generate-study-notes", response_model=StudyNotesResponse)
 async def http_generate_study_notes(
     request_data: TextForStudyNotes,
 ):
+    """
+    Receives text input and generates structured study notes using the AI service.
+    """
     try:
         notes_content = await ai_service.generate_study_notes_from_text(request_data.text_to_generate_notes_from)
         return StudyNotesResponse(study_notes=notes_content)
     except HTTPException as he:
         raise he
     except Exception as e:
-        print(f"ERROR: /generate-study-notes endpoint - Unexpected error: {type(e).__name__} - {e}")
+        print(f"ERROR: /generate-study-notes endpoint - Unexpected error: {type(e)._name_} - {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An unexpected error occurred while generating study notes."
-        )
+            )

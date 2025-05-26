@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-from jose import JWTError, jwt
+from authlib.jose import jwt, JoseError
 from passlib.context import CryptContext
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from bson import ObjectId
@@ -31,9 +31,11 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     else:
         expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     
-    to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, JWT_SECRET_KEY, algorithm=ALGORITHM)
-    return encoded_jwt
+    to_encode.update({"exp": int(expire.timestamp())})  # Authlib expects Unix timestamp
+    header = {"alg": ALGORITHM}
+    
+    encoded_jwt = jwt.encode(header, to_encode, JWT_SECRET_KEY)
+    return encoded_jwt.decode("utf-8") if isinstance(encoded_jwt, bytes) else encoded_jwt
 
 # tokenUrl should point to your actual login endpoint in auth_router.py
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
@@ -48,11 +50,10 @@ async def get_current_user(
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
-        payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[ALGORITHM])
-        email: Optional[str] = payload.get("sub") # "sub" (subject) claim usually holds the username/email
-        if email is None:
-            raise credentials_exception
-    except JWTError: # Catches errors from jwt.decode
+        payload = jwt.decode(token, JWT_SECRET_KEY)
+        email: Optional[str] = payload.get("sub")
+        ...
+    except JoseError:
         raise credentials_exception
     
     # Fetch the user from DB to ensure they exist, are active, etc.

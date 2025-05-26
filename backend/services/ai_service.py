@@ -1,45 +1,53 @@
 # learn-ease-fyp/backend/services/ai_service.py
-from transformers import T5ForConditionalGeneration, T5Tokenizer
-import torch
-import httpx # For making HTTP requests to Llama API
-import json # For parsing JSON response
-import os # To potentially get API keys from environment
-from typing import List, Dict # Add these imports
+from transformers import T5ForConditionalGeneration, T5Tokenizer # For summarization
+import torch # For summarization
+import json
+import os
+from typing import List, Dict
 
-# Potentially load Llama API specific configurations from environment
-LLAMA_API_URL = os.getenv("LLAMA_API_URL", "YOUR_LLAMA_API_ENDPOINT_HERE") # Replace with your actual Llama API endpoint
-HF_TOKEN = os.getenv("HUGGINGFACE_API_KEY") # Your Hugging Face API Token if needed for the Llama API
+# --- Google Gemini API ---
+import google.generativeai as genai
 
-MODEL_NAME = "mohsinnyz/Booksum-Edu" # Your fine-tuned model from Hugging Face
-tokenizer = None
-model = None
-device = None # For GPU acceleration
+# Load configurations from environment variables
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+GEMINI_MODEL_NAME = os.getenv("GEMINI_MODEL_NAME", "gemini-1.5-flash-latest") # Default if not in .env
+
+if GOOGLE_API_KEY:
+    genai.configure(api_key=GOOGLE_API_KEY)
+else:
+    print("WARNING: GOOGLE_API_KEY not found in environment. AI generation features (Flashcards, Study Notes) will not work.")
+
+# --- Summarization Model (existing) ---
+MODEL_NAME_SUMMARIZE = "mohsinnyz/Booksum-Edu" # Renamed to avoid conflict if you had a global MODEL_NAME
+tokenizer_summarize = None
+model_summarize = None
+device_summarize = None
 
 def load_summarization_model():
-    global tokenizer, model, device
+    global tokenizer_summarize, model_summarize, device_summarize
     try:
-        print(f"INFO: AI Service - Initializing and loading tokenizer for {MODEL_NAME}...")
-        tokenizer = T5Tokenizer.from_pretrained(MODEL_NAME)
-        print(f"INFO: AI Service - Tokenizer for {MODEL_NAME} loaded.")
+        print(f"INFO: AI Service - Initializing and loading tokenizer for {MODEL_NAME_SUMMARIZE}...")
+        tokenizer_summarize = T5Tokenizer.from_pretrained(MODEL_NAME_SUMMARIZE)
+        print(f"INFO: AI Service - Tokenizer for {MODEL_NAME_SUMMARIZE} loaded.")
 
-        print(f"INFO: AI Service - Initializing and loading model {MODEL_NAME}...")
-        model = T5ForConditionalGeneration.from_pretrained(MODEL_NAME)
-        print(f"INFO: AI Service - Model {MODEL_NAME} loaded.")
+        print(f"INFO: AI Service - Initializing and loading model {MODEL_NAME_SUMMARIZE}...")
+        model_summarize = T5ForConditionalGeneration.from_pretrained(MODEL_NAME_SUMMARIZE)
+        print(f"INFO: AI Service - Model {MODEL_NAME_SUMMARIZE} loaded.")
 
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        model.to(device)
-        print(f"INFO: AI Service - Model moved to {device}.")
+        device_summarize = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        model_summarize.to(device_summarize)
+        print(f"INFO: AI Service - Summarization model moved to {device_summarize}.")
 
     except Exception as e:
-        print(f"ERROR: AI Service - Failed to load model or tokenizer '{MODEL_NAME}': {e}")
-        tokenizer = None
-        model = None
+        print(f"ERROR: AI Service - Failed to load summarization model or tokenizer '{MODEL_NAME_SUMMARIZE}': {e}")
+        tokenizer_summarize = None
+        model_summarize = None
 
-if model is None: 
+if model_summarize is None: # Check specific summarization model
     load_summarization_model()
 
 async def generate_summary(text_to_summarize: str) -> str:
-    if not model or not tokenizer:
+    if not model_summarize or not tokenizer_summarize:
         print("ERROR: AI Service - Summarization model/tokenizer is not available.")
         raise Exception("Summarization model/tokenizer is not available or failed to load.")
     
@@ -48,15 +56,15 @@ async def generate_summary(text_to_summarize: str) -> str:
 
     try:
         input_text_with_prefix = "summarize: " + text_to_summarize
-        inputs = tokenizer.encode(
+        inputs = tokenizer_summarize.encode(
             input_text_with_prefix,
             return_tensors='pt',
             max_length=512,
             truncation=True,
             padding='max_length'
-        ).to(device)
+        ).to(device_summarize)
 
-        summary_ids = model.generate(
+        summary_ids = model_summarize.generate(
             inputs,
             num_beams=4,
             max_length=150,
@@ -64,195 +72,166 @@ async def generate_summary(text_to_summarize: str) -> str:
             length_penalty=2.0,
             early_stopping=True
         )
-        summary = tokenizer.decode(summary_ids[0], skip_special_tokens=True)
+        summary = tokenizer_summarize.decode(summary_ids[0], skip_special_tokens=True)
         return summary
     except Exception as e:
-        print(f"ERROR: AI Service - Error during summarization with model {MODEL_NAME}: {e}")
+        print(f"ERROR: AI Service - Error during summarization with model {MODEL_NAME_SUMMARIZE}: {e}")
         raise Exception(f"Error generating summary: {str(e)}")
 
-# --- New Function for Flashcard Generation ---
+
+# --- Helper function to call Gemini API and parse JSON list output (for Flashcards) ---
+async def _call_gemini_for_json_list(prompt: str, error_context: str) -> List[Dict[str, str]]:
+    if not GOOGLE_API_KEY:
+        print(f"ERROR: AI Service ({error_context}) - GOOGLE_API_KEY is not configured.")
+        raise Exception(f"{error_context} service is not configured (API Key missing).")
+    if not GEMINI_MODEL_NAME:
+        print(f"ERROR: AI Service ({error_context}) - GEMINI_MODEL_NAME is not configured.")
+        raise Exception(f"{error_context} service is not configured (Model Name missing).")
+
+    generated_text_content = "" # Initialize for broader scope in error handling
+    flashcards_data = [] # Initialize
+
+    try:
+        print(f"INFO: AI Service ({error_context}) - Calling Gemini API ({GEMINI_MODEL_NAME}).")
+        gemini_model = genai.GenerativeModel(GEMINI_MODEL_NAME)
+        generation_config = genai.types.GenerationConfig(
+            temperature=0.2, 
+            max_output_tokens=1024 
+        )
+        full_prompt = f"{prompt}\nOutput:\n" 
+
+        if hasattr(gemini_model, 'generate_content_async'):
+            response = await gemini_model.generate_content_async(full_prompt, generation_config=generation_config)
+        else:
+            print(f"WARN: AI Service ({error_context}) - generate_content_async not found. Update 'google-generativeai'. This will block.")
+            response = gemini_model.generate_content(full_prompt, generation_config=generation_config)
+        
+        # It's safer to check if response.parts exists and has content
+        if not response.parts:
+            print(f"ERROR: AI Service ({error_context}) - Gemini API response has no parts. Full response: {response}")
+            if response.prompt_feedback and response.prompt_feedback.block_reason:
+                raise Exception(f"Gemini API call blocked for {error_context}: {response.prompt_feedback.block_reason_message}")
+            return []
+
+        generated_text_content = response.text.strip()
+        print(f"DEBUG: AI Service ({error_context}) - Gemini API Raw Response Text: {generated_text_content}")
+        
+        if generated_text_content.startswith("json"):
+            generated_text_content = generated_text_content[7:]
+        if generated_text_content.endswith(""):
+            generated_text_content = generated_text_content[:-3]
+        generated_text_content = generated_text_content.strip()
+
+        if not generated_text_content:
+            print(f"ERROR: AI Service ({error_context}) - Gemini API returned empty content after stripping markers.")
+            return []
+
+        flashcards_data = json.loads(generated_text_content)
+        if not isinstance(flashcards_data, list):
+            raise ValueError("Parsed data is not a list.")
+        
+        validated_items = []
+        for item in flashcards_data:
+            if isinstance(item, dict) and "front" in item and "back" in item:
+                validated_items.append({"front": str(item["front"]), "back": str(item["back"])})
+            else:
+                print(f"WARN: AI Service ({error_context}) - Skipping invalid item: {item}")
+        
+        if not validated_items and flashcards_data:
+            raise ValueError("No valid items found after validation.")
+        return validated_items
+
+    except json.JSONDecodeError as e:
+        print(f"ERROR: AI Service ({error_context}) - Failed to decode JSON. Output was: '{generated_text_content}'. Error: {e}")
+        raise Exception(f"Failed to parse {error_context} data from Gemini API (JSONDecodeError).")
+    except ValueError as e:
+        print(f"ERROR: AI Service ({error_context}) - Data structure validation failed. Parsed data: {flashcards_data}. Error: {e}")
+        raise Exception(f"{error_context} data from Gemini API has incorrect structure: {e}")
+    except Exception as e:
+        print(f"ERROR: AI Service ({error_context}) - Error during Gemini API call: {type(e)._name_} - {e}")
+        # Check for specific Gemini API error details if available in 'e'
+        # For instance, hasattr(e, ' কিছু ') if the library provides structured errors.
+        raise Exception(f"An unexpected error occurred while generating {error_context} with Gemini: {str(e)}")
+
+
+# --- Flashcard Generation using Gemini ---
 async def generate_flashcards_from_text(text_to_generate_from: str) -> List[Dict[str, str]]:
-    """
-    Generates flashcards from the given text using a Llama API.
-    """
     if not text_to_generate_from or len(text_to_generate_from.strip()) < 10:
-        # You might want to return an empty list or a specific message if input is too short
         print("WARN: AI Service - Input text for flashcards is too short.")
         return []
 
-    # Prompt for the Llama model
-    # Adjust this prompt based on the specific Llama model and desired output format.
-    prompt = f"""Generate flashcards from the following text. Each flashcard should have a 'front' (a question or term) and a 'back' (the answer or definition).
-Format the output STRICTLY as a JSON list of objects, where each object has 'front' and 'back' keys. For example:
+    prompt = f"""From the following text, create a list of flashcards.
+Each flashcard must be a JSON object with two keys: "front" (containing a question or term) and "back" (containing the answer or definition).
+Return ONLY a valid JSON list of these objects, and nothing else. Do not add any introductory or concluding text outside the JSON structure.
+
+Example of desired output format:
 [
-  {{"front": "Example Term?", "back": "Example Definition."}},
-  {{"front": "Another Question?", "back": "Another Answer."}}
+  {{"front": "What is the capital of France?", "back": "Paris."}},
+  {{"front": "Define 'photosynthesis'.", "back": "The process by which green plants use sunlight, water, and carbon dioxide to create their own food and release oxygen."}}
 ]
 
-Text:
-"{text_to_generate_from}"
-
-Flashcards:
-"""
-
-    headers = {
-        "Content-Type": "application/json",
-    }
-    if HF_TOKEN: # Add Authorization header if an HF token is provided/needed
-        headers["Authorization"] = f"Bearer {HF_TOKEN}"
-
-    payload = {
-        "inputs": prompt,
-        # Add any other parameters required by the Llama API, e.g., max_tokens, temperature
-        "parameters": {
-            "max_new_tokens": 300, # Adjust based on expected output length
-            "return_full_text": False, # Often, you only want the generated part
-             # "temperature": 0.7, # Example generation parameter
-        }
-    }
-    
-    if LLAMA_API_URL == "YOUR_LLAMA_API_ENDPOINT_HERE":
-        print("ERROR: AI Service - LLAMA_API_URL is not configured.")
-        raise Exception("Flashcard generation service is not configured (API URL missing).")
-
-    try:
-        async with httpx.AsyncClient(timeout=60.0) as client: # Increased timeout for potentially long LLM calls
-            print(f"INFO: AI Service - Calling Llama API at {LLAMA_API_URL} for flashcards.")
-            response = await client.post(LLAMA_API_URL, headers=headers, json=payload)
-            response.raise_for_status() # Raises an HTTPStatusError for bad responses (4xx or 5xx)
-            
-            api_response_data = response.json()
-            print(f"DEBUG: AI Service - Llama API Raw Response: {api_response_data}")
-
-            # --- IMPORTANT: Output parsing depends heavily on Llama API's response structure ---
-            # This is a common structure for Hugging Face Inference API for text-generation
-            # It might return a list with a dictionary containing 'generated_text'
-            # Or it might directly return the generated text if you're using a specific setup.
-            # You MUST inspect the actual API response and adjust parsing accordingly.
-            
-            generated_text_content = ""
-            if isinstance(api_response_data, list) and len(api_response_data) > 0 and "generated_text" in api_response_data[0]:
-                generated_text_content = api_response_data[0]["generated_text"].strip()
-            elif isinstance(api_response_data, dict) and "generated_text" in api_response_data: # Some APIs might return a dict
-                generated_text_content = api_response_data["generated_text"].strip()
-            elif isinstance(api_response_data, str): # If the API directly returns the string
-                 generated_text_content = api_response_data.strip()
-            else:
-                print(f"ERROR: AI Service - Unexpected Llama API response structure: {api_response_data}")
-                raise Exception("Failed to parse flashcard data from Llama API due to unexpected format.")
-
-            if not generated_text_content:
-                print("ERROR: AI Service - Llama API returned empty 'generated_text'.")
-                return [] # Or raise an exception
-
-            # Attempt to parse the generated text as JSON
-            try:
-                # The Llama model needs to reliably output a valid JSON string.
-                # Sometimes models add extra text before/after the JSON, or the JSON is malformed.
-                # Basic cleanup: try to find the start of the JSON list '[' and end ']'
-                json_start_index = generated_text_content.find('[')
-                json_end_index = generated_text_content.rfind(']')
-
-                if json_start_index != -1 and json_end_index != -1 and json_end_index > json_start_index:
-                    json_string = generated_text_content[json_start_index : json_end_index+1]
-                    flashcards_data = json.loads(json_string)
-                else: # Fallback if no clear JSON array found
-                    print(f"WARN: AI Service - Could not find clear JSON array in Llama output. Full output: {generated_text_content}")
-                    # Attempt to parse the whole string, might fail
-                    flashcards_data = json.loads(generated_text_content) 
-
-                # Validate that flashcards_data is a list of dicts with 'front' and 'back'
-                if not isinstance(flashcards_data, list):
-                    raise ValueError("Parsed flashcard data is not a list.")
-                
-                validated_flashcards = []
-                for item in flashcards_data:
-                    if isinstance(item, dict) and "front" in item and "back" in item:
-                        validated_flashcards.append({"front": str(item["front"]), "back": str(item["back"])})
-                    else:
-                        print(f"WARN: AI Service - Skipping invalid flashcard item: {item}")
-                
-                if not validated_flashcards and flashcards_data: # If original list wasn't empty but validation yielded nothing
-                     raise ValueError("No valid flashcard items found after validation.")
-
-                return validated_flashcards
-            except json.JSONDecodeError as e:
-                print(f"ERROR: AI Service - Failed to decode JSON from Llama API response for flashcards. Output was: {generated_text_content}. Error: {e}")
-                raise Exception("Failed to parse flashcard data from Llama API (JSONDecodeError).")
-            except ValueError as e: # Catch validation errors for list/dict structure
-                 print(f"ERROR: AI Service - Flashcard data structure validation failed. Parsed data: {flashcards_data}. Error: {e}")
-                 raise Exception(f"Flashcard data from Llama API has incorrect structure: {e}")
+Text to process:
+---
+{text_to_generate_from}
+---
+""" # Removed the "JSON Output:" line from prompt to let the model directly start with JSON.
+    return await _call_gemini_for_json_list(prompt, "flashcards")
 
 
-    except httpx.HTTPStatusError as e:
-        print(f"ERROR: AI Service - Llama API request failed with status {e.response.status_code}: {e.response.text}")
-        raise Exception(f"Llama API request failed (status {e.response.status_code}).")
-    except httpx.RequestError as e:
-        print(f"ERROR: AI Service - Llama API request failed due to a network issue or invalid URL: {e}")
-        raise Exception(f"Could not connect to Llama API: {e}")
-    except Exception as e:
-        print(f"ERROR: AI Service - Unexpected error during flashcard generation: {e}")
-        raise Exception(f"An unexpected error occurred while generating flashcards: {str(e)}")
-    
+# --- Study Notes Generation using Gemini ---
 async def generate_study_notes_from_text(text_to_generate_from: str) -> str:
-    """
-    Generates structured study notes from the given text using a Llama API.
-    """
     if not text_to_generate_from or len(text_to_generate_from.strip()) < 20:
         print("WARN: AI Service - Input text for study notes is too short.")
         return "Input text is too short to generate effective study notes."
 
-    # Prompt for the Llama model
-    prompt = f"""Generate comprehensive, well-structured study notes from the following text.
-The notes should identify key concepts, provide explanations, use bullet points for important details, and maintain a clear, organized format.
+    prompt = f"""Generate comprehensive and well-structured study notes from the following text.
+The notes should clearly identify key concepts, provide concise explanations for each, and use bullet points or numbered lists for important details and sub-points.
+The output should be formatted as a single block of text, suitable for direct display. Use markdown for headings (e.g., ## Heading, ### Subheading) and lists (e.g., * item or - item).
 
-Text:
-"{text_to_generate_from}"
+Text to process:
+---
+{text_to_generate_from}
+---
+""" # Removed "Formatted Study Notes:" and "\nOutput:\n" to let the model generate more freely as text
+    
+    if not GOOGLE_API_KEY:
+        print("ERROR: AI Service (Study Notes) - GOOGLE_API_KEY is not configured.")
+        raise Exception("Study notes generation service is not configured (API Key missing).")
+    if not GEMINI_MODEL_NAME:
+        print(f"ERROR: AI Service (Study Notes) - GEMINI_MODEL_NAME is not configured.")
+        raise Exception(f"Study notes service is not configured (Model Name missing).")
+    
+    generated_text_content = "" # Initialize for error reporting scope
 
-Study Notes:
-"""
-    headers = {"Content-Type": "application/json"}
-    if HF_TOKEN:
-        headers["Authorization"] = f"Bearer {HF_TOKEN}"
-
-    payload = {
-        "inputs": prompt,
-        "parameters": {
-            "max_new_tokens": 500, 
-            "return_full_text": False,
-            "temperature": 0.6,
-        }
-    }
-    if LLAMA_API_URL == "YOUR_LLAMA_API_ENDPOINT_HERE": # This check still needs LLAMA_API_URL to be set in .env
-        print("ERROR: AI Service - LLAMA_API_URL is not configured for study notes.") # Clarified error message
-        raise Exception("Study notes generation service is not configured (API URL missing).")
     try:
-        async with httpx.AsyncClient(timeout=90.0) as client:
-            print(f"INFO: AI Service - Calling Llama API at {LLAMA_API_URL} for study notes.")
-            response = await client.post(LLAMA_API_URL, headers=headers, json=payload)
-            response.raise_for_status()
-            api_response_data = response.json()
-            print(f"DEBUG: AI Service - Llama API Raw Response (Study Notes): {api_response_data}")
-            generated_text_content = ""
-            if isinstance(api_response_data, list) and len(api_response_data) > 0 and "generated_text" in api_response_data[0]:
-                generated_text_content = api_response_data[0]["generated_text"].strip()
-            elif isinstance(api_response_data, dict) and "generated_text" in api_response_data:
-                generated_text_content = api_response_data["generated_text"].strip()
-            elif isinstance(api_response_data, str):
-                generated_text_content = api_response_data.strip()
-            else:
-                print(f"ERROR: AI Service - Unexpected Llama API response structure (Study Notes): {api_response_data}")
-                raise Exception("Failed to parse study notes from Llama API due to unexpected format.")
-            if not generated_text_content:
-                print("ERROR: AI Service - Llama API returned empty 'generated_text' for study notes.")
-                return "The AI could not generate study notes from the selected text."
-            return generated_text_content
-    except httpx.HTTPStatusError as e:
-        print(f"ERROR: AI Service - Llama API request (Study Notes) failed with status {e.response.status_code}: {e.response.text}")
-        raise Exception(f"Llama API request for study notes failed (status {e.response.status_code}).")
-    except httpx.RequestError as e:
-        print(f"ERROR: AI Service - Llama API request (Study Notes) failed due to network issue: {e}")
-        raise Exception(f"Could not connect to Llama API for study notes: {e}")
+        print(f"INFO: AI Service (Study Notes) - Calling Gemini API ({GEMINI_MODEL_NAME}).")
+        gemini_model = genai.GenerativeModel(GEMINI_MODEL_NAME)
+        generation_config = genai.types.GenerationConfig(
+            temperature=0.5, 
+            max_output_tokens=1500 
+        )
+        
+        if hasattr(gemini_model, 'generate_content_async'):
+            response = await gemini_model.generate_content_async(prompt, generation_config=generation_config)
+        else:
+            print(f"WARN: AI Service (Study Notes) - generate_content_async not found. Update 'google-generativeai'. This will block.")
+            response = gemini_model.generate_content(prompt, generation_config=generation_config)
+
+        if not response.parts:
+            print(f"ERROR: AI Service (Study Notes) - Gemini API response has no parts. Full response: {response}")
+            if response.prompt_feedback and response.prompt_feedback.block_reason:
+                 raise Exception(f"Gemini API call blocked for Study Notes: {response.prompt_feedback.block_reason_message}")
+            return "The AI could not generate study notes (empty response parts)."
+
+        generated_text_content = response.text.strip()
+        print(f"DEBUG: AI Service (Study Notes) - Gemini API Raw Response Text: {generated_text_content}")
+        
+        if not generated_text_content:
+            print("ERROR: AI Service (Study Notes) - Gemini API returned empty content.")
+            return "The AI could not generate study notes from the selected text."
+        
+        return generated_text_content
+
     except Exception as e:
-        print(f"ERROR: AI Service - Unexpected error during study notes generation: {e}")
-        raise Exception(f"An unexpected error occurred while generating study notes: {str(e)}")
+        print(f"ERROR: AI Service (Study Notes) - Error during Gemini API call: {type(e)._name_} - {e}")
+        raise Exception(f"An unexpected error occurred while generating study notes with Gemini: {str(e)}")
