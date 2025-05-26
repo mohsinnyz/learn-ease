@@ -40,6 +40,12 @@ export interface UserUpdatePayload {
 }
 // --- End New Interface ---
 
+export interface UserPasswordChangePayload {
+  current_password: string;
+  new_password: string;
+  confirm_new_password: string;
+}
+
 
 // Existing handleApiError function should be here
 // async function handleApiError(response: Response, defaultErrorMessage: string): Promise<never> { ... }
@@ -140,4 +146,31 @@ export async function updateUserProfile(profileData: UserUpdatePayload): Promise
     await handleApiError(response, 'Failed to update user profile.');
   }
   return response.json() as Promise<UserPublic>;
+}
+
+export async function changePassword(passwordData: UserPasswordChangePayload): Promise<void> {
+  const token = getAuthToken();
+  if (!token) {
+    throw new Error('Authentication token not found. Please log in again.');
+  }
+
+  // Using /users/me/change-password as per your correction (no /api/v1)
+  const response = await fetch(`${API_BASE_URL}/users/me/change-password`, {
+    method: 'POST', // POST is appropriate for this action
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(passwordData),
+  });
+
+  if (!response.ok) {
+    // Status 204 means success but no content
+    if (response.status === 204) {
+      return; // Successfully changed password
+    }
+    await handleApiError(response, 'Failed to change password.');
+  }
+  // If response.ok and not 204 (though unlikely for this endpoint),
+  // it implies success without specific content to parse for this void function.
 }

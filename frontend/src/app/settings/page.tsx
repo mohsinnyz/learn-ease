@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, FormEvent, ChangeEvent } from "react"; // Added ChangeEvent
+import { useEffect, useState, FormEvent, ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image"; // For Profile Image
@@ -19,7 +19,9 @@ import {
     UserPublic, 
     UserUpdatePayload, 
     fetchUserProfile, 
-    updateUserProfile 
+    updateUserProfile,
+    UserPasswordChangePayload, // New import for password change
+    changePassword             // New import for password change
 } from "@/services/authService"; 
 
 // --- Modal component ---
@@ -66,11 +68,11 @@ export default function SettingsPage() {
   // Category State
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoadingCategories, setIsLoadingCategories] = useState(true);
-  const [errorCategories, setErrorCategories] = useState<string | null>(null); // For category loading errors
+  const [errorCategories, setErrorCategories] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
-  const [isCreatingCategory, setIsCreatingCategory] = useState(false); // Renamed from isCreating
-  const [createCategoryError, setCreateCategoryError] = useState<string | null>(null); // For create modal errors
+  const [isCreatingCategory, setIsCreatingCategory] = useState(false);
+  const [createCategoryError, setCreateCategoryError] = useState<string | null>(null);
   const [showRenameModal, setShowRenameModal] = useState(false);
   const [categoryToRename, setCategoryToRename] = useState<Category | null>(null);
   const [renamedCategoryName, setRenamedCategoryName] = useState("");
@@ -80,6 +82,15 @@ export default function SettingsPage() {
   const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  // --- Change Password State ---
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmNewPassword, setConfirmNewPassword] = useState("");
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [changePasswordError, setChangePasswordError] = useState<string | null>(null);
+  const [changePasswordSuccess, setChangePasswordSuccess] = useState<string | null>(null);
+  // --- End Change Password State ---
 
 
   useEffect(() => {
@@ -93,15 +104,16 @@ export default function SettingsPage() {
   }, [router]);
 
   const loadPageData = async () => {
+    setIsLoadingProfile(true); // Set loading before fetching profile
+    setIsLoadingCategories(true); // Set loading before fetching categories
     await Promise.all([loadUserProfile(), loadCategories()]);
   };
 
-  const loadUserProfile = async () => {
-    setIsLoadingProfile(true);
+  const loadUserProfile = async () => { 
     setErrorProfile(null);
-    try {
-      const userProfileData = await fetchUserProfile();
-      setProfile(userProfileData);
+    try { 
+      const userProfileData = await fetchUserProfile(); 
+      setProfile(userProfileData); 
       setEditableProfile({ 
         firstname: userProfileData.firstname,
         lastname: userProfileData.lastname,
@@ -109,62 +121,62 @@ export default function SettingsPage() {
         university_name: userProfileData.university_name,
         image: userProfileData.image,
       });
-    } catch (err: unknown) {
-      setErrorProfile(err instanceof Error ? err.message : "Failed to load profile.");
-    } finally {
-      setIsLoadingProfile(false);
+    } catch (err: unknown) { 
+      setErrorProfile(err instanceof Error ? err.message : "Failed to load profile."); 
+    } finally { 
+      setIsLoadingProfile(false); 
     }
   };
 
-  const handleProfileInputChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleProfileInputChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => { 
     const { name, value } = e.target;
     setEditableProfile(prev => ({ ...prev, [name]: name === 'age' ? (value === '' ? null : parseInt(value, 10)) : value }));
   };
 
-  const handleProfileUpdateSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setIsUpdatingProfile(true);
-    setErrorProfile(null);
+  const handleProfileUpdateSubmit = async (event: FormEvent<HTMLFormElement>) => { 
+    event.preventDefault(); 
+    setIsUpdatingProfile(true); 
+    setErrorProfile(null); 
     setUpdateProfileSuccess(null);
-    try {
-      const updatedProfileData = await updateUserProfile(editableProfile);
+    try { 
+      const updatedProfileData = await updateUserProfile(editableProfile); 
       setProfile(updatedProfileData); 
       setIsEditingProfile(false); 
       setUpdateProfileSuccess("Profile updated successfully!");
       setTimeout(() => setUpdateProfileSuccess(null), 3000); 
-    } catch (err: unknown) {
+    } catch (err: unknown) { 
       setErrorProfile(err instanceof Error ? err.message : "Failed to update profile.");
-    } finally {
-      setIsUpdatingProfile(false);
+    } finally { 
+      setIsUpdatingProfile(false); 
     }
   };
 
-  const loadCategories = async () => { 
+  const loadCategories = async () => {  
     setIsLoadingCategories(true);
-    setErrorCategories(null); // Initialize/clear error before fetching
+    setErrorCategories(null); 
     try {
       const userCategories = await fetchUserCategories();
       setCategories(userCategories.sort((a, b) => a.name.localeCompare(b.name)));
     } catch (err: unknown) {
-      setErrorCategories(err instanceof Error ? err.message : "Failed to load categories."); // Set error on catch
+      setErrorCategories(err instanceof Error ? err.message : "Failed to load categories."); 
     } finally {
       setIsLoadingCategories(false);
     }
   };
-
+  
   const handleOpenCreateModal = () => { setNewCategoryName(""); setCreateCategoryError(null); setShowCreateModal(true); };
   
-  const handleCreateCategory = async (event: FormEvent<HTMLFormElement>) => { 
+  const handleCreateCategory = async (event: FormEvent<HTMLFormElement>) => {  
     event.preventDefault(); if (!newCategoryName.trim()) { setCreateCategoryError("Category name cannot be empty."); return; }
-    setIsCreatingCategory(true); setCreateCategoryError(null); // Use isCreatingCategory
+    setIsCreatingCategory(true); setCreateCategoryError(null); 
     try { 
       const newCat = await createCategory({ name: newCategoryName }); 
       setCategories(prev => [...prev, newCat].sort((a, b) => a.name.localeCompare(b.name))); 
       setShowCreateModal(false); 
-      setNewCategoryName(""); // Clear input after successful creation
+      setNewCategoryName(""); 
     }
     catch (err: unknown) { setCreateCategoryError(err instanceof Error ? err.message : "An unknown error occurred."); }
-    finally { setIsCreatingCategory(false); } // Use isCreatingCategory
+    finally { setIsCreatingCategory(false); }
   };
   
   const handleOpenRenameModal = (category: Category) => { setCategoryToRename(category); setRenamedCategoryName(category.name); setRenameError(null); setShowRenameModal(true);};
@@ -184,7 +196,7 @@ export default function SettingsPage() {
 
   const handleOpenDeleteModal = (category: Category) => { setCategoryToDelete(category); setDeleteError(null); setShowDeleteModal(true);};
   
-  const handleConfirmDeleteCategory = async () => { 
+  const handleConfirmDeleteCategory = async () => {  
     if (!categoryToDelete) return; 
     setIsDeleting(true); setDeleteError(null);
     try { 
@@ -196,6 +208,44 @@ export default function SettingsPage() {
     catch (err: unknown) { setDeleteError(err instanceof Error ? err.message : "An unknown error occurred."); }
     finally { setIsDeleting(false); }
   };
+
+  // --- New Handler for Change Password ---
+  const handleChangePasswordSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (newPassword !== confirmNewPassword) {
+      setChangePasswordError("New passwords do not match.");
+      return;
+    }
+    if (newPassword.length < 6) { 
+        setChangePasswordError("New password must be at least 6 characters long.");
+        return;
+    }
+
+    setIsChangingPassword(true);
+    setChangePasswordError(null);
+    setChangePasswordSuccess(null);
+
+    // Explicitly type the payload
+    const payload: UserPasswordChangePayload = { 
+      current_password: currentPassword,
+      new_password: newPassword,
+      confirm_new_password: confirmNewPassword,
+    };
+
+    try {
+      await changePassword(payload); // Pass the typed payload
+      setChangePasswordSuccess("Password changed successfully!");
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmNewPassword("");
+      setTimeout(() => setChangePasswordSuccess(null), 3000);
+    } catch (err: unknown) {
+      setChangePasswordError(err instanceof Error ? err.message : "Failed to change password.");
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
+  // --- End New Handler ---
 
   if (!isClient || isLoadingProfile || isLoadingCategories) {
     return <div className="flex items-center justify-center min-h-screen"><p>Loading settings...</p></div>;
@@ -211,7 +261,7 @@ export default function SettingsPage() {
         </div>
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-8">User Settings</h1>
 
-        {/* Tab Section 1: Profile Details */}
+        {/* Section 1: Profile Details */}
         <section id="profile-details" className="bg-white dark:bg-gray-800 shadow-xl rounded-lg p-6 mb-8">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-2xl font-semibold text-gray-800 dark:text-gray-100">Profile Details</h2>
@@ -288,100 +338,47 @@ export default function SettingsPage() {
         </section>
 
         {/* Section 2: Manage Categories */}
-        <section id="manage-categories" className="bg-white dark:bg-gray-800 shadow-xl rounded-lg p-6">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-semibold text-gray-800 dark:text-gray-100">Manage Your Categories</h2>
-            <button
-              onClick={handleOpenCreateModal}
-              className="px-4 py-2 bg-green-500 text-white text-sm font-medium rounded-md hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-400"
-            >
-              + Add New Category
-            </button>
-          </div>
-
-          {errorCategories && !isLoadingCategories && <div className="p-3 text-sm text-red-700 bg-red-100 rounded-md dark:bg-red-900 dark:text-red-300 mb-4">Error: {errorCategories}</div>}
-          
-          {categories.length === 0 && !isLoadingCategories && !errorCategories && (
-            <p className="text-gray-500 dark:text-gray-400">You haven&apos;t created any categories yet.</p>
-          )}
-
-          {categories.length > 0 && (
-            <ul className="space-y-3">
-              {categories.map(category => (
-                <li key={category.id} className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-700 rounded-md shadow-sm">
-                  <span className="text-gray-700 dark:text-gray-200">{category.name}</span>
-                  <div className="space-x-2">
-                    <button 
-                      onClick={() => handleOpenRenameModal(category)}
-                      className="text-xs px-3 py-1 bg-yellow-400 text-yellow-800 rounded hover:bg-yellow-500"
-                    >
-                      Rename
-                    </button>
-                    <button 
-                      onClick={() => handleOpenDeleteModal(category)}
-                      className="text-xs px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
+        <section id="manage-categories" className="bg-white dark:bg-gray-800 shadow-xl rounded-lg p-6 mb-8">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-semibold text-gray-800 dark:text-gray-100">Manage Your Categories</h2>
+              <button onClick={handleOpenCreateModal} className="px-4 py-2 bg-green-500 text-white text-sm font-medium rounded-md hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-400"> + Add New Category </button>
+            </div>
+            {errorCategories && !isLoadingCategories && <div className="p-3 text-sm text-red-700 bg-red-100 rounded-md dark:bg-red-900 dark:text-red-300 mb-4">Error: {errorCategories}</div>}
+            {categories.length === 0 && !isLoadingCategories && !errorCategories && (<p className="text-gray-500 dark:text-gray-400">You haven&apos;t created any categories yet.</p>)}
+            {categories.length > 0 && (<ul className="space-y-3">{categories.map(category => (<li key={category.id} className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-700 rounded-md shadow-sm"><span className="text-gray-700 dark:text-gray-200">{category.name}</span><div className="space-x-2"><button onClick={() => handleOpenRenameModal(category)} className="text-xs px-3 py-1 bg-yellow-400 text-yellow-800 rounded hover:bg-yellow-500">Rename</button><button onClick={() => handleOpenDeleteModal(category)} className="text-xs px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600">Delete</button></div></li>))}</ul>)}
         </section>
 
-        {/* Create Category Modal */}
-        <Modal isOpen={showCreateModal} onClose={() => setShowCreateModal(false)} title="Create New Category">
-          <form onSubmit={handleCreateCategory}>
-            <input 
-              type="text" 
-              value={newCategoryName} 
-              onChange={(e) => setNewCategoryName(e.target.value)}
-              placeholder="Category Name"
-              className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white mb-4" 
-              required
-            />
-            {createCategoryError && <p className="text-red-500 text-sm mb-2">{createCategoryError}</p>}
-            <button type="submit" disabled={isCreatingCategory} className="w-full px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50">
-              {isCreatingCategory ? "Creating..." : "Create"}
-            </button>
-          </form>
-        </Modal>
-
-        {/* Rename Category Modal */}
-        {categoryToRename && (
-          <Modal isOpen={showRenameModal} onClose={() => setShowRenameModal(false)} title={`Rename Category: ${categoryToRename.name}`}>
-            <form onSubmit={handleRenameCategory}>
-              <input 
-                type="text" 
-                value={renamedCategoryName} 
-                onChange={(e) => setRenamedCategoryName(e.target.value)}
-                placeholder="New Category Name"
-                className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white mb-4" 
-                required
-              />
-              {renameError && <p className="text-red-500 text-sm mb-2">{renameError}</p>}
-              <button type="submit" disabled={isRenaming} className="w-full px-4 py-2 bg-yellow-500 text-yellow-800 rounded hover:bg-yellow-600 disabled:opacity-50">
-                {isRenaming ? "Renaming..." : "Save Changes"}
-              </button>
-            </form>
-          </Modal>
-        )}
-
-        {/* Delete Category Modal */}
-        {categoryToDelete && (
-           <Modal isOpen={showDeleteModal} onClose={() => setShowDeleteModal(false)} title="Confirm Delete Category">
-             {deleteError && <p className="text-red-500 text-sm mb-2">{deleteError}</p>}
-            <p className="mb-4 dark:text-gray-300">Are you sure you want to delete the category &quot;{categoryToDelete.name}&quot;? Books in this category will become uncategorized.</p>
-            <div className="flex justify-end space-x-3">
-              <button onClick={() => setShowDeleteModal(false)} disabled={isDeleting} className="px-4 py-2 bg-gray-300 dark:bg-gray-600 rounded hover:bg-gray-400 disabled:opacity-50">Cancel</button>
-              <button onClick={handleConfirmDeleteCategory} disabled={isDeleting} className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50">
-                {isDeleting ? "Deleting..." : "Delete"}
+        {/* --- Section 3: Change Password --- */}
+        <section id="change-password" className="bg-white dark:bg-gray-800 shadow-xl rounded-lg p-6">
+          <h2 className="text-2xl font-semibold text-gray-800 dark:text-gray-100 mb-6">Change Password</h2>
+          {changePasswordError && <div className="p-3 text-sm text-red-700 bg-red-100 rounded-md mb-4 dark:bg-red-900 dark:text-red-200">{changePasswordError}</div>}
+          {changePasswordSuccess && <div className="p-3 text-sm text-green-700 bg-green-100 rounded-md mb-4 dark:bg-green-900 dark:text-green-200">{changePasswordSuccess}</div>}
+          <form onSubmit={handleChangePasswordSubmit} className="space-y-4">
+            <div>
+              <label htmlFor="currentPassword" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Current Password</label>
+              <input type="password" name="currentPassword" id="currentPassword" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} className="mt-1 block w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white" required />
+            </div>
+            <div>
+              <label htmlFor="newPassword" className="block text-sm font-medium text-gray-700 dark:text-gray-300">New Password</label>
+              <input type="password" name="newPassword" id="newPassword" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="mt-1 block w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white" required />
+            </div>
+            <div>
+              <label htmlFor="confirmNewPassword" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Confirm New Password</label>
+              <input type="password" name="confirmNewPassword" id="confirmNewPassword" value={confirmNewPassword} onChange={(e) => setConfirmNewPassword(e.target.value)} className="mt-1 block w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white" required />
+            </div>
+            <div className="flex justify-end">
+              <button type="submit" disabled={isChangingPassword} className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50">
+                {isChangingPassword ? "Changing..." : "Change Password"}
               </button>
             </div>
-          </Modal>
-        )}
+          </form>
+        </section>
+        {/* --- End Section 3 --- */}
 
+        {/* Modals (Create, Rename, Delete Category) */}
+        <Modal isOpen={showCreateModal} onClose={() => setShowCreateModal(false)} title="Create New Category"> <form onSubmit={handleCreateCategory}><input type="text" value={newCategoryName} onChange={(e) => setNewCategoryName(e.target.value)} placeholder="Category Name" className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white mb-4" required />{createCategoryError && <p className="text-red-500 text-sm mb-2">{createCategoryError}</p>}<button type="submit" disabled={isCreatingCategory} className="w-full px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50">{isCreatingCategory ? "Creating..." : "Create"}</button></form></Modal>
+        {categoryToRename && (<Modal isOpen={showRenameModal} onClose={() => setShowRenameModal(false)} title={`Rename Category: ${categoryToRename.name}`}><form onSubmit={handleRenameCategory}><input type="text" value={renamedCategoryName} onChange={(e) => setRenamedCategoryName(e.target.value)} placeholder="New Category Name" className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white mb-4" required />{renameError && <p className="text-red-500 text-sm mb-2">{renameError}</p>}<button type="submit" disabled={isRenaming} className="w-full px-4 py-2 bg-yellow-500 text-yellow-800 rounded hover:bg-yellow-600 disabled:opacity-50">{isRenaming ? "Renaming..." : "Save Changes"}</button></form></Modal>)}
+        {categoryToDelete && (<Modal isOpen={showDeleteModal} onClose={() => setShowDeleteModal(false)} title="Confirm Delete Category">{deleteError && <p className="text-red-500 text-sm mb-2">{deleteError}</p>}<p className="mb-4 dark:text-gray-300">Are you sure you want to delete the category &quot;{categoryToDelete.name}&quot;? Books in this category will become uncategorized.</p><div className="flex justify-end space-x-3"><button onClick={() => setShowDeleteModal(false)} disabled={isDeleting} className="px-4 py-2 bg-gray-300 dark:bg-gray-600 rounded hover:bg-gray-400 disabled:opacity-50">Cancel</button><button onClick={handleConfirmDeleteCategory} disabled={isDeleting} className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50">{isDeleting ? "Deleting..." : "Delete"}</button></div></Modal>)}
       </div>
     </div>
   );
