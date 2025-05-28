@@ -61,36 +61,82 @@ const darkModeDotPatternUrl = "url(\"data:image/svg+xml,%3Csvg width='15' height
 // --- GlobalStyles Component (Module Level) ---
 const GlobalStyles = () => (
   <style jsx global>{`
-    :root { 
-      --dot-pattern-url: ${lightModeDotPatternUrl}; 
+    :root {
+      --dot-pattern-url: ${lightModeDotPatternUrl};
     }
-    html.dark { --dot-pattern-url: ${darkModeDotPatternUrl}; }
+    html.dark {
+      --dot-pattern-url: ${darkModeDotPatternUrl};
+    }
 
     .learn-ease-card {
-      background-color: rgba(255, 255, 255, 0.85); 
-      backdrop-filter: blur(6px); 
-      border-radius: 0.75rem; 
-      box-shadow: 0 10px 15px -3px rgba(0,0,0,0.07), 0 4px 6px -2px rgba(0,0,0,0.05);
+      background-color: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(6px);
+      border-radius: 0.75rem;
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.07),
+        0 4px 6px -2px rgba(0, 0, 0, 0.05);
       transition: box-shadow 0.3s ease-out, transform 0.3s ease-out;
       border-width: 1px;
-      border-color: rgba(203, 213, 225, 0.5); 
+      border-color: rgba(203, 213, 225, 0.5);
     }
+
     html.dark .learn-ease-card {
-      background-color: rgba(30, 41, 59, 0.85); 
-      border-color: rgba(51, 65, 85, 0.8); 
+      background-color: rgba(30, 41, 59, 0.85);
+      border-color: rgba(51, 65, 85, 0.8);
     }
-    /* No general hover for cards on this page, only specific interactive cards if explicitly added */
-    @keyframes bookViewModalShowAnimation { 
-      to { transform: scale(1); opacity: 1; }
+
+    @keyframes bookViewModalShowAnimation {
+      to {
+        transform: scale(1);
+        opacity: 1;
+      }
     }
-    .animate-bookViewModalShow { 
-      transform: scale(0.95); opacity: 0; animation: bookViewModalShowAnimation 0.3s forwards;
+    .animate-bookViewModalShow {
+      transform: scale(0.95);
+      opacity: 0;
+      animation: bookViewModalShowAnimation 0.3s forwards;
     }
+
     .react-pdf__Page__canvas {
-      border-radius: 0.375rem; 
+      border-radius: 0.375rem;
     }
     .react-pdf__Page__textContent {
-        border-radius: 0.375rem;
+      border-radius: 0.375rem;
+    }
+    /* 🔄 Flip Animation Styles */
+    .flip-container {
+      perspective: 1000px;
+    }
+    .flip-inner {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      transition: transform 0.6s;
+      transform-style: preserve-3d;
+      will-change: transform;
+    }
+    .flip-inner.flipped {
+      transform: rotateY(180deg);
+    }
+    .flip-front,
+    .flip-back {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      backface-visibility: hidden;
+      -webkit-backface-visibility: hidden; /* Safari */
+      border-radius: 0.75rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      z-index: 1;
+    }
+    .flip-front {
+      z-index: 2;
+    }
+    .flip-back {
+      transform: rotateY(180deg);
     }
   `}</style>
 );
@@ -136,6 +182,14 @@ interface ContextMenuState {
 }
 
 export default function BookViewPage() {
+  const [flippedCards, setFlippedCards] = useState<Record<number, boolean>>({});
+
+  const toggleFlip = (index: number) => {
+    setFlippedCards((prev) => ({
+      ...prev,
+      [index]: !prev[index],
+    }));
+  };
   const router = useRouter();
   const params = useParams();
   const bookId = params.bookId as string;
@@ -460,27 +514,106 @@ export default function BookViewPage() {
         {!isSummarizing && !summary && !summarizeError && <p className="text-slate-500 dark:text-slate-400">No summary details to display.</p>}
       </Modal>
 
-      <Modal
-        isOpen={showFlashcardsModal}
-        onClose={() => setShowFlashcardsModal(false)}
-        title={flashcardsError ? "Flashcard Error" : isGeneratingFlashcards ? "Generating Flashcards..." : (flashcards && flashcards.length > 0) ? "Generated Flashcards" : "Flashcards"}
-      >
-        {isGeneratingFlashcards && (<div className="text-center py-4"><SpinnerIcon className="w-8 h-8 text-orange-500 mx-auto mb-2" /><p className="text-slate-600 dark:text-slate-300">Please wait, AI is creating flashcards...</p></div>)}
-        {flashcardsError && (<p className="text-red-500 dark:text-red-400 p-2 text-sm">{flashcardsError}</p>)}
-        {!isGeneratingFlashcards && flashcards && flashcards.length > 0 && (
-          <div className="max-h-[70vh] overflow-y-auto p-1 space-y-3">
-            {flashcards.map((card, index) => (
-              <div key={index} className="p-3.5 border border-slate-300/80 dark:border-slate-600/80 rounded-lg bg-slate-50/70 dark:bg-slate-700/50 shadow-sm text-sm">
-                <p className="font-semibold text-orange-600 dark:text-orange-400 mb-1">Front:</p>
-                <p className="text-slate-800 dark:text-slate-200 mb-2.5 pl-2">{card.front}</p>
-                <p className="font-semibold text-orange-600 dark:text-orange-400 mb-1">Back:</p>
-                <p className="text-slate-800 dark:text-slate-200 pl-2">{card.back}</p>
-              </div>
-            ))}
-          </div>
-        )}
-        {!isGeneratingFlashcards && !flashcardsError && (!flashcards || flashcards.length === 0) && (<p className="text-slate-500 dark:text-slate-400 p-2">No flashcards to display.</p>)}
-      </Modal>
+      <Modal
+        isOpen={showFlashcardsModal}
+        onClose={() => setShowFlashcardsModal(false)}
+        title={
+          flashcardsError
+            ? "Flashcard Error"
+            : isGeneratingFlashcards
+            ? "Generating Flashcards..."
+            : flashcards && flashcards.length > 0
+            ? "Generated Flashcards"
+            : "Flashcards"
+        }
+      >
+        <div className="bg-white/80 dark:bg-slate-800/70 rounded-xl p-4 backdrop-blur-sm">
+          {isGeneratingFlashcards && (
+            <div className="text-center py-4">
+              <SpinnerIcon className="w-8 h-8 text-orange-500 mx-auto mb-2" />
+              <p className="text-slate-600 dark:text-slate-300">
+                Please wait, AI is creating flashcards...
+              </p>
+            </div>
+          )}
+
+          {flashcardsError && (
+            <p className="text-red-500 dark:text-red-400 p-2 text-sm">
+              {flashcardsError}
+            </p>
+          )}
+
+          {!isGeneratingFlashcards && flashcards && flashcards.length > 0 && (
+            <div className="max-h-[70vh] overflow-y-auto p-2 space-y-4">
+              {flashcards.map((card, index) => {
+                const isFlipped = flippedCards[index];
+                return (
+                  <div
+                    key={index}
+                    // This is the .flip-container, add dimensions here
+                    className="flip-container w-full h-40 sm:h-44 md:h-48 lg:h-52 xl:h-56"
+                  >
+                    {/* New wrapper for .learn-ease-card styles (backdrop-filter, shadow, etc.) */}
+                    <div
+                      className="learn-ease-card"
+                      style={{ width: "100%", height: "100%", position: "relative" }}
+                    >
+                      <div
+                        className={`flip-inner ${
+                          isFlipped ? "flipped" : ""
+                        }`}
+                        // .flip-inner CSS already has width: 100%, height: 100%
+                        // REMOVE .learn-ease-card from .flip-inner's class list
+                      >
+                        {/* Front */}
+                        <div className="flip-front p-4 bg-white/80 dark:bg-slate-800/60">
+                          <p className="font-semibold text-orange-600 dark:text-orange-400 mb-1">
+                            Front:
+                          </p>
+                          <p className="text-slate-800 dark:text-slate-200 pl-2 mb-3">
+                            {card.front}
+                          </p>
+                          <button
+                            onClick={() => toggleFlip(index)}
+                            className="text-xs bg-orange-500 hover:bg-orange-600 text-white py-1 px-3 rounded"
+                          >
+                            Flip
+                          </button>
+                        </div>
+
+                        {/* Back */}
+                        <div className="flip-back p-4 bg-white/80 dark:bg-slate-800/60">
+                          <p className="font-semibold text-orange-600 dark:text-orange-400 mb-1">
+                            Back:
+                          </p>
+                          <p className="text-slate-800 dark:text-slate-200 pl-2 mb-3">
+                            {card.back}
+                          </p>
+                          <button
+                            onClick={() => toggleFlip(index)}
+                            className="text-xs bg-orange-500 hover:bg-orange-600 text-white py-1 px-3 rounded"
+                          >
+                            Flip
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          
+          {!isGeneratingFlashcards &&
+            !flashcardsError &&
+            (!flashcards || flashcards.length === 0) && (
+              <p className="text-slate-500 dark:text-slate-400 p-2">
+                No flashcards to display.
+              </p>
+            )}
+        </div>
+      </Modal>
+
 
       <Modal
         isOpen={showStudyNotesModal}
