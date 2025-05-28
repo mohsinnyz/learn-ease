@@ -219,7 +219,7 @@ export default function DashboardPage() {
 
       <main className="space-y-8">
         {(!isLoadingCategories || categories.length > 0 || activeFilter !== 'all') && ( 
-          <section className="learn-ease-card learn-ease-card-hover p-6 bg-white dark:bg-red-500"> {/* Filter card already pulled up by header mb change */}
+          <section className="learn-ease-card learn-ease-card-hover p-6"> {/* Filter card already pulled up by header mb change */}
             <h3 className="text-2xl font-semibold text-slate-800 dark:text-slate-100 mb-5">Filter by Category</h3> {/* Increased text size and bottom margin */}
             <div className="flex flex-wrap gap-3 items-center">
               {/* Increased padding, font size, and added text-left to filter buttons */}
