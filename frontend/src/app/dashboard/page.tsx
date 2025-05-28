@@ -32,41 +32,41 @@ const darkModeDotPatternUrl = "url(\"data:image/svg+xml,%3Csvg width='15' height
 
 // --- Modal component ---
 interface ModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  children: React.ReactNode;
-  title: string;
+  isOpen: boolean;
+  onClose: () => void;
+  children: React.ReactNode;
+  title: string;
 }
 const Modal: React.FC<ModalProps> = ({ isOpen, onClose, children, title }) => {
-  if (!isOpen) return null;
-  return (
-    <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center z-50 p-4 transition-opacity duration-300 ease-in-out">
-      <div className="bg-white/80 dark:bg-slate-800/90 backdrop-blur-sm p-6 sm:p-8 rounded-xl shadow-2xl w-full max-w-lg transform transition-all duration-300 ease-in-out scale-95 opacity-0 animate-modalShow border border-slate-200/80 dark:border-slate-700/70">
-        <div className="flex justify-between items-center mb-6 pb-3 border-b border-slate-300 dark:border-slate-700">
-          <h2 className="text-2xl font-semibold text-slate-800 dark:text-slate-100">
-            {title}
-          </h2>
-          <button
-            onClick={onClose}
-            className="text-slate-400 hover:text-orange-500 dark:text-slate-500 dark:hover:text-orange-400 text-3xl transition-colors rounded-full p-1 leading-none flex items-center justify-center hover:bg-slate-200/70 dark:hover:bg-slate-700/70"
-            aria-label="Close modal"
-          >
-            &times;
-          </button>
-        </div>
-        {children}
-      </div>
-      <style jsx>{` 
-        @keyframes modalShow { 
-          0% { transform: scale(0.95) translateY(20px); opacity: 0; }
-          100% { transform: scale(1) translateY(0); opacity: 1; } 
-        }
-        .animate-modalShow { 
-          animation: modalShow 0.35s cubic-bezier(0.25, 0.8, 0.25, 1) forwards; 
-        }
-      `}</style>
-    </div>
-  );
+  if (!isOpen) return null;
+  return (
+    <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center z-50 p-4 transition-opacity duration-300 ease-in-out">
+      <div className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-md p-6 sm:p-8 rounded-xl shadow-2xl w-full max-w-lg transform transition-all duration-300 ease-in-out scale-95 opacity-0 animate-modalShow border border-slate-200/80 dark:border-slate-700/70">
+        <div className="flex justify-between items-center mb-6 pb-3 border-b border-slate-300 dark:border-slate-700">
+          <h2 className="text-2xl font-semibold text-slate-800 dark:text-slate-100">
+            {title}
+          </h2>
+          <button
+            onClick={onClose}
+            className="text-slate-400 hover:text-orange-500 dark:text-slate-500 dark:hover:text-orange-400 text-3xl transition-colors rounded-full p-1 leading-none flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-700"
+            aria-label="Close modal"
+          >
+            &times;
+          </button>
+        </div>
+        {children}
+      </div>
+      <style jsx global>{`
+        @keyframes modalShow { 
+          0% { transform: scale(0.95) translateY(20px); opacity: 0; }
+          100% { transform: scale(1) translateY(0); opacity: 1; } 
+        }
+        .animate-modalShow { 
+          animation: modalShow 0.35s cubic-bezier(0.25, 0.8, 0.25, 1) forwards; 
+        }
+      `}</style>
+    </div>
+  );
 };
 
 export default function DashboardPage() {
@@ -108,33 +108,33 @@ export default function DashboardPage() {
   const handleAttemptDeleteBook = (bookId: string, bookTitle: string) => { setBookToDelete({id:bookId,title:bookTitle});setDeleteBookError(null);setDeleteBookSuccess(null);setShowDeleteConfirmModal(true);};
   const handleConfirmDeleteBook = async () => { if(!bookToDelete)return;setIsDeletingBook(true);setDeleteBookError(null);setDeleteBookSuccess(null);try{await deleteBook(bookToDelete.id);setBooks(pB=>pB.filter(b=>b.id!==bookToDelete.id));setDeleteBookSuccess(`Book "${bookToDelete.title}" deleted successfully.`);setShowDeleteConfirmModal(false);setBookToDelete(null);setTimeout(()=>setDeleteBookSuccess(null),3000);}catch(e){setDeleteBookError(e instanceof Error?e.message:"Failed to delete book.");}finally{setIsDeletingBook(false);}};
 
-  const GlobalStyles = () => (
-    <style jsx global>{`
-      :root { 
-        --dot-pattern-url: ${lightModeDotPatternUrl}; 
-        --input-bg-light: rgba(255, 255, 255, 0.7); 
-        --input-text-light: #0f172a; 
-        --input-placeholder-light: #94a3b8; 
-        --input-caret-light: #0f172a;
-        --input-bg-dark: rgba(51, 65, 85, 0.8); 
-        --input-text-dark: #ffffff; 
-        --input-placeholder-dark: #64748b; 
-        --input-caret-dark: #ffffff;
-      }
-      html.dark { --dot-pattern-url: ${darkModeDotPatternUrl}; }
+    const GlobalStyles = () => (
+      <style jsx global>{`
+        :root { 
+          --dot-pattern-url: ${lightModeDotPatternUrl}; 
+          --input-bg-light: rgba(255, 255, 255, 0.7); 
+          --input-text-light: #0f172a; 
+          --input-placeholder-light: #94a3b8; 
+          --input-caret-light: #0f172a;
+          --input-bg-dark: rgba(51, 65, 85, 0.8); 
+          --input-text-dark: #ffffff; 
+          --input-placeholder-dark: #64748b; 
+          --input-caret-dark: #ffffff;
+        }
+        html.dark { --dot-pattern-url: ${darkModeDotPatternUrl}; }
 
       .learn-ease-card {
-        background-color: rgba(255, 255, 255, 0.8);
-        backdrop-filter: blur(4px);
-        border-radius: 0.75rem; /* rounded-xl */
-        box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05); /* shadow-lg */
+        background-color: rgba(255, 255, 255, 0.85); /* Light mode default */
+        backdrop-filter: blur(6px); 
+        border-radius: 0.75rem; 
+        box-shadow: 0 10px 15px -3px rgba(0,0,0,0.07), 0 4px 6px -2px rgba(0,0,0,0.05);
         transition: box-shadow 0.3s ease-out, transform 0.3s ease-out;
         border-width: 1px;
-        border-color: rgba(226, 232, 240, 0.8); /* slate-200/80 */
+        border-color: rgba(203, 213, 225, 0.5); /* Light mode border slate-300/50 */
       }
-      html.dark .learn-ease-card {
-        background-color: rgba(30, 41, 59, 0.9); /* dark:bg-slate-800/90 */
-        border-color: rgba(51, 65, 85, 0.7); /* dark:border-slate-700/70 */
+      html.dark .learn-ease-card { /* <--- FOCUS ON THIS RULE */
+        background-color: rgba(30, 41, 59, 0.85); /* Dark mode: slate-800 with 85% opacity */
+        border-color: rgba(51, 65, 85, 0.8); /* Dark mode border: slate-700 with 80% opacity */
       }
       .learn-ease-card-hover:hover {
         box-shadow: 0 6px 20px -3px rgba(249, 115, 22, 0.35), /* Orange part */
@@ -219,7 +219,7 @@ export default function DashboardPage() {
 
       <main className="space-y-8">
         {(!isLoadingCategories || categories.length > 0 || activeFilter !== 'all') && ( 
-          <section className="learn-ease-card learn-ease-card-hover p-6"> {/* Filter card already pulled up by header mb change */}
+          <section className="learn-ease-card learn-ease-card-hover p-6 bg-white dark:bg-red-500"> {/* Filter card already pulled up by header mb change */}
             <h3 className="text-2xl font-semibold text-slate-800 dark:text-slate-100 mb-5">Filter by Category</h3> {/* Increased text size and bottom margin */}
             <div className="flex flex-wrap gap-3 items-center">
               {/* Increased padding, font size, and added text-left to filter buttons */}
