@@ -3,7 +3,6 @@
 import { useEffect, useState, FormEvent, ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import Image from "next/image"; 
 
 import { 
     Category, 
@@ -30,11 +29,6 @@ const SpinnerIcon = ({className = "h-5 w-5 text-white"} : {className?: string}) 
 const ChevronLeftIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" {...props}>
     <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
-  </svg>
-);
-const UserCircleIcon = (props: React.SVGProps<SVGSVGElement>) => (
-  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}>
-    <path strokeLinecap="round" strokeLinejoin="round" d="M17.982 18.725A7.488 7.488 0 0012 15.75a7.488 7.488 0 00-5.982 2.975m11.963 0a9 9 0 10-11.963 0m11.963 0A8.966 8.966 0 0112 21a8.966 8.966 0 01-5.982-2.275M15 9.75a3 3 0 11-6 0 3 3 0 016 0z" />
   </svg>
 );
 const EnvelopeIcon = (props: React.SVGProps<SVGSVGElement>) => (
@@ -85,39 +79,62 @@ const SettingsAppIcon = (props: React.SVGProps<SVGSVGElement>) => (
 );
 
 // --- Standardized Dot Patterns ---
-const lightModeDotPatternUrl = "url(\"data:image/svg+xml,%3Csvg width='15' height='15' viewBox='0 0 15 15' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='15' height='15' fill='none'/%3E%3Ccircle cx='7.5' cy='7.5' r='0.8' fill='%23A0AEC0' fill-opacity='0.3'/%3E%3C/svg%3E\")";
+const lightModeDotPatternUrl = "url(\"data:image/svg+xml,%3Csvg width='15' height='15' viewBox='0 0 15 15' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='15' height='15' fill='none'/%3E%3Ccircle cx='7.5' cy='7.5' r='0.8' fill='%23A0AEC0' fill-opacity='0.5'/%3E%3C/svg%3E\")";
 const darkModeDotPatternUrl = "url(\"data:image/svg+xml,%3Csvg width='15' height='15' viewBox='0 0 15 15' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='15' height='15' fill='none'/%3E%3Ccircle cx='7.5' cy='7.5' r='0.8' fill='%23CBD5E0' fill-opacity='0.15'/%3E%3C/svg%3E\")";
+
+const passwordRequirements = [
+  { id: 'length', text: 'At least 8 characters', regex: /.{8,}/ },
+  { id: 'uppercase', text: 'An uppercase letter (A-Z)', regex: /[A-Z]/ },
+  { id: 'lowercase', text: 'A lowercase letter (a-z)', regex: /[a-z]/ },
+  { id: 'number', text: 'A number (0-9)', regex: /[0-9]/ },
+  { id: 'special', text: 'A special character (e.g., !@#$%)', regex: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/ },
+];
+
+interface PasswordValidationStatus {
+  length: boolean;
+  uppercase: boolean;
+  lowercase: boolean;
+  number: boolean;
+  special: boolean;
+}
 
 // --- Modal component (Styled for Learn-Ease) ---
 interface ModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  children: React.ReactNode;
-  title: string;
+  isOpen: boolean;
+  onClose: () => void;
+  children: React.ReactNode;
+  title: string;
 }
 const Modal: React.FC<ModalProps> = ({ isOpen, onClose, children, title }) => {
-  if (!isOpen) return null;
-  return (
-    <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 transition-opacity duration-300 ease-in-out">
-      <div className="learn-ease-card p-6 sm:p-8 w-full max-w-md transform transition-all duration-300 ease-in-out scale-95 opacity-0 animate-modalShow">
-        <div className="flex justify-between items-center mb-6 pb-3 border-b border-slate-300 dark:border-slate-700">
-          <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100">{title}</h2>
-          <button 
-            onClick={onClose} 
-            className="text-slate-400 hover:text-orange-500 dark:text-slate-500 dark:hover:text-orange-400 text-3xl transition-colors rounded-full p-1 leading-none flex items-center justify-center hover:bg-slate-200/70 dark:hover:bg-slate-700/70"
+  if (!isOpen) return null;
+  return (
+    <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center z-50 p-4 transition-opacity duration-300 ease-in-out">
+      <div className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-md p-6 sm:p-8 rounded-xl shadow-2xl w-full max-w-lg transform transition-all duration-300 ease-in-out scale-95 opacity-0 animate-modalShow border border-slate-200/80 dark:border-slate-700/70">
+        <div className="flex justify-between items-center mb-6 pb-3 border-b border-slate-300 dark:border-slate-700">
+          <h2 className="text-2xl font-semibold text-slate-800 dark:text-slate-100">
+            {title}
+          </h2>
+          <button
+            onClick={onClose}
+            className="text-slate-400 hover:text-orange-500 dark:text-slate-500 dark:hover:text-orange-400 text-3xl transition-colors rounded-full p-1 leading-none flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-700"
             aria-label="Close modal"
           >
             &times;
           </button>
-        </div>
-        {children}
-      </div>
-      <style jsx global>{` 
-        @keyframes settingsModalShow { to { transform: scale(1); opacity: 1; } }
-        .animate-modalShow { transform: scale(0.95); opacity: 0; animation: settingsModalShow 0.3s forwards; }
-      `}</style>
-    </div>
-  );
+        </div>
+        {children}
+      </div>
+      <style jsx global>{`
+        @keyframes modalShow { 
+          0% { transform: scale(0.95) translateY(20px); opacity: 0; }
+          100% { transform: scale(1) translateY(0); opacity: 1; } 
+        }
+        .animate-modalShow { 
+          animation: modalShow 0.35s cubic-bezier(0.25, 0.8, 0.25, 1) forwards; 
+        }
+      `}</style>
+    </div>
+  );
 };
 
 export default function SettingsPage() {
@@ -154,6 +171,15 @@ export default function SettingsPage() {
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [changePasswordError, setChangePasswordError] = useState<string | null>(null);
   const [changePasswordSuccess, setChangePasswordSuccess] = useState<string | null>(null);
+  const [newPasswordValidation, setNewPasswordValidation] = useState<PasswordValidationStatus>({
+    length: false,
+    uppercase: false,
+    lowercase: false,
+    number: false,
+    special: false,
+  });
+  const [isNewPasswordFocused, setIsNewPasswordFocused] = useState(false);
+  const allNewPasswordRequirementsMet = Object.values(newPasswordValidation).every(Boolean);
 
   useEffect(() => {
     setIsClient(true); 
@@ -171,6 +197,18 @@ export default function SettingsPage() {
     }
   }, [isClient, router]);
 
+  useEffect(() => {
+    const newValidationStatus: PasswordValidationStatus = {
+      length: passwordRequirements.find(r => r.id === 'length')!.regex.test(newPassword),
+      uppercase: passwordRequirements.find(r => r.id === 'uppercase')!.regex.test(newPassword),
+      lowercase: passwordRequirements.find(r => r.id === 'lowercase')!.regex.test(newPassword),
+      number: passwordRequirements.find(r => r.id === 'number')!.regex.test(newPassword),
+      special: passwordRequirements.find(r => r.id === 'special')!.regex.test(newPassword),
+    };
+    setNewPasswordValidation(newValidationStatus);
+  }, [newPassword]); // This effect depends on the 'newPassword' state
+
+
   const loadUserProfile = async () => { 
     setErrorProfile(null);
     setIsLoadingProfile(true);
@@ -178,12 +216,12 @@ export default function SettingsPage() {
       const userProfileData = await fetchUserProfile(); 
       setProfile(userProfileData); 
       setEditableProfile({ 
-        firstname: userProfileData.firstname,
-        lastname: userProfileData.lastname,
-        age: userProfileData.age,
-        university_name: userProfileData.university_name,
-        image: userProfileData.image,
-      });
+        firstname: userProfileData.firstname,
+        lastname: userProfileData.lastname,
+        age: userProfileData.age,
+        university_name: userProfileData.university_name,
+      // image property is no longer set here
+      });
     } catch (err: unknown) { 
       setErrorProfile(err instanceof Error ? err.message : "Failed to load profile."); 
     } finally { 
@@ -202,14 +240,21 @@ export default function SettingsPage() {
     setErrorProfile(null); 
     setUpdateProfileSuccess(null);
     try { 
-      const payloadToSend = { ...editableProfile };
-      if (payloadToSend.age === null || payloadToSend.age === undefined || isNaN(payloadToSend.age as number)) {
-        delete payloadToSend.age;
-      } else {
-        payloadToSend.age = Number(payloadToSend.age);
+      const payloadToSend: UserUpdatePayload = {
+          firstname: editableProfile.firstname,
+          lastname: editableProfile.lastname,
+      };
+      if (editableProfile.age !== undefined && editableProfile.age !== null && !isNaN(Number(editableProfile.age))) {
+          payloadToSend.age = Number(editableProfile.age);
       }
-      if (payloadToSend.image === null || payloadToSend.image === "") delete payloadToSend.image;
-
+      if (typeof payloadToSend.age === 'number' && payloadToSend.age < 14) {
+        setErrorProfile("Age must be 14 or above.");
+        setIsUpdatingProfile(false); 
+        return; 
+      }      
+      if (editableProfile.university_name !== undefined) {
+          payloadToSend.university_name = editableProfile.university_name;
+}
       const updatedProfileData = await updateUserProfile(payloadToSend); 
       setProfile(updatedProfileData); 
       setEditableProfile({ 
@@ -217,7 +262,6 @@ export default function SettingsPage() {
         lastname: updatedProfileData.lastname,
         age: updatedProfileData.age,
         university_name: updatedProfileData.university_name,
-        image: updatedProfileData.image,
       });
       setIsEditingProfile(false); 
       setUpdateProfileSuccess("Profile updated successfully!");
@@ -292,6 +336,11 @@ export default function SettingsPage() {
       setChangePasswordError("New passwords do not match.");
       return;
     }
+    if (!allNewPasswordRequirementsMet) {
+      setChangePasswordError("New password does not meet all requirements. Please check the criteria.");
+      setIsNewPasswordFocused(true); // Ensure checklist is visible
+      return;
+    }
     if (newPassword.length < 8 || !/[A-Z]/.test(newPassword) || !/[a-z]/.test(newPassword) || !/[0-9]/.test(newPassword) || !/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/.test(newPassword) ) {
         setChangePasswordError("Password must be at least 8 characters and include uppercase, lowercase, number, and special character.");
         return;
@@ -437,7 +486,7 @@ export default function SettingsPage() {
                   setIsEditingProfile(true); 
                   setErrorProfile(null); 
                   setUpdateProfileSuccess(null);
-                  if (profile) { setEditableProfile({ firstname: profile.firstname, lastname: profile.lastname, age: profile.age, university_name: profile.university_name, image: profile.image }); }
+                  if (profile) { setEditableProfile({ firstname: profile.firstname, lastname: profile.lastname, age: profile.age, university_name: profile.university_name}); }
                 }}
                 className="flex items-center px-4 py-2 bg-gradient-to-r from-orange-500 to-red-500 text-white text-sm font-medium rounded-lg shadow-md hover:from-orange-600 hover:to-red-600 focus:outline-none focus:ring-2 ring-offset-2 dark:ring-offset-slate-800 ring-red-500 transition-all self-start sm:self-center"
               >
@@ -454,13 +503,9 @@ export default function SettingsPage() {
           {profile && !isEditingProfile && (
             <div className="mt-2">
                 <div className="flex flex-col items-center sm:items-start sm:flex-row sm:space-x-6 mb-6">
-                    {profile.image ? (
-                        <Image src={profile.image} alt="Profile" width={100} height={100} className="flex-shrink-0 rounded-full object-cover border-2 border-orange-300 dark:border-orange-500 shadow-md mb-4 sm:mb-0 hover:scale-105 transition-transform" />
-                    ) : (
-                        <div className="w-24 h-24 flex-shrink-0 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-slate-500 dark:text-slate-400 text-3xl font-semibold border-2 border-slate-300 dark:border-slate-600 mb-4 sm:mb-0">
+                    <div className="w-24 h-24 flex-shrink-0 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-slate-500 dark:text-slate-400 text-3xl font-semibold border-2 border-slate-300 dark:border-slate-600 mb-4 sm:mb-0">
                         {profile.firstname?.charAt(0).toUpperCase()}{profile.lastname?.charAt(0).toUpperCase()}
-                        </div>
-                    )}
+                    </div>
                     <div className="text-center sm:text-left pt-2 sm:pt-0">
                         <h3 className="text-2xl font-bold text-slate-800 dark:text-slate-100">
                             {profile.firstname} {profile.lastname}
@@ -512,10 +557,6 @@ export default function SettingsPage() {
                   <label htmlFor="university_name" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">University Name</label>
                   <input type="text" name="university_name" id="university_name" value={editableProfile.university_name || ''} onChange={handleProfileInputChange} className="mt-1 block w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm focus:ring-1 focus:ring-orange-500 focus:border-orange-500 sm:text-sm bg-white/80 dark:bg-slate-700/80 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500" />
                 </div>
-              </div>
-              <div>
-                <label htmlFor="image" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Image URL (Optional)</label>
-                <input type="url" name="image" id="image" value={editableProfile.image || ''} onChange={handleProfileInputChange} placeholder="https://example.com/your-avatar.png" className="mt-1 block w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm focus:ring-1 focus:ring-orange-500 focus:border-orange-500 sm:text-sm bg-white/80 dark:bg-slate-700/80 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500" />
               </div>
               <div className="flex justify-end space-x-3 pt-1">
                 <button type="button" onClick={() => setIsEditingProfile(false)} className="px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 bg-slate-200 hover:bg-slate-300 dark:bg-slate-600 dark:hover:bg-slate-500 rounded-lg transition-colors">Cancel</button>
@@ -589,14 +630,52 @@ export default function SettingsPage() {
               <label htmlFor="currentPassword" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Current Password</label>
               <input type="password" name="currentPassword" id="currentPassword" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm focus:ring-1 focus:ring-orange-500 focus:border-orange-500 sm:text-sm bg-white/80 dark:bg-slate-700/80 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500" required />
             </div>
+            {/* === INSERT THIS BLOCK FOR "NEW PASSWORD" (Single-line attribute format) === */}
             <div>
-              <label htmlFor="newPassword" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">New Password</label>
-              <input type="password" name="newPassword" id="newPassword" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm focus:ring-1 focus:ring-orange-500 focus:border-orange-500 sm:text-sm bg-white/80 dark:bg-slate-700/80 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500" required />
+              <label htmlFor="newPassword" className="block text-sm font-medium text-slate-700 dark:text-slate-300">New Password</label>
+              <div className="relative mt-1"> 
+                <input id="newPassword" name="newPassword" type="password" autoComplete="new-password" required className="block w-full px-4 py-2.5 pr-10 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm focus:ring-1 focus:ring-orange-500 focus:border-orange-500 sm:text-sm bg-white/80 dark:bg-slate-700/80 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500"  value={newPassword} onChange={(e) => setNewPassword(e.target.value)} onFocus={() => setIsNewPasswordFocused(true)} />
+                {/* Show checkmark if all requirements are met for the new password */}
+                {newPassword.length > 0 && allNewPasswordRequirementsMet && ( <span className="absolute inset-y-0 right-0 pr-3 flex items-center text-green-500 dark:text-green-400 pointer-events-none"> <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"> <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /> </svg> </span> )}
+              </div>
             </div>
+
+            {/* Requirements checklist UI, adapted for 'newPassword' state */}
+            {(isNewPasswordFocused || (newPassword.length > 0 && !allNewPasswordRequirementsMet)) && (
+              <div className="mt-2 p-3 bg-slate-100 dark:bg-slate-700/70 rounded-md border border-slate-200 dark:border-slate-600">
+                <p className="text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">New password must include:</p>
+                <ul className="space-y-1">
+                  {passwordRequirements.map(req => ( 
+                    <li key={req.id} className={`flex items-center text-xs ${newPasswordValidation[req.id as keyof PasswordValidationStatus] ? 'text-green-600 dark:text-green-400' : 'text-slate-500 dark:text-slate-400'}`}> 
+                      {newPasswordValidation[req.id as keyof PasswordValidationStatus] ? 
+                        <svg className="w-3.5 h-3.5 mr-1.5 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg> : 
+                        <svg className="w-3.5 h-3.5 mr-1.5 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" /></svg> 
+                      } 
+                      <span>{req.text}</span> 
+                    </li> 
+                  ))}
+                </ul>
+              </div>
+            )}
+            {/* === END OF INSERTED BLOCK === */}
+            {/* === REPLACE your current "Confirm New Password" block with THIS === */}
             <div>
-              <label htmlFor="confirmNewPassword" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Confirm New Password</label>
-              <input type="password" name="confirmNewPassword" id="confirmNewPassword" value={confirmNewPassword} onChange={(e) => setConfirmNewPassword(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm focus:ring-1 focus:ring-orange-500 focus:border-orange-500 sm:text-sm bg-white/80 dark:bg-slate-700/80 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500" required />
+              <label htmlFor="confirmNewPassword" className="block text-sm font-medium text-slate-700 dark:text-slate-300">Confirm New Password</label>
+              <div className="relative mt-1"> 
+                <input id="confirmNewPassword" name="confirmNewPassword" type="password" autoComplete="new-password" required className="mt-1 block w-full px-4 py-2.5 pr-10 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm focus:ring-1 focus:ring-orange-500 focus:border-orange-500 sm:text-sm bg-white/80 dark:bg-slate-700/80 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500" value={confirmNewPassword} onChange={(e) => setConfirmNewPassword(e.target.value)} />
+                {/* Logic to show match/mismatch icon */}
+                {confirmNewPassword.length > 0 && newPassword.length > 0 && ( 
+                  <span className={`absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none ${newPassword === confirmNewPassword ? 'text-green-500 dark:text-green-400' : 'text-red-500 dark:text-red-400'}`}> 
+                    {newPassword === confirmNewPassword ? ( 
+                      <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"> <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /> </svg> 
+                    ) : ( 
+                      <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"> <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clipRule="evenodd" /> </svg> 
+                    )} 
+                  </span> 
+                )}
+              </div>
             </div>
+            {/* === END OF REPLACEMENT BLOCK === */}
             <div className="flex justify-end pt-1">
               <button type="submit" disabled={isChangingPassword} className="flex items-center justify-center px-4 py-2 text-sm bg-gradient-to-r from-orange-500 to-red-500 text-white font-medium rounded-lg shadow-md hover:from-orange-600 hover:to-red-600 focus:outline-none focus:ring-2 ring-offset-2 dark:ring-offset-slate-800 ring-red-500 disabled:opacity-60">
                 {isChangingPassword ? <><SpinnerIcon className="h-4 w-4 mr-2"/>Changing...</> : "Change Password"}
