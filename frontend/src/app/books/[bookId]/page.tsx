@@ -5,12 +5,16 @@ import {
   useState,
   MouseEvent as ReactMouseEvent,
   useCallback,
+  useRef,
 } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Document, Page, pdfjs } from "react-pdf";
 import "react-pdf/dist/esm/Page/AnnotationLayer.css";
 import "react-pdf/dist/esm/Page/TextLayer.css";
+import ReactMarkdown from 'react-markdown';
+import jsPDF from "jspdf";
+
 
 import {
   Book,
@@ -193,6 +197,8 @@ export default function BookViewPage() {
   const router = useRouter();
   const params = useParams();
   const bookId = params.bookId as string;
+  const markdownRef = useRef<HTMLDivElement>(null);
+
 
   const [bookDetails, setBookDetails] = useState<Book | null>(null);
   const [pdfFileUrl, setPdfFileUrl] = useState<string | null>(null);
@@ -280,6 +286,46 @@ export default function BookViewPage() {
     } finally {
       setIsSummarizing(false);
     }
+  };
+
+  const handleExportNotesAsPDF = () => {
+    if (!studyNotes) return;
+
+    const doc = new jsPDF({
+      orientation: "portrait",
+      unit: "pt",
+      format: "a4",
+    });
+
+    const margin = 40;
+    const pageHeight = doc.internal.pageSize.height;
+    const maxWidth = doc.internal.pageSize.width - margin * 2;
+
+    const title = bookDetails?.title || "Study Notes";
+
+    // Title
+    doc.setFontSize(16);
+    doc.setFont("helvetica", "bold");
+    doc.text(title, margin, 40);
+
+    // Text content
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "normal");
+
+    const lines = doc.splitTextToSize(studyNotes, maxWidth);
+
+    let y = 70;
+
+    for (let i = 0; i < lines.length; i++) {
+      if (y > pageHeight - 40) {
+        doc.addPage();
+        y = 40;
+      }
+      doc.text(lines[i], margin, y);
+      y += 18; // Line height
+    }
+
+    doc.save(`${title}.pdf`);
   };
 
   const handleRequestFlashcards = async (textToGenerateFrom: string) => {
@@ -630,15 +676,26 @@ export default function BookViewPage() {
           <p className="text-red-500 dark:text-red-400 p-2 text-sm">{studyNotesError}</p>
         )}
         {!isGeneratingStudyNotes && studyNotes && (
-          <div className="max-h-[70vh] overflow-y-auto p-1 text-sm"> 
-            <pre className="text-slate-700 dark:text-slate-200 whitespace-pre-wrap font-sans">
-              {studyNotes}
-            </pre>
+          <div className="max-h-[70vh] overflow-y-auto p-1 text-sm">
+            <div ref={markdownRef} className="max-h-[70vh] overflow-y-auto p-1 text-sm prose dark:prose-invert">
+              <ReactMarkdown>{studyNotes}</ReactMarkdown>
+            </div>
           </div>
         )}
         {!isGeneratingStudyNotes && !studyNotesError && !studyNotes && (
            <p className="text-slate-500 dark:text-slate-400 p-2">No study notes to display.</p>
         )}
+        {!isGeneratingStudyNotes && studyNotes && (
+          <div className="flex justify-end mt-2 px-2">
+            <button
+              onClick={handleExportNotesAsPDF}
+              className="bg-orange-500 hover:bg-orange-600 text-white text-sm px-3 py-1 rounded"
+            >
+              Export Notes
+            </button>
+          </div>
+        )}
+        
       </Modal>
 
       {/* Footer */}
