@@ -257,7 +257,7 @@ export default function DashboardPage() {
                         <div className="flex-shrink-0 mt-1">
                           <BookOpenHeroIcon className="w-10 h-10 text-orange-500 dark:text-orange-400 opacity-80 group-hover:opacity-100 transition-opacity" />
                         </div>
-                        <div className="flex-grow min-w-0"> {/* min-w-0 for proper truncation */}
+                        <div className="flex-grow min-w-0">
                           <h3 className="text-lg font-semibold text-orange-600 dark:text-orange-400 mb-1 truncate group-hover:text-red-600 dark:group-hover:text-red-500 transition-colors" title={book.title}>
                             {book.title}
                           </h3>
@@ -266,25 +266,22 @@ export default function DashboardPage() {
                               {book.filename}
                             </p>
                           )}
-                          <p className="text-xs text-slate-600 dark:text-slate-300 mb-0">
-                            Category:
-                            <span className="ml-1.5 inline-block font-medium bg-orange-100 dark:bg-orange-900/60 text-orange-700 dark:text-orange-300 px-2.5 py-1 rounded-full">
-                              {getCategoryNameById(book.category_id)}
-                            </span>
-                          </p>
                         </div>
                       </div>
 
                       {/* Action Footer */}
                       <div className="p-4 bg-slate-100/70 dark:bg-slate-700/70 border-t border-slate-200/80 dark:border-slate-600/80 flex flex-col space-y-2.5">
-                        <select 
-                          value={book.category_id || ""} 
-                          onChange={(e) => handleBookCategoryChange(book.id, e.target.value === "" ? null : e.target.value)} 
-                          className="w-full text-xs p-2.5 border border-slate-300 dark:border-slate-600 rounded-md bg-white/80 dark:bg-slate-700/80 text-slate-700 dark:text-slate-200 focus:ring-1 focus:ring-orange-500 focus:border-orange-500 transition-shadow appearance-none"
-                        > 
-                          <option value="">Uncategorized</option> 
-                          {categories.map(cat => (<option key={cat.id} value={cat.id}>{cat.name}</option>))} 
-                        </select>
+                        <div className="flex items-center space-x-2 text-xs text-slate-600 dark:text-slate-300">
+                          <span className="whitespace-nowrap">Category:</span>
+                          <select 
+                            value={book.category_id || ""} 
+                            onChange={(e) => handleBookCategoryChange(book.id, e.target.value === "" ? null : e.target.value)} 
+                            className="flex-grow p-2.5 border border-slate-300 dark:border-slate-600 rounded-md bg-orange-50 dark:bg-orange-900/30 text-slate-700 dark:text-slate-200 focus:ring-1 focus:ring-orange-500 focus:border-orange-500 transition-shadow appearance-none"
+                          > 
+                            <option value="">Uncategorized</option> 
+                            {categories.map(cat => (<option key={cat.id} value={cat.id}>{cat.name}</option>))} 
+                          </select>
+                        </div>
                         <div className="flex items-center space-x-2">
                             <Link href={`/books/${book.id}`} className="flex-grow text-center text-sm px-4 py-2.5 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-md hover:from-orange-600 hover:to-red-600 focus:outline-none focus:ring-2 ring-offset-2 dark:ring-offset-slate-800 ring-red-500 transition-all duration-150 ease-in-out font-medium transform hover:scale-105 active:scale-95">
                                 View Book
