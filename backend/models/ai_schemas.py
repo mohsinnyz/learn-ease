@@ -1,3 +1,4 @@
+# backend/models/ai_schemas.py
 from pydantic import BaseModel, Field
 from typing import List # Ensure List is imported
 
@@ -24,3 +25,15 @@ class TextForStudyNotes(BaseModel):
 
 class StudyNotesResponse(BaseModel):
     study_notes: str = Field(..., description="The generated structured study notes.")
+
+# --- Schemas for Question & Answer Generation ---
+class TextForQuestionAnswer(BaseModel):
+    text_to_generate_from: str = Field(..., min_length=20, description="Text selected by the user to generate questions and answers from.")
+
+class QuestionAnswerPair(BaseModel):
+    question: str = Field(..., description="A generated question from the text.")
+    answer: str = Field(..., description="The corresponding answer to the generated question.")
+
+class QuestionAnswerResponse(BaseModel):
+    qna_pairs: List[QuestionAnswerPair] = Field(..., description="A list of generated question and answer pairs.")
+
