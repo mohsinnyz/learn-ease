@@ -1,20 +1,22 @@
 # learn-ease-fyp/backend/services/ai_service.py
 from transformers import T5ForConditionalGeneration, T5Tokenizer # For summarization
-import torch # For summarization
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM # For Q&A Question Generation
+import torch 
 import json
 import os
-from typing import List, Dict, Any # Added Any for placeholder model/tokenizer types
-from fastapi import HTTPException, status # For raising HTTP exceptions
+import re # For Q&A Question Generation
+from typing import List, Dict, Any 
+from fastapi import HTTPException, status 
 
 # --- Google Gemini API ---
 import google.generativeai as genai
 
 # Import new schemas
-from models.ai_schemas import QuestionAnswerPair # Already have List, Dict from typing
+from models.ai_schemas import QuestionAnswerPair 
 
 # Load configurations from environment variables
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
-GEMINI_MODEL_NAME = os.getenv("GEMINI_MODEL_NAME", "gemini-1.5-flash-latest") # Default if not in .env
+GEMINI_MODEL_NAME = os.getenv("GEMINI_MODEL_NAME", "gemini-1.5-flash-latest") 
 
 if GOOGLE_API_KEY:
     genai.configure(api_key=GOOGLE_API_KEY)
@@ -23,9 +25,9 @@ else:
 
 # --- Summarization Model (existing) ---
 MODEL_NAME_SUMMARIZE = "mohsinnyz/Booksum-Edu"
-tokenizer_summarize: Any = None # Using Any for now
-model_summarize: Any = None # Using Any for now
-device_summarize: Any = None # Using Any for now
+tokenizer_summarize: Any = None 
+model_summarize: Any = None 
+device_summarize: Any = None 
 
 def load_summarization_model():
     global tokenizer_summarize, model_summarize, device_summarize
@@ -53,7 +55,6 @@ if model_summarize is None:
 async def generate_summary(text_to_summarize: str) -> str:
     if not model_summarize or not tokenizer_summarize:
         print("ERROR: AI Service (generate_summary) - Summarization model/tokenizer is not available.")
-        # Consistent error handling: raise HTTPException if service is unavailable
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Summarization service is currently unavailable (model not loaded)."
@@ -89,73 +90,95 @@ async def generate_summary(text_to_summarize: str) -> str:
             detail=f"Error generating summary: {str(e)}"
         )
 
-# --- Question Generation Model (Fine-tuned Hugging Face - Placeholder) ---
-MODEL_NAME_QNA_QUESTIONS = "your-finetuned-qna-question-model-on-hf" # Replace with your actual model name
+# --- Question Generation Model (Fine-tuned Hugging Face - mohsinnyz/Flan-SQuAD) ---
+MODEL_NAME_QNA_QUESTIONS = "mohsinnyz/Flan-SQuAD"
 tokenizer_qna_questions: Any = None
 model_qna_questions: Any = None
 device_qna_questions: Any = None
 
 def load_qna_question_model():
     global tokenizer_qna_questions, model_qna_questions, device_qna_questions
-    # --- THIS IS A PLACEHOLDER ---
-    # Replace this with actual model loading logic for your fine-tuned question generation model
-    # similar to load_summarization_model()
     try:
-        print(f"INFO: AI Service - Attempting to load Q&A Question model '{MODEL_NAME_QNA_QUESTIONS}' (Placeholder)...")
-        # Example:
-        # tokenizer_qna_questions = AutoTokenizer.from_pretrained(MODEL_NAME_QNA_QUESTIONS)
-        # model_qna_questions = AutoModelForSeq2SeqLM.from_pretrained(MODEL_NAME_QNA_QUESTIONS)
-        # device_qna_questions = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        # model_qna_questions.to(device_qna_questions)
-        print(f"INFO: AI Service - Q&A Question model '{MODEL_NAME_QNA_QUESTIONS}' placeholder loaded (SIMULATED).")
-        # For now, let's simulate it's loaded by setting them to a non-None placeholder
-        tokenizer_qna_questions = "simulated_tokenizer"
-        model_qna_questions = "simulated_model"
-        device_qna_questions = "simulated_device"
-
+        print(f"INFO: AI Service - Loading Q&A Question model '{MODEL_NAME_QNA_QUESTIONS}'...")
+        tokenizer_qna_questions = AutoTokenizer.from_pretrained(MODEL_NAME_QNA_QUESTIONS)
+        model_qna_questions = AutoModelForSeq2SeqLM.from_pretrained(MODEL_NAME_QNA_QUESTIONS)
+        device_qna_questions = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        model_qna_questions.to(device_qna_questions)
+        print(f"INFO: AI Service - Q&A Question model '{MODEL_NAME_QNA_QUESTIONS}' loaded successfully on {device_qna_questions}.")
     except Exception as e:
         print(f"ERROR: AI Service - Failed to load Q&A Question model '{MODEL_NAME_QNA_QUESTIONS}': {e}")
         tokenizer_qna_questions = None
         model_qna_questions = None
-        device_qna_questions = None # Ensure it's reset
+        device_qna_questions = None
 
-# Load on startup (or lazily if preferred)
-if model_qna_questions is None:
+if model_qna_questions is None: 
     load_qna_question_model()
 
-async def _generate_questions_from_hf_model(text_content: str, num_questions: int = 3) -> List[str]:
-    """
-    Placeholder function to generate questions using the fine-tuned Hugging Face model.
-    """
+async def _generate_questions_from_hf_model(text_content: str, num_questions: int = 5) -> List[str]:
     if not model_qna_questions or not tokenizer_qna_questions:
         print("ERROR: AI Service (_generate_questions_from_hf_model) - Q&A Question model/tokenizer is not available.")
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Question generation service is currently unavailable (model not loaded)."
+            detail="Question generation service is currently unavailable (HF model not loaded)."
         )
+
+    print(f"INFO: AI Service - Generating questions using Hugging Face model '{MODEL_NAME_QNA_QUESTIONS}'.")
     
-    print(f"INFO: AI Service - Generating questions using Hugging Face model '{MODEL_NAME_QNA_QUESTIONS}' (SIMULATED).")
-    # --- THIS IS A PLACEHOLDER ---
-    # Replace this with actual inference logic using your model_qna_questions and tokenizer_qna_questions
-    # Example of what real logic might look like:
-    # inputs = tokenizer_qna_questions.encode(f"generate questions: {text_content}", return_tensors="pt", max_length=512, truncation=True).to(device_qna_questions)
-    # outputs = model_qna_questions.generate(inputs, num_beams=4, max_length=64, num_return_sequences=num_questions)
-    # questions = [tokenizer_qna_questions.decode(output, skip_special_tokens=True) for output in outputs]
-    # return questions
+    passage_for_prompt = text_content
 
-    # For now, return mock questions
-    mock_questions = [
-        f"What is the main idea of paragraph {i+1} in the provided text?",
-        f"Can you explain concept X mentioned around line { (i+1) * 5}?",
-        f"How does Y relate to Z based on the text (paragraph {i+1})?"
-    ]
-    return mock_questions[:num_questions]
+    question_format_lines = "\n".join([f"{i+1}. <question>?" for i in range(min(num_questions, 5))])
 
+    prompt = f"""
+Generate exactly only {min(num_questions, 5)} distinct and clear questions based ONLY on the passage below.
+Format strictly as a numbered list like this:
+
+{question_format_lines}
+
+Do NOT generate answers or any extra text.
+
+Passage:
+\"\"\"{passage_for_prompt}\"\"\"
+"""
+    try:
+        inputs = tokenizer_qna_questions(prompt, return_tensors="pt", truncation=True, max_length=1024).to(device_qna_questions)
+
+        outputs = model_qna_questions.generate(
+            inputs.input_ids,
+            attention_mask=inputs.attention_mask,
+            max_new_tokens=256,  
+            do_sample=True,
+            temperature=0.7,
+            top_k=50,
+            top_p=0.95,
+            repetition_penalty=1.1,
+            num_return_sequences=1,
+        )
+
+        generated_text = tokenizer_qna_questions.decode(outputs[0], skip_special_tokens=True)
+        
+        print(f"DEBUG: AI Service (_generate_questions_from_hf_model) - Raw Output from HF Q&A Model: {generated_text}")
+
+        questions = re.findall(r"\d+\.\s*(.+?\?)", generated_text)
+
+        seen = set()
+        unique_questions = []
+        for q_text in questions:
+            q_clean = q_text.strip()
+            if q_clean not in seen:
+                seen.add(q_clean)
+                unique_questions.append(q_clean)
+        
+        print(f"DEBUG: AI Service (_generate_questions_from_hf_model) - Extracted {len(unique_questions)} unique questions.")
+        return unique_questions[:num_questions]
+
+    except Exception as e:
+        print(f"ERROR: AI Service - Error during question generation with model {MODEL_NAME_QNA_QUESTIONS}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error generating questions from HF model: {str(e)}"
+        )
 
 async def _generate_answer_with_gemini(question: str, context_text: str) -> str:
-    """
-    Generates an answer for a given question and context using Gemini API.
-    """
     if not GOOGLE_API_KEY:
         print("ERROR: AI Service (_generate_answer_with_gemini) - GOOGLE_API_KEY is not configured.")
         raise HTTPException(
@@ -184,14 +207,13 @@ Answer:"""
         print(f"INFO: AI Service (_generate_answer_with_gemini) - Calling Gemini API ({GEMINI_MODEL_NAME}) for answer.")
         gemini_model = genai.GenerativeModel(GEMINI_MODEL_NAME)
         generation_config = genai.types.GenerationConfig(
-            temperature=0.3, # Slightly more creative for answers but still factual
-            max_output_tokens=256
+            temperature=0.3, 
+            max_output_tokens=256 
         )
 
         if hasattr(gemini_model, 'generate_content_async'):
             response = await gemini_model.generate_content_async(prompt, generation_config=generation_config)
         else:
-            # Fallback for older SDK versions (synchronous call)
             print(f"WARN: AI Service (_generate_answer_with_gemini) - generate_content_async not found. Using synchronous call.")
             response = gemini_model.generate_content(prompt, generation_config=generation_config)
 
@@ -202,14 +224,14 @@ Answer:"""
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                     detail=f"Gemini API call for answer blocked: {response.prompt_feedback.block_reason_message}"
                 )
-            return "The AI could not generate an answer (empty response parts)."
+            return "The AI could not generate an answer (empty response parts from Gemini)."
 
         answer_text = response.text.strip()
         if not answer_text:
-            return "The AI could not formulate an answer based on the provided context."
+            return "The AI could not formulate an answer based on the provided context (empty text from Gemini)."
         return answer_text
 
-    except HTTPException as he: # Re-raise HTTPExceptions
+    except HTTPException as he: 
         raise he
     except Exception as e:
         print(f"ERROR: AI Service (_generate_answer_with_gemini) - Error during Gemini API call: {type(e).__name__} - {e}")
@@ -218,16 +240,13 @@ Answer:"""
             detail=f"An unexpected error occurred while generating an answer with Gemini: {str(e)}"
         )
 
-# --- Main Q&A Generation Service Function ---
 async def generate_qna_from_text(text_to_generate_from: str) -> List[QuestionAnswerPair]:
     if not text_to_generate_from or len(text_to_generate_from.strip()) < 20:
         print("WARN: AI Service (Q&A) - Input text for Q&A is too short.")
-        return [] # Or raise HTTPException(status.HTTP_400_BAD_REQUEST, "Input text too short for Q&A.")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Input text too short for Q&A generation.")
 
     try:
-        # Step 1: Generate questions (using placeholder for your fine-tuned model)
-        # You might want to make num_questions configurable or dynamic
-        generated_questions = await _generate_questions_from_hf_model(text_to_generate_from, num_questions=3)
+        generated_questions = await _generate_questions_from_hf_model(text_to_generate_from, num_questions=5) 
 
         if not generated_questions:
             print("INFO: AI Service (Q&A) - No questions were generated by the HF model.")
@@ -235,13 +254,15 @@ async def generate_qna_from_text(text_to_generate_from: str) -> List[QuestionAns
 
         qna_pairs: List[QuestionAnswerPair] = []
         for question_text in generated_questions:
-            # Step 2: Generate an answer for each question using Gemini
             answer_text = await _generate_answer_with_gemini(question_text, text_to_generate_from)
             qna_pairs.append(QuestionAnswerPair(question=question_text, answer=answer_text))
         
+        if not qna_pairs and generated_questions: 
+             print("WARN: AI Service (Q&A) - Questions were generated, but no Q&A pairs were formed (all answers might have been empty).")
+        
         return qna_pairs
 
-    except HTTPException as he: # Re-raise HTTPExceptions from underlying calls
+    except HTTPException as he: 
         raise he
     except Exception as e:
         print(f"ERROR: AI Service (generate_qna_from_text) - Unexpected error: {type(e).__name__} - {e}")
@@ -249,118 +270,7 @@ async def generate_qna_from_text(text_to_generate_from: str) -> List[QuestionAns
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An unexpected error occurred during Q&A generation."
         )
-
-
-# --- Helper function to call Gemini API and parse JSON list output (for Flashcards) ---
-async def _call_gemini_for_json_list(prompt: str, error_context: str) -> List[Dict[str, str]]:
-    if not GOOGLE_API_KEY:
-        print(f"ERROR: AI Service ({error_context}) - GOOGLE_API_KEY is not configured.")
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"{error_context} service is not configured (API Key missing)."
-        )
-    if not GEMINI_MODEL_NAME:
-        print(f"ERROR: AI Service ({error_context}) - GEMINI_MODEL_NAME is not configured.")
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"{error_context} service is not configured (Model Name missing)."
-        )
-
-    raw_generated_text = ""
-    parsed_data: List[Dict[str,str]] = [] # Ensure it's initialized as list
-
-    try:
-        print(f"INFO: AI Service ({error_context}) - Calling Gemini API ({GEMINI_MODEL_NAME}).")
-        gemini_model = genai.GenerativeModel(GEMINI_MODEL_NAME)
-        generation_config = genai.types.GenerationConfig(
-            temperature=0.2,
-            max_output_tokens=1024
-        )
-
-        if hasattr(gemini_model, 'generate_content_async'):
-            response = await gemini_model.generate_content_async(prompt, generation_config=generation_config)
-        else:
-            print(f"WARN: AI Service ({error_context}) - generate_content_async not found. Using synchronous call.")
-            response = gemini_model.generate_content(prompt, generation_config=generation_config)
-
-        if not response.parts:
-            print(f"ERROR: AI Service ({error_context}) - Gemini API response has no parts. Full response: {response}")
-            if response.prompt_feedback and response.prompt_feedback.block_reason:
-                 raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, # Or 400 if it's a prompt issue
-                    detail=f"Gemini API call blocked for {error_context}: {response.prompt_feedback.block_reason_message}"
-                )
-            return []
-
-        raw_generated_text = response.text.strip()
-        print(f"DEBUG: AI Service ({error_context}) - Gemini API Raw Response Text: {raw_generated_text}")
-
-        cleaned_text = raw_generated_text
-        if cleaned_text.startswith("```json"):
-            cleaned_text = cleaned_text[len("```json"):]
-        elif cleaned_text.startswith("```"):
-            cleaned_text = cleaned_text[len("```"):]
-
-        if cleaned_text.endswith("```"):
-            cleaned_text = cleaned_text[:-len("```")]
-
-        cleaned_text = cleaned_text.strip()
-
-        if not cleaned_text:
-            print(f"ERROR: AI Service ({error_context}) - Content became empty after cleaning attempts.")
-            return []
-
-        print(f"DEBUG: AI Service ({error_context}) - Text after initial cleaning for JSON: '{cleaned_text}'")
-
-        json_string_to_parse = cleaned_text # Default to cleaned_text
-        json_start_index = cleaned_text.find('[')
-        json_end_index = cleaned_text.rfind(']')
-
-        if json_start_index != -1 and json_end_index != -1 and json_end_index > json_start_index:
-            json_string_to_parse = cleaned_text[json_start_index : json_end_index+1]
-            print(f"DEBUG: AI Service ({error_context}) - Extracted JSON string for parsing: '{json_string_to_parse}'")
-        else:
-            print(f"WARN: AI Service ({error_context}) - Could not find clear JSON array [..] in Gemini output. Attempting to parse cleaned string as is: '{cleaned_text}'")
-        
-        parsed_data = json.loads(json_string_to_parse)
-
-        if not isinstance(parsed_data, list):
-            raise ValueError("Parsed data is not a list.")
-
-        validated_items: List[Dict[str,str]] = []
-        for item in parsed_data:
-            if isinstance(item, dict) and "front" in item and "back" in item: # Specific to flashcards
-                validated_items.append({"front": str(item["front"]), "back": str(item["back"])})
-            else:
-                print(f"WARN: AI Service ({error_context}) - Skipping invalid item: {item}")
-
-        if not validated_items and parsed_data: # If original list was not empty but validation yielded nothing
-            raise ValueError("No valid items found after validation, though initial parse was a list.")
-        return validated_items
-
-    except json.JSONDecodeError as e:
-        text_that_failed_parsing = json_string_to_parse if 'json_string_to_parse' in locals() and json_string_to_parse != cleaned_text else cleaned_text
-        print(f"ERROR: AI Service ({error_context}) - Failed to decode JSON. Text attempted for parsing was: '{text_that_failed_parsing}'. Error: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to parse {error_context} data from Gemini API (JSONDecodeError)."
-        )
-    except ValueError as e:
-        print(f"ERROR: AI Service ({error_context}) - Data structure validation failed. Parsed data: {parsed_data}. Error: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"{error_context} data from Gemini API has incorrect structure: {e}"
-        )
-    except HTTPException as he: # Re-raise HTTPExceptions
-        raise he
-    except Exception as e:
-        print(f"ERROR: AI Service ({error_context}) - Error during Gemini API call: {type(e).__name__} - {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"An unexpected error occurred while generating {error_context} with Gemini: {str(e)}"
-        )
-
-
+    
 # --- Flashcard Generation using Gemini ---
 async def generate_flashcards_from_text(text_to_generate_from: str) -> List[Dict[str, str]]:
     if not text_to_generate_from or len(text_to_generate_from.strip()) < 10:
@@ -466,11 +376,123 @@ Text to process:
             return "The AI could not generate study notes from the selected text."
 
         return raw_generated_text_notes
-    except HTTPException as he: # Re-raise HTTPExceptions
+    except HTTPException as he: 
         raise he
     except Exception as e:
         print(f"ERROR: AI Service (Study Notes) - Error during Gemini API call: {type(e).__name__} - {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"An unexpected error occurred while generating study notes with Gemini: {str(e)}"
+        )
+
+# --- Helper function to call Gemini API and parse JSON list output (for Flashcards) ---
+# This function (_call_gemini_for_json_list) remains as previously defined, 
+# as it's used by generate_flashcards_from_text and is not part of the Q&A specific section you wanted to overwrite.
+# If you intended to include it, please clarify. For now, I'm assuming it's outside the overwrite scope.
+async def _call_gemini_for_json_list(prompt: str, error_context: str) -> List[Dict[str, str]]:
+    if not GOOGLE_API_KEY:
+        print(f"ERROR: AI Service ({error_context}) - GOOGLE_API_KEY is not configured.")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"{error_context} service is not configured (API Key missing)."
+        )
+    if not GEMINI_MODEL_NAME:
+        print(f"ERROR: AI Service ({error_context}) - GEMINI_MODEL_NAME is not configured.")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"{error_context} service is not configured (Model Name missing)."
+        )
+
+    raw_generated_text = ""
+    parsed_data: List[Dict[str,str]] = [] 
+
+    try:
+        print(f"INFO: AI Service ({error_context}) - Calling Gemini API ({GEMINI_MODEL_NAME}).")
+        gemini_model = genai.GenerativeModel(GEMINI_MODEL_NAME)
+        generation_config = genai.types.GenerationConfig(
+            temperature=0.2,
+            max_output_tokens=1024
+        )
+
+        if hasattr(gemini_model, 'generate_content_async'):
+            response = await gemini_model.generate_content_async(prompt, generation_config=generation_config)
+        else:
+            print(f"WARN: AI Service ({error_context}) - generate_content_async not found. Using synchronous call.")
+            response = gemini_model.generate_content(prompt, generation_config=generation_config)
+
+        if not response.parts:
+            print(f"ERROR: AI Service ({error_context}) - Gemini API response has no parts. Full response: {response}")
+            if response.prompt_feedback and response.prompt_feedback.block_reason:
+                 raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
+                    detail=f"Gemini API call blocked for {error_context}: {response.prompt_feedback.block_reason_message}"
+                )
+            return []
+
+        raw_generated_text = response.text.strip()
+        print(f"DEBUG: AI Service ({error_context}) - Gemini API Raw Response Text: {raw_generated_text}")
+
+        cleaned_text = raw_generated_text
+        if cleaned_text.startswith("```json"):
+            cleaned_text = cleaned_text[len("```json"):]
+        elif cleaned_text.startswith("```"):
+            cleaned_text = cleaned_text[len("```"):]
+
+        if cleaned_text.endswith("```"):
+            cleaned_text = cleaned_text[:-len("```")]
+
+        cleaned_text = cleaned_text.strip()
+
+        if not cleaned_text:
+            print(f"ERROR: AI Service ({error_context}) - Content became empty after cleaning attempts.")
+            return []
+
+        print(f"DEBUG: AI Service ({error_context}) - Text after initial cleaning for JSON: '{cleaned_text}'")
+
+        json_string_to_parse = cleaned_text 
+        json_start_index = cleaned_text.find('[')
+        json_end_index = cleaned_text.rfind(']')
+
+        if json_start_index != -1 and json_end_index != -1 and json_end_index > json_start_index:
+            json_string_to_parse = cleaned_text[json_start_index : json_end_index+1]
+            print(f"DEBUG: AI Service ({error_context}) - Extracted JSON string for parsing: '{json_string_to_parse}'")
+        else:
+            print(f"WARN: AI Service ({error_context}) - Could not find clear JSON array [..] in Gemini output. Attempting to parse cleaned string as is: '{cleaned_text}'")
+        
+        parsed_data = json.loads(json_string_to_parse)
+
+        if not isinstance(parsed_data, list):
+            raise ValueError("Parsed data is not a list.")
+
+        validated_items: List[Dict[str,str]] = []
+        for item in parsed_data: # This validation part is specific to flashcards, adjust if needed for other JSON list types
+            if isinstance(item, dict) and "front" in item and "back" in item: 
+                validated_items.append({"front": str(item["front"]), "back": str(item["back"])})
+            else:
+                print(f"WARN: AI Service ({error_context}) - Skipping invalid item: {item}")
+
+        if not validated_items and parsed_data: 
+            raise ValueError("No valid items found after validation, though initial parse was a list.")
+        return validated_items
+
+    except json.JSONDecodeError as e:
+        text_that_failed_parsing = json_string_to_parse if 'json_string_to_parse' in locals() and json_string_to_parse != cleaned_text else cleaned_text
+        print(f"ERROR: AI Service ({error_context}) - Failed to decode JSON. Text attempted for parsing was: '{text_that_failed_parsing}'. Error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to parse {error_context} data from Gemini API (JSONDecodeError)."
+        )
+    except ValueError as e: # This catches issues from json.loads if the string is not a valid JSON structure at all, or from our own isinstance checks
+        print(f"ERROR: AI Service ({error_context}) - Data structure validation failed or invalid JSON. Parsed data: {parsed_data if 'parsed_data' in locals() else 'N/A'}. Error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"{error_context} data from Gemini API has incorrect structure or is invalid JSON: {e}"
+        )
+    except HTTPException as he: 
+        raise he
+    except Exception as e:
+        print(f"ERROR: AI Service ({error_context}) - Error during Gemini API call: {type(e).__name__} - {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An unexpected error occurred while generating {error_context} with Gemini: {str(e)}"
         )
