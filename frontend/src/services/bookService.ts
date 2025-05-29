@@ -6,7 +6,7 @@ export interface Book {
   title: string;
   filename: string; 
   upload_date: string;
-  category_id?: string | null; // <<< ADD THIS LINE (optional string or null)
+  category_id?: string | null;
 }
 
 
@@ -20,8 +20,7 @@ export interface SummarizeResponse {
   summary: string;
 }
 
-// --- New Interfaces for Flashcard Generation ---
-export interface Flashcard { // Ensure this is exported
+export interface Flashcard { 
   front: string;
   back: string;
 }
@@ -30,10 +29,21 @@ export interface StudyNotesApiResponse {
   study_notes: string;
 }
 
-export interface FlashcardsApiResponse { // Ensure this is exported
+export interface FlashcardsApiResponse { 
   flashcards: Flashcard[];
 }
-// --- End New Interfaces ---
+
+// --- New Interfaces for Q&A Generation ---
+export interface QuestionAnswerPair {
+    question: string;
+    answer: string;
+}
+
+export interface QnAApiResponse {
+    qna_pairs: QuestionAnswerPair[];
+}
+// --- End New Interfaces for Q&A ---
+
 
 const API_BASE_URL = 'http://localhost:8000';
 
@@ -67,14 +77,13 @@ async function handleApiError(response: Response, defaultErrorMessage: string): 
 }
 
 export async function updateBookCategory(bookId: string, categoryId: string | null): Promise<Book> { 
-  // The backend for updating book category returns the updated BookPublic, which matches our Book interface
   const token = getAuthToken();
   if (!token) {
     throw new Error('Authentication token not found. Please log in again.');
   }
 
   const payload = {
-    category_id: categoryId, // This matches the BookCategoryUpdate Pydantic model on backend
+    category_id: categoryId, 
   };
 
   const response = await fetch(`${API_BASE_URL}/books/${bookId}/category`, {
@@ -89,7 +98,7 @@ export async function updateBookCategory(bookId: string, categoryId: string | nu
   if (!response.ok) {
     await handleApiError(response, 'Failed to update book category.');
   }
-  return response.json() as Promise<Book>; // Assuming the response is the updated Book object
+  return response.json() as Promise<Book>; 
 }
 
 export async function summarizeTextService(text: string): Promise<SummarizeResponse> {
@@ -113,8 +122,7 @@ export async function summarizeTextService(text: string): Promise<SummarizeRespo
   return response.json();
 }
 
-// --- New Function for Flashcard Generation Service ---
-export async function generateFlashcardsService(text: string): Promise<FlashcardsApiResponse> { // Ensure this function is exported
+export async function generateFlashcardsService(text: string): Promise<FlashcardsApiResponse> { 
   const token = getAuthToken();
   if (!token) {
     throw new Error('Authentication token not found. Please log in again.');
@@ -134,7 +142,6 @@ export async function generateFlashcardsService(text: string): Promise<Flashcard
   }
   return response.json() as Promise<FlashcardsApiResponse>; 
 }
-// --- End New Function ---
 
 export async function generateStudyNotesService(text: string): Promise<StudyNotesApiResponse> {
   const token = getAuthToken();
@@ -148,18 +155,39 @@ export async function generateStudyNotesService(text: string): Promise<StudyNote
       'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json',
     },
-    // Key here is "text_to_generate_notes_from" which matches Pydantic model
     body: JSON.stringify({ text_to_generate_notes_from: text }), 
   });
 
   if (!response.ok) {
-    // This error handling was simplified; let's use handleApiError
-    // throw new Error('Failed to generate study notes.'); 
-    await handleApiError(response, 'Failed to generate study notes from the server.'); // Use the consistent error handler
+    await handleApiError(response, 'Failed to generate study notes from the server.'); 
   }
 
-  return await response.json(); // No need for "as Promise<StudyNotesApiResponse>" if handleApiError throws
+  return await response.json(); 
 }
+
+// --- New Function for Q&A Generation Service ---
+export async function generateQnAService(text: string): Promise<QnAApiResponse> {
+    const token = getAuthToken();
+    if (!token) {
+        throw new Error('Authentication token not found. Please log in again.');
+    }
+
+    const response = await fetch(`${API_BASE_URL}/ai/generate-qna`, {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ text_to_generate_from: text }), // Matches TextForQuestionAnswer schema in backend
+    });
+
+    if (!response.ok) {
+        await handleApiError(response, 'Failed to generate Q&A from the server.');
+    }
+    return response.json() as Promise<QnAApiResponse>;
+}
+// --- End New Function for Q&A ---
+
 
 export async function fetchUserBooks(): Promise<Book[]> {
   const token = getAuthToken();
@@ -279,16 +307,9 @@ export async function deleteBook(bookId: string): Promise<void> {
   });
 
   if (!response.ok) {
-    // Status 204 means success but no content, so don't treat as error
     if (response.status === 204) {
-      return; // Successfully deleted
+      return; 
     }
-    // For other errors, use handleApiError
     await handleApiError(response, `Failed to delete book (ID: ${bookId}).`);
   }
-  // If response.ok and not 204 (though DELETE usually is 204 on success),
-  // it implies success without content.
-  // If there was content (e.g. a success message), you could parse it:
-  // return response.json(); 
-  // But for a 204, there's no body.
 }
