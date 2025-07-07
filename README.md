@@ -1,125 +1,123 @@
-# 📘 Learn-Ease: AI-Powered Learning Companion
+# 📘 Learn-Ease: AI-Powered Learning Portal
 
-Learn-Ease is a smart educational platform designed to help students simplify and streamline their study process. By leveraging state-of-the-art Natural Language Processing (NLP) models and modern web technologies, Learn-Ease enables students to upload textbooks and automatically generate study resources like summaries, flashcards, quizzes, and personalized recommendations.
+**Learn-Ease** is your intelligent study companion. It allows students to upload textbooks and automatically generate rich study content such as summaries, notes, flashcards, quizzes, and performance-based recommendations using advanced AI models.
+
+---
+
+## 🗂️ Project Structure
+
+```
+
+LEARN-EASE-FYP/
+├── backend/                 # FastAPI backend
+│   ├── core/               # App configuration and utilities
+│   ├── models/             # Database and Pydantic models
+│   ├── routers/            # API endpoints
+│   ├── services/           # Core logic and integrations (ML models, RAG, etc.)
+│   ├── **pycache**/        # Python cache
+│   ├── venv/               # Virtual environment
+│   ├── main.py             # Entry point (FastAPI app)
+│   └── requirements.txt    # Backend dependencies
+│
+├── frontend/               # Next.js frontend
+│   ├── .next/              # Compiled Next.js build files
+│   ├── node\_modules/       # Dependencies
+│   ├── public/             # Static assets
+│   └── src/                # Frontend components and pages
+│
+├── user-book-files/        # Uploaded user textbooks
+│
+├── .gitignore
+├── README.md               # Project documentation
+├── next.config.ts          # Next.js configuration
+├── tailwind.config.ts      # Tailwind CSS setup
+├── tsconfig.json           # TypeScript config
+├── package.json            # Frontend dependencies
+├── postcss.config.mjs
+└── eslint config files
+
+````
 
 ---
 
 ## 🚀 Features
 
 ### 📚 Course Companion
-- Upload textbooks in PDF format
+- Upload PDF textbooks
 - Automatic text extraction
-- AI-generated **chapter-wise summaries** and **glossaries**
+- AI-powered summaries and glossaries
 
-### ✏️ Study Material Generation
-- **Study Notes**: Generate concise, structured notes using fine-tuned LLaMA 3 models
-- **Flashcards**: Instant flashcard creation for revision
-- **Export Options**: Save and download study materials in multiple formats
+### 📝 Study Material Generator
+- **Study Notes**: Structured notes using fine-tuned LLaMA 3
+- **Flashcards**: Auto-generated key concepts
+- **Download Options** for offline study
 
-### 🧠 Quiz Generation & Evaluation
-- **MCQs & Short Answers** from textbook content
-- Attempt quizzes within the platform
-- **AI-based Evaluation** using Sentence-BERT and Cosine Similarity for short answers
+### 🧠 Quiz Generator & Evaluator
+- MCQ and short-answer quiz generation
+- Quiz attempt interface with instant feedback
+- Semantic answer evaluation using SBERT + cosine similarity
 
-### ❓ Question & Answer Generation
-- Open-ended question generation with AI-suggested answers
+### 💬 AI Mentor
+- Context-aware chatbot trained on uploaded book data
+- LLaMA 3 integration via Hugging Face Inference API
 
-### 📊 Progress Tracking
-- Track quiz performance
-- Visualize strengths and weaknesses
-- Trend analysis using Matplotlib/Seaborn
+### 📊 Progress Tracker
+- Visual performance analysis using Matplotlib / Seaborn
+- Weak concept detection and improvement suggestions
 
 ### 🎯 Personalized Recommendations
-- Identify weak areas
-- Get tailored study suggestions powered by **TensorFlow Recommender**
+- TensorFlow-based recommender system
+- Adaptive learning suggestions
 
-### 🤖 AI Mentor
-- Smart chatbot using **LLaMA 3** to answer context-based book queries
-
-### 👨‍🏫 Collaborative Learning
-- Create or join study groups
-- Post questions and answers in forums
-- Real-time discussions and group notifications
+### 👨‍🏫 Collaborative Learning (Planned)
+- Forum-based Q&A
+- Group creation and interaction
 
 ---
 
-## 🛠️ Tech Stack
-
-### Frontend
-- React.js (with Tailwind CSS)
-- Component-based architecture
+## 🧠 Tech Stack
 
 ### Backend
-- Node.js / Express.js
-- REST APIs
+- **FastAPI** for APIs
+- **Python** for business logic and ML integration
+- **Sentence-BERT, T5, LLaMA 3** for various NLP tasks
+- **MongoDB** (or other DB) for data storage
 
-### AI & ML Models
-- 📄 Summarization: Fine-tuned T5-base on BookSum dataset
-- 🧠 Flashcard Generation: LLaMA 3 via Hugging Face Inference API
-- 🧪 MCQ Generation: BERT trained on RACE/SciQ datasets
-- 📌 QA Evaluation: Sentence-BERT with Cosine Similarity
-- 🎯 Recommender System: TensorFlow Recommender
-- 🤖 Chatbot: LLaMA 3 model (context-aware)
+### Frontend
+- **Next.js + TypeScript**
+- **Tailwind CSS** for UI styling
+- **Axios** for API calls
 
-### Other Tools
-- MongoDB (Database)
+### AI & Model Tools
 - Hugging Face Transformers
-- Google Colab (Model Training)
-- GitHub (Version Control)
+- Google Colab (model fine-tuning)
+- TensorFlow Recommender
 
 ---
 
-## 📂 Project Structure
+## ⚙️ Getting Started
 
-```
-
-Learn-Ease/
-│
-├── frontend/              # React frontend
-│   └── src/components/    # React components like FlashcardPopup, QuizUI, etc.
-│
-├── backend/               # Node.js API backend
-│   └── routes/            # API routes for quiz, summary, flashcards, etc.
-│
-├── models/                # ML models for generation tasks
-│   ├── summarizer/        # T5 fine-tuned summarizer
-│   ├── mcq\_generator/     # BERT-based MCQ generator
-│   └── flashcard\_bot/     # Flashcard LLaMA API logic
-│
-├── notebooks/             # Colab notebooks for training
-│   └── T5\_booksum\_train.ipynb
-│
-└── README.md              # Project documentation
-
-````
+### Prerequisites
+- Node.js & npm
+- Python 3.10+
+- MongoDB (if using)
+- Git
 
 ---
 
-## 📈 Future Enhancements
-- Voice-enabled AI mentor
-- Offline support for flashcards and notes
-- Integration with LMS platforms like Moodle or Google Classroom
-- Adaptive learning based on real-time performance
-
----
-
-## 💡 How to Run the Project
-
-### 1. Clone the Repository
-```bash
-git clone https://github.com/yourusername/learn-ease.git
-cd learn-ease
-````
-
-### 2. Start the Backend Server
+### 🔧 Backend Setup
 
 ```bash
 cd backend
-npm install
-npm start
-```
+python -m venv venv
+source venv/bin/activate  # or venv\Scripts\activate (Windows)
+pip install -r requirements.txt
+uvicorn main:app --reload
+````
 
-### 3. Start the Frontend App
+---
+
+### 💻 Frontend Setup
 
 ```bash
 cd frontend
@@ -129,16 +127,36 @@ npm run dev
 
 ---
 
-## 🤝 Contributors
+## 📈 Model Training (Optional)
 
-* \[Your Name] – Project Lead & AI Developer
-* \[Collaborators (if any)] – Role
+> Colab Notebooks (Not included here)
+
+* `T5_booksum_train.ipynb`
+* `BERT_mcq_generator.ipynb`
+* `flashcard_llama_integration.ipynb`
+
+---
+
+## 🌐 Environment Variables
+
+Create a `.env` file in the `backend/` folder and include:
+
+```
+HUGGINGFACE_API_KEY=your_hf_key
+MONGO_URI=your_mongodb_uri
+...
+```
 
 ---
 
 ## 📜 License
 
-This project is licensed under the MIT License. See the [LICENSE](./LICENSE) file for details.
+This project is licensed under the MIT License.
 
 ---
+
+## 👨‍💻 Developed By
+
+* **Mohsin Niaz** – AI Engineer & Full-Stack Developer
+* \[Talal Amjad]
 
