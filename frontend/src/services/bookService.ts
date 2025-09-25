@@ -44,6 +44,15 @@ export interface QnAApiResponse {
 }
 // --- End New Interfaces for Q&A ---
 
+// --- Glossary Types and Service ---
+export interface GlossaryEntry {
+  word: string;
+  definition: string;
+}
+
+export interface GlossaryApiResponse {
+  glossary: GlossaryEntry[];
+}
 
 const API_BASE_URL = 'http://localhost:8000';
 
@@ -312,4 +321,25 @@ export async function deleteBook(bookId: string): Promise<void> {
     }
     await handleApiError(response, `Failed to delete book (ID: ${bookId}).`);
   }
+}
+
+export async function generateGlossaryService(text: string): Promise<GlossaryApiResponse> {
+  const token = getAuthToken();
+  if (!token) {
+    throw new Error('Authentication token not found. Please log in again.');
+  }
+
+  const response = await fetch(`${API_BASE_URL}/ai/generate-glossary`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ text_to_generate_glossary_from: text }),
+  });
+
+  if (!response.ok) {
+    await handleApiError(response, 'Failed to generate glossary from the server.');
+  }
+  return response.json() as Promise<GlossaryApiResponse>;
 }

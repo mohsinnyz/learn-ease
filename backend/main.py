@@ -1,6 +1,4 @@
-# backend/main.py
 #C:\Users\mohsi\Projects\learn-ease-fyp\backend\main.py
-
 from fastapi import FastAPI, Depends
 from contextlib import asynccontextmanager
 import os

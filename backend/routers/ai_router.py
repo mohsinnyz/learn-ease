@@ -1,5 +1,4 @@
-# learn-ease-fyp/backend/routers/ai_router.py
-#C:\Users\talal\Projects\learn-ease-fyp\backend\routers\ai_router.py
+#C:\Users\mohsi\Projects\learn-ease-fyp\backend\routers\ai_router.py
 
 from fastapi import APIRouter, Depends, HTTPException, status
 # from typing import Annotated # Not used if current_user is only in router dependencies
@@ -12,7 +11,9 @@ from models.ai_schemas import (
     TextForStudyNotes,
     StudyNotesResponse,
     TextForQuestionAnswer, # New import
-    QuestionAnswerResponse # New import
+    QuestionAnswerResponse, # New import
+    TextForGlossary, # Glossary import
+    GlossaryResponse # Glossary import
 )
 from services import ai_service
 from core.security import get_current_user
@@ -107,4 +108,24 @@ async def http_generate_question_answers(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An unexpected error occurred while generating questions and answers."
+        )
+
+# --- New Endpoint for Glossary Generation ---
+@router.post("/generate-glossary", response_model=GlossaryResponse)
+async def http_generate_glossary(
+    request_data: TextForGlossary,
+):
+    """
+    Receives text input and generates a glossary of complex/difficult words and their definitions.
+    """
+    try:
+        glossary_list = await ai_service.generate_glossary_from_text(request_data.text_to_generate_glossary_from)
+        return GlossaryResponse(glossary=glossary_list)
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        print(f"ERROR: /generate-glossary endpoint - Unexpected error: {type(e).__name__} - {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An unexpected error occurred while generating glossary."
         )

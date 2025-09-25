@@ -1,3 +1,4 @@
+//C:\Users\mohsi\Projects\learn-ease-fyp\frontend\src\app\books\[bookId]\page.tsx
 "use client";
 
 import {
@@ -30,6 +31,9 @@ import {
   generateQnAService, // New: Q&A service function
   QuestionAnswerPair, // New: Q&A pair type
   QnAApiResponse,     // New: Q&A API response type
+  generateGlossaryService, // Import the new glossary service
+  GlossaryEntry, // Import glossary type
+  GlossaryApiResponse,
 } from "@/services/bookService";
 
 // --- Icons ---
@@ -244,6 +248,12 @@ export default function BookViewPage() {
   const [showQnAModal, setShowQnAModal] = useState(false);
   // --- End New State for Q&A ---
   
+  // --- Glossary State ---
+  const [glossary, setGlossary] = useState<GlossaryEntry[] | null>(null);
+  const [isGeneratingGlossary, setIsGeneratingGlossary] = useState(false);
+  const [glossaryError, setGlossaryError] = useState<string | null>(null);
+  // --- End Glossary State ---
+  
   useEffect(() => {
     if (typeof window !== "undefined" && !localStorage.getItem("authToken")) {
       router.push("/login?message=Please log in to view books");
@@ -450,6 +460,29 @@ export default function BookViewPage() {
   };
   // --- End New Handler ---
 
+  // --- Glossary Handler ---
+  const handleRequestGlossary = async (textToGenerateFrom: string) => {
+    if (!textToGenerateFrom) {
+      setGlossaryError("No text selected to generate glossary from.");
+      return;
+    }
+    setIsGeneratingGlossary(true);
+    setGlossaryError(null);
+    setGlossary(null);
+    try {
+      const result: GlossaryApiResponse = await generateGlossaryService(textToGenerateFrom);
+      setGlossary(result.glossary);
+      if (!result.glossary || result.glossary.length === 0) {
+        setGlossaryError("No glossary entries could be generated from the selected text.");
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to generate glossary.";
+      setGlossaryError(msg);
+    } finally {
+      setIsGeneratingGlossary(false);
+    }
+  };
+  // --- End Glossary Handler ---
 
   const handleContextMenuAction = (event: ReactMouseEvent<HTMLDivElement>) => {
     event.preventDefault();
@@ -532,262 +565,293 @@ export default function BookViewPage() {
       style={{ backgroundImage: `var(--dot-pattern-url, ${lightModeDotPatternUrl})` }}
     >
       <GlobalStyles />
-      <div className="w-full max-w-5xl mx-auto"> 
-        <div className="mb-3 text-left"> 
-          <Link href="/dashboard" className="inline-flex items-center text-orange-600 dark:text-orange-400 hover:text-red-600 dark:hover:text-red-500 transition-colors group text-sm font-medium py-1">
-            <ChevronLeftIcon className="w-5 h-5 mr-1 transition-transform group-hover:-translate-x-0.5" />
-            Back to Dashboard
-          </Link>
-        </div>
-        
-        <h1 className="text-2xl sm:text-3xl font-bold text-slate-700 dark:text-slate-200 text-left">
-          <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-500 via-red-500 to-red-600">Book</span>
-          <span className="text-slate-800 dark:text-slate-200"> Viewer</span>
-        </h1>
-
-        <div className="mt-2 mb-3 border-b border-slate-300/60 dark:border-slate-700/60 w-full"></div>
-
-        {bookDetails && (
-          <h2 className="text-xl sm:text-2xl font-semibold text-left text-transparent bg-clip-text bg-gradient-to-r from-orange-500 via-red-500 to-red-600 mb-1 truncate" title={bookDetails.title}>
-            {bookDetails.title}
-          </h2>
-        )}
-
-        <div className="mb-3 border-b border-slate-300/60 dark:border-slate-700/60 w-full"></div>
-      </div>
-
-      <div className="learn-ease-card w-full max-w-5xl mx-auto overflow-y-auto max-h-[calc(100vh-18rem)] p-2 sm:p-3 shadow-xl" onContextMenu={handleContextMenuAction} onClick={(e) => e.stopPropagation()}> 
-        <Document 
-          file={pdfFileUrl} 
-          onLoadSuccess={onDocumentLoadSuccess} 
-          onLoadError={(pdfError) => { console.error("PDF Load Error object:", pdfError); setError(`Failed to load PDF: ${pdfError.message || "Unknown PDF loading error"}`); }} 
-          loading={
-            <div className="flex flex-col items-center justify-center h-96 text-slate-600 dark:text-slate-300">
-                <SpinnerIcon className="w-10 h-10 text-orange-500 mb-3"/>
-                Loading PDF document...
+      <div className="w-full max-w-5xl mx-auto flex flex-row gap-4"> {/* Main content row: glossary left, book right */}
+        {/* Glossary Section (Left) */}
+        <aside className="w-72 min-w-[16rem] max-w-xs bg-white/80 dark:bg-slate-800/80 rounded-xl shadow-md p-4 h-fit sticky top-8 self-start border border-orange-200 dark:border-orange-700">
+          <h3 className="text-lg font-bold text-orange-600 dark:text-orange-400 mb-2 flex items-center gap-2">
+            <BookOpenHeroIcon className="w-5 h-5" /> Glossary
+          </h3>
+          {isGeneratingGlossary && (
+            <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300 text-sm mb-2">
+              <SpinnerIcon className="w-5 h-5 text-orange-500" /> Generating glossary...
             </div>
-          } 
-          error={
-            <div className="text-center p-10 text-red-500 dark:text-red-400">
-                Error loading PDF. Please try again or check the file.
+          )}
+          {glossaryError && (
+            <p className="text-red-500 dark:text-red-400 text-xs mb-2">{glossaryError}</p>
+          )}
+          {!isGeneratingGlossary && glossary && glossary.length > 0 && (
+            <ul className="space-y-2">
+              {glossary.map((entry, idx) => (
+                <li key={idx} className="bg-orange-50 dark:bg-orange-900/30 rounded-md p-2 border border-orange-200 dark:border-orange-700">
+                  <span className="font-semibold text-orange-700 dark:text-orange-300">{entry.word}</span>
+                  <span className="text-slate-700 dark:text-slate-200">: {entry.definition}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+          {!isGeneratingGlossary && !glossaryError && (!glossary || glossary.length === 0) && (
+            <p className="text-slate-500 dark:text-slate-400 text-xs">No glossary entries yet. Select text and use the context menu to generate a glossary.</p>
+          )}
+        </aside>
+        {/* Book Viewer Section (Right) */}
+        <div className="flex-1 min-w-0">
+          <div className="w-full max-w-5xl mx-auto"> 
+            <div className="mb-3 text-left"> 
+              <Link href="/dashboard" className="inline-flex items-center text-orange-600 dark:text-orange-400 hover:text-red-600 dark:hover:text-red-500 transition-colors group text-sm font-medium py-1">
+                <ChevronLeftIcon className="w-5 h-5 mr-1 transition-transform group-hover:-translate-x-0.5" />
+                Back to Dashboard
+              </Link>
             </div>
-          }
-        >
-          {numPages && Array.from(new Array(numPages), (el, index) => (
-            <div key={`page_wrapper_${index + 1}`} className="flex justify-center py-1.5 my-0.5">
-              <Page 
-                key={`page_${index + 1}`} 
-                pageNumber={index + 1} 
-                width={calculatedPageWidth} 
-                renderTextLayer={true} 
-                renderAnnotationLayer={true} 
-                className="react-pdf__Page__canvas" 
-                loading={
-                  <div style={{ width: calculatedPageWidth, height: pagePlaceholderHeight }} className="flex items-center justify-center bg-slate-200/70 dark:bg-slate-700/70 text-slate-500 dark:text-slate-400 rounded-md animate-pulse">
-                    Loading page {index + 1} of {numPages}...
-                  </div>
-                } 
-              />
-            </div>
-          ))}
-        </Document>
-      </div>
+            
+            <h1 className="text-2xl sm:text-3xl font-bold text-slate-700 dark:text-slate-200 text-left">
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-500 via-red-500 to-red-600">Book</span>
+              <span className="text-slate-800 dark:text-slate-200"> Viewer</span>
+            </h1>
 
-      {contextMenu.visible && (
-        <div
-          style={{ top: contextMenu.y, left: contextMenu.x, position: 'fixed' }}
-          className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-md border border-slate-300 dark:border-slate-600 rounded-lg shadow-2xl py-1.5 z-[100] w-72" 
-          onClick={(e) => e.stopPropagation()}
-        >
-          {[
-            { label: "Summarize", icon: DocumentTextIcon, action: () => handleRequestSummary(contextMenu.selectedTextContent), shortTextLength: 30 },
-            { label: "Generate Flashcards", icon: LayersIcon, action: () => handleRequestFlashcards(contextMenu.selectedTextContent), shortTextLength: 25 },
-            { label: "Generate Study Notes", icon: LightBulbIcon, action: () => handleRequestStudyNotes(contextMenu.selectedTextContent), shortTextLength: 22 },
-            { label: "Generate Q&A", icon: QuestionMarkCircleIcon, action: () => handleRequestQnA(contextMenu.selectedTextContent), shortTextLength: 28 } // New Q&A item
-          ].map(item => (
-            <button
-              key={item.label}
-              onClick={() => { item.action(); closeContextMenu(); }}
-              className="w-full text-left px-3.5 py-2.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-orange-100 dark:hover:bg-orange-700/30 hover:text-orange-700 dark:hover:text-orange-300 flex items-center space-x-3 transition-colors rounded-md"
+            <div className="mt-2 mb-3 border-b border-slate-300/60 dark:border-slate-700/60 w-full"></div>
+
+            {bookDetails && (
+              <h2 className="text-xl sm:text-2xl font-semibold text-left text-transparent bg-clip-text bg-gradient-to-r from-orange-500 via-red-500 to-red-600 mb-1 truncate" title={bookDetails.title}>
+                {bookDetails.title}
+              </h2>
+            )}
+
+            <div className="mb-3 border-b border-slate-300/60 dark:border-slate-700/60 w-full"></div>
+          </div>
+
+          <div className="learn-ease-card w-full max-w-5xl mx-auto overflow-y-auto max-h-[calc(100vh-18rem)] p-2 sm:p-3 shadow-xl" onContextMenu={handleContextMenuAction} onClick={(e) => e.stopPropagation()}> 
+            <Document 
+              file={pdfFileUrl} 
+              onLoadSuccess={onDocumentLoadSuccess} 
+              onLoadError={(pdfError) => { console.error("PDF Load Error object:", pdfError); setError(`Failed to load PDF: ${pdfError.message || "Unknown PDF loading error"}`); }} 
+              loading={
+                <div className="flex flex-col items-center justify-center h-96 text-slate-600 dark:text-slate-300">
+                    <SpinnerIcon className="w-10 h-10 text-orange-500 mb-3"/>
+                    Loading PDF document...
+                </div>
+              } 
+              error={
+                <div className="text-center p-10 text-red-500 dark:text-red-400">
+                    Error loading PDF. Please try again or check the file.
+                </div>
+              }
             >
-              <item.icon className="w-5 h-5 flex-shrink-0 text-orange-500 dark:text-orange-400 opacity-90" />
-              <span className="truncate">
-                {item.label}: &quot;{contextMenu.selectedTextContent.substring(0, item.shortTextLength)}
-                {contextMenu.selectedTextContent.length > item.shortTextLength ? "..." : ""}&quot;
-              </span>
-            </button>
-          ))}
-        </div>
-      )}
+              {numPages && Array.from(new Array(numPages), (el, index) => (
+                <div key={`page_wrapper_${index + 1}`} className="flex justify-center py-1.5 my-0.5">
+                  <Page 
+                    key={`page_${index + 1}`} 
+                    pageNumber={index + 1} 
+                    width={calculatedPageWidth} 
+                    renderTextLayer={true} 
+                    renderAnnotationLayer={true} 
+                    className="react-pdf__Page__canvas" 
+                    loading={
+                      <div style={{ width: calculatedPageWidth, height: pagePlaceholderHeight }} className="flex items-center justify-center bg-slate-200/70 dark:bg-slate-700/70 text-slate-500 dark:text-slate-400 rounded-md animate-pulse">
+                        Loading page {index + 1} of {numPages}...
+                      </div>
+                    } 
+                  />
+                </div>
+              ))}
+            </Document>
+          </div>
 
-      {/* Modals */}
-      <Modal
-        isOpen={showSummaryModal}
-        onClose={() => setShowSummaryModal(false)}
-        title={summarizeError ? "Summarization Error" : isSummarizing ? "Generating Summary..." : summary ? "Generated Summary" : "Summary"}
-      >
-        {isSummarizing && <div className="text-center py-4"><SpinnerIcon className="w-8 h-8 text-orange-500 mx-auto mb-2" /><p className="text-slate-600 dark:text-slate-300">Please wait, AI is processing...</p></div>}
-        {summarizeError && <p className="text-red-500 dark:text-red-400 p-2 text-sm">{summarizeError}</p>}
-        {summary && !isSummarizing && <div className="max-h-[60vh] overflow-y-auto p-1 text-sm"><pre className="text-slate-700 dark:text-slate-200 whitespace-pre-wrap font-sans">{summary}</pre></div>}
-        {!isSummarizing && !summary && !summarizeError && <p className="text-slate-500 dark:text-slate-400">No summary details to display.</p>}
-      </Modal>
-
-      <Modal
-        isOpen={showFlashcardsModal}
-        onClose={() => setShowFlashcardsModal(false)}
-        title={
-          flashcardsError
-            ? "Flashcard Error"
-            : isGeneratingFlashcards
-            ? "Generating Flashcards..."
-            : flashcards && flashcards.length > 0
-            ? "Generated Flashcards"
-            : "Flashcards"
-        }
-      >
-        <div className="bg-white/80 dark:bg-slate-800/70 rounded-xl p-4 backdrop-blur-sm"> {/* Removed learn-ease-card as Modal already has it */}
-          {isGeneratingFlashcards && (
-            <div className="text-center py-4">
-              <SpinnerIcon className="w-8 h-8 text-orange-500 mx-auto mb-2" />
-              <p className="text-slate-600 dark:text-slate-300">
-                Please wait, AI is creating flashcards...
-              </p>
+          {contextMenu.visible && (
+            <div
+              style={{ top: contextMenu.y, left: contextMenu.x, position: 'fixed' }}
+              className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-md border border-slate-300 dark:border-slate-600 rounded-lg shadow-2xl py-1.5 z-[100] w-72" 
+              onClick={(e) => e.stopPropagation()}
+            >
+              {[
+                { label: "Summarize", icon: DocumentTextIcon, action: () => handleRequestSummary(contextMenu.selectedTextContent), shortTextLength: 30 },
+                { label: "Generate Flashcards", icon: LayersIcon, action: () => handleRequestFlashcards(contextMenu.selectedTextContent), shortTextLength: 25 },
+                { label: "Generate Study Notes", icon: LightBulbIcon, action: () => handleRequestStudyNotes(contextMenu.selectedTextContent), shortTextLength: 22 },
+                { label: "Generate Q&A", icon: QuestionMarkCircleIcon, action: () => handleRequestQnA(contextMenu.selectedTextContent), shortTextLength: 28 },
+                { label: "Generate Glossary", icon: BookOpenHeroIcon, action: () => handleRequestGlossary(contextMenu.selectedTextContent), shortTextLength: 20 }, // Glossary action
+              ].map(item => (
+                <button
+                  key={item.label}
+                  onClick={() => { item.action(); closeContextMenu(); }}
+                  className="w-full text-left px-3.5 py-2.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-orange-100 dark:hover:bg-orange-700/30 hover:text-orange-700 dark:hover:text-orange-300 flex items-center space-x-3 transition-colors rounded-md"
+                >
+                  <item.icon className="w-5 h-5 flex-shrink-0 text-orange-500 dark:text-orange-400 opacity-90" />
+                  <span className="truncate">
+                    {item.label}: &quot;{contextMenu.selectedTextContent.substring(0, item.shortTextLength)}
+                    {contextMenu.selectedTextContent.length > item.shortTextLength ? "..." : ""}&quot;
+                  </span>
+                </button>
+              ))}
             </div>
           )}
 
-          {flashcardsError && (
-            <p className="text-red-500 dark:text-red-400 p-2 text-sm">
-              {flashcardsError}
-            </p>
-          )}
+          {/* Modals */}
+          <Modal
+            isOpen={showSummaryModal}
+            onClose={() => setShowSummaryModal(false)}
+            title={summarizeError ? "Summarization Error" : isSummarizing ? "Generating Summary..." : summary ? "Generated Summary" : "Summary"}
+          >
+            {isSummarizing && <div className="text-center py-4"><SpinnerIcon className="w-8 h-8 text-orange-500 mx-auto mb-2" /><p className="text-slate-600 dark:text-slate-300">Please wait, AI is processing...</p></div>}
+            {summarizeError && <p className="text-red-500 dark:text-red-400 p-2 text-sm">{summarizeError}</p>}
+            {summary && !isSummarizing && <div className="max-h-[60vh] overflow-y-auto p-1 text-sm"><pre className="text-slate-700 dark:text-slate-200 whitespace-pre-wrap font-sans">{summary}</pre></div>}
+            {!isSummarizing && !summary && !summarizeError && <p className="text-slate-500 dark:text-slate-400">No summary details to display.</p>}
+          </Modal>
 
-          {!isGeneratingFlashcards && flashcards && flashcards.length > 0 && (
-            <div className="max-h-[70vh] overflow-y-auto p-2 space-y-4">
-              {flashcards.map((card, index) => {
-                const isFlipped = flippedCards[index];
-                return (
-                  <div
-                    key={index}
-                    className="flip-container w-full h-40 sm:h-44 md:h-48 lg:h-52 xl:h-56" // Dimensions on flip-container
-                  >
-                    <div 
-                        className="learn-ease-card" // Apply learn-ease-card to a static wrapper
-                        style={{width: "100%", height: "100%", position: "relative"}} // Wrapper has dimensions
-                    >
-                        <div className={`flip-inner ${isFlipped ? "flipped" : ""}`}> {/* flip-inner manages rotation */}
-                            {/* Front */}
-                            <div className="flip-front p-4 bg-white/70 dark:bg-slate-700/60 flex flex-col justify-between"> {/* flex flex-col justify-between */}
-                                <div>
-                                    <p className="font-semibold text-orange-600 dark:text-orange-400 mb-1 text-xs uppercase tracking-wider">Front:</p>
-                                    <p className="text-slate-800 dark:text-slate-200 text-sm sm:text-base leading-relaxed overflow-y-auto max-h-[calc(100%-2.5rem)]">{card.front}</p> {/* Text area */}
-                                </div>
-                                <button
-                                    onClick={() => toggleFlip(index)}
-                                    className="mt-auto self-start text-xs bg-orange-500 hover:bg-orange-600 text-white py-1.5 px-3.5 rounded-md shadow-sm transition-colors" // Button at bottom
-                                >
-                                    Flip to Back
-                                </button>
-                            </div>
+          <Modal
+            isOpen={showFlashcardsModal}
+            onClose={() => setShowFlashcardsModal(false)}
+            title={
+              flashcardsError
+                ? "Flashcard Error"
+                : isGeneratingFlashcards
+                ? "Generating Flashcards..."
+                : flashcards && flashcards.length > 0
+                ? "Generated Flashcards"
+                : "Flashcards"
+            }
+          >
+            <div className="bg-white/80 dark:bg-slate-800/70 rounded-xl p-4 backdrop-blur-sm"> {/* Removed learn-ease-card as Modal already has it */}
+              {isGeneratingFlashcards && (
+                <div className="text-center py-4">
+                  <SpinnerIcon className="w-8 h-8 text-orange-500 mx-auto mb-2" />
+                  <p className="text-slate-600 dark:text-slate-300">
+                    Please wait, AI is creating flashcards...
+                  </p>
+                </div>
+              )}
 
-                            {/* Back */}
-                            <div className="flip-back p-4 bg-white/70 dark:bg-slate-700/60 flex flex-col justify-between"> {/* flex flex-col justify-between */}
-                                <div>
-                                    <p className="font-semibold text-orange-600 dark:text-orange-400 mb-1 text-xs uppercase tracking-wider">Back:</p>
-                                    <p className="text-slate-800 dark:text-slate-200 text-sm sm:text-base leading-relaxed overflow-y-auto max-h-[calc(100%-2.5rem)]">{card.back}</p> {/* Text area */}
+              {flashcardsError && (
+                <p className="text-red-500 dark:text-red-400 p-2 text-sm">
+                  {flashcardsError}
+                </p>
+              )}
+
+              {!isGeneratingFlashcards && flashcards && flashcards.length > 0 && (
+                <div className="max-h-[70vh] overflow-y-auto p-2 space-y-4">
+                  {flashcards.map((card, index) => {
+                    const isFlipped = flippedCards[index];
+                    return (
+                      <div
+                        key={index}
+                        className="flip-container w-full h-40 sm:h-44 md:h-48 lg:h-52 xl:h-56" // Dimensions on flip-container
+                      >
+                        <div 
+                            className="learn-ease-card" // Apply learn-ease-card to a static wrapper
+                            style={{width: "100%", height: "100%", position: "relative"}} // Wrapper has dimensions
+                        >
+                            <div className={`flip-inner ${isFlipped ? "flipped" : ""}`}> {/* flip-inner manages rotation */}
+                                {/* Front */}
+                                <div className="flip-front p-4 bg-white/70 dark:bg-slate-700/60 flex flex-col justify-between"> {/* flex flex-col justify-between */}
+                                    <div>
+                                        <p className="font-semibold text-orange-600 dark:text-orange-400 mb-1 text-xs uppercase tracking-wider">Front:</p>
+                                        <p className="text-slate-800 dark:text-slate-200 text-sm sm:text-base leading-relaxed overflow-y-auto max-h-[calc(100%-2.5rem)]">{card.front}</p> {/* Text area */}
+                                    </div>
+                                    <button
+                                        onClick={() => toggleFlip(index)}
+                                        className="mt-auto self-start text-xs bg-orange-500 hover:bg-orange-600 text-white py-1.5 px-3.5 rounded-md shadow-sm transition-colors" // Button at bottom
+                                    >
+                                        Flip to Back
+                                    </button>
                                 </div>
-                                <button
-                                    onClick={() => toggleFlip(index)}
-                                    className="mt-auto self-start text-xs bg-orange-500 hover:bg-orange-600 text-white py-1.5 px-3.5 rounded-md shadow-sm transition-colors" // Button at bottom
-                                >
-                                    Flip to Front
-                                </button>
+
+                                {/* Back */}
+                                <div className="flip-back p-4 bg-white/70 dark:bg-slate-700/60 flex flex-col justify-between"> {/* flex flex-col justify-between */}
+                                    <div>
+                                        <p className="font-semibold text-orange-600 dark:text-orange-400 mb-1 text-xs uppercase tracking-wider">Back:</p>
+                                        <p className="text-slate-800 dark:text-slate-200 text-sm sm:text-base leading-relaxed overflow-y-auto max-h-[calc(100%-2.5rem)]">{card.back}</p> {/* Text area */}
+                                    </div>
+                                    <button
+                                        onClick={() => toggleFlip(index)}
+                                        className="mt-auto self-start text-xs bg-orange-500 hover:bg-orange-600 text-white py-1.5 px-3.5 rounded-md shadow-sm transition-colors" // Button at bottom
+                                    >
+                                        Flip to Front
+                                    </button>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                  </div>
-                );
-              })}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              
+              {!isGeneratingFlashcards &&
+                !flashcardsError &&
+                (!flashcards || flashcards.length === 0) && (
+                  <p className="text-slate-500 dark:text-slate-400 p-2">
+                    No flashcards to display.
+                  </p>
+                )}
             </div>
-          )}
-          
-          {!isGeneratingFlashcards &&
-            !flashcardsError &&
-            (!flashcards || flashcards.length === 0) && (
-              <p className="text-slate-500 dark:text-slate-400 p-2">
-                No flashcards to display.
-              </p>
-            )}
-        </div>
-      </Modal>
+          </Modal>
 
-      <Modal
-        isOpen={showStudyNotesModal}
-        onClose={() => setShowStudyNotesModal(false)}
-        title={studyNotesError ? "Study Notes Error" : isGeneratingStudyNotes ? "Generating Study Notes..." : studyNotes ? "Generated Study Notes" : "Study Notes"}
-      >
-        {isGeneratingStudyNotes && (
-          <div className="text-center py-4">
-            <SpinnerIcon className="w-8 h-8 text-orange-500 mx-auto mb-2" />
-            <p className="text-slate-600 dark:text-slate-300">Please wait, AI is creating study notes...</p>
-          </div>
-        )}
-        {studyNotesError && (
-          <p className="text-red-500 dark:text-red-400 p-2 text-sm">{studyNotesError}</p>
-        )}
-        {!isGeneratingStudyNotes && studyNotes && (
-          <>
-            <div ref={markdownRef} className="max-h-[60vh] overflow-y-auto p-1 text-sm prose dark:prose-invert prose-headings:text-slate-800 dark:prose-headings:text-slate-100 prose-p:text-slate-700 dark:prose-p:text-slate-300 prose-ul:text-slate-700 dark:prose-ul:text-slate-300 prose-li:text-slate-700 dark:prose-li:text-slate-300 prose-strong:text-slate-800 dark:prose-strong:text-slate-200">
-              <ReactMarkdown>{studyNotes}</ReactMarkdown>
-            </div>
-            <div className="flex justify-end mt-4 pt-4 border-t border-slate-300 dark:border-slate-700">
-                <button
-                onClick={handleExportNotesAsPDF}
-                className="bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium px-4 py-2 rounded-md shadow-sm transition-colors"
-                >
-                Export Notes as PDF
-                </button>
-            </div>
-          </>
-        )}
-        {!isGeneratingStudyNotes && !studyNotesError && !studyNotes && (
-           <p className="text-slate-500 dark:text-slate-400 p-2">No study notes to display.</p>
-        )}
-      </Modal>
-
-      {/* New Q&A Modal */}
-      <Modal
-        isOpen={showQnAModal}
-        onClose={() => setShowQnAModal(false)}
-        title={qnaError ? "Q&A Generation Error" : isGeneratingQnA ? "Generating Q&A..." : qnaPairs && qnaPairs.length > 0 ? "Generated Questions & Answers" : "Questions & Answers"}
-      >
-        {isGeneratingQnA && (
-          <div className="text-center py-4">
-            <SpinnerIcon className="w-8 h-8 text-orange-500 mx-auto mb-2" />
-            <p className="text-slate-600 dark:text-slate-300">Please wait, AI is generating questions and answers...</p>
-          </div>
-        )}
-        {qnaError && (
-          <p className="text-red-500 dark:text-red-400 p-2 text-sm">{qnaError}</p>
-        )}
-        {!isGeneratingQnA && qnaPairs && qnaPairs.length > 0 && (
-          <div className="max-h-[70vh] overflow-y-auto p-1 space-y-4 text-sm">
-            {qnaPairs.map((pair, index) => (
-              <div key={index} className="p-3 bg-slate-100/50 dark:bg-slate-700/50 rounded-md shadow-sm">
-                <p className="font-semibold text-orange-600 dark:text-orange-400 mb-1">Question {index + 1}:</p>
-                <p className="text-slate-800 dark:text-slate-200 mb-2">{pair.question}</p>
-                <p className="font-semibold text-sky-600 dark:text-sky-400 mb-1">Answer:</p>
-                <p className="text-slate-700 dark:text-slate-300 whitespace-pre-wrap font-sans">{pair.answer}</p>
+          <Modal
+            isOpen={showStudyNotesModal}
+            onClose={() => setShowStudyNotesModal(false)}
+            title={studyNotesError ? "Study Notes Error" : isGeneratingStudyNotes ? "Generating Study Notes..." : studyNotes ? "Generated Study Notes" : "Study Notes"}
+          >
+            {isGeneratingStudyNotes && (
+              <div className="text-center py-4">
+                <SpinnerIcon className="w-8 h-8 text-orange-500 mx-auto mb-2" />
+                <p className="text-slate-600 dark:text-slate-300">Please wait, AI is creating study notes...</p>
               </div>
-            ))}
-          </div>
-        )}
-        {!isGeneratingQnA && !qnaError && (!qnaPairs || qnaPairs.length === 0) && (
-           <p className="text-slate-500 dark:text-slate-400 p-2">No questions and answers to display.</p>
-        )}
-      </Modal>
-      {/* End New Q&A Modal */}
+            )}
+            {studyNotesError && (
+              <p className="text-red-500 dark:text-red-400 p-2 text-sm">{studyNotesError}</p>
+            )}
+            {!isGeneratingStudyNotes && studyNotes && (
+              <>
+                <div ref={markdownRef} className="max-h-[60vh] overflow-y-auto p-1 text-sm prose dark:prose-invert prose-headings:text-slate-800 dark:prose-headings:text-slate-100 prose-p:text-slate-700 dark:prose-p:text-slate-300 prose-ul:text-slate-700 dark:prose-ul:text-slate-300 prose-li:text-slate-700 dark:prose-li:text-slate-300 prose-strong:text-slate-800 dark:prose-strong:text-slate-200">
+                  <ReactMarkdown>{studyNotes}</ReactMarkdown>
+                </div>
+                <div className="flex justify-end mt-4 pt-4 border-t border-slate-300 dark:border-slate-700">
+                    <button
+                    onClick={handleExportNotesAsPDF}
+                    className="bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium px-4 py-2 rounded-md shadow-sm transition-colors"
+                    >
+                    Export Notes as PDF
+                    </button>
+                </div>
+              </>
+            )}
+            {!isGeneratingStudyNotes && !studyNotesError && !studyNotes && (
+               <p className="text-slate-500 dark:text-slate-400 p-2">No study notes to display.</p>
+            )}
+          </Modal>
 
-
+          {/* New Q&A Modal */}
+          <Modal
+            isOpen={showQnAModal}
+            onClose={() => setShowQnAModal(false)}
+            title={qnaError ? "Q&A Generation Error" : isGeneratingQnA ? "Generating Q&A..." : qnaPairs && qnaPairs.length > 0 ? "Generated Questions & Answers" : "Questions & Answers"}
+          >
+            {isGeneratingQnA && (
+              <div className="text-center py-4">
+                <SpinnerIcon className="w-8 h-8 text-orange-500 mx-auto mb-2" />
+                <p className="text-slate-600 dark:text-slate-300">Please wait, AI is generating questions and answers...</p>
+              </div>
+            )}
+            {qnaError && (
+              <p className="text-red-500 dark:text-red-400 p-2 text-sm">{qnaError}</p>
+            )}
+            {!isGeneratingQnA && qnaPairs && qnaPairs.length > 0 && (
+              <div className="max-h-[70vh] overflow-y-auto p-1 space-y-4 text-sm">
+                {qnaPairs.map((pair, index) => (
+                  <div key={index} className="p-3 bg-slate-100/50 dark:bg-slate-700/50 rounded-md shadow-sm">
+                    <p className="font-semibold text-orange-600 dark:text-orange-400 mb-1">Question {index + 1}:</p>
+                    <p className="text-slate-800 dark:text-slate-200 mb-2">{pair.question}</p>
+                    <p className="font-semibold text-sky-600 dark:text-sky-400 mb-1">Answer:</p>
+                    <p className="text-slate-700 dark:text-slate-300 whitespace-pre-wrap font-sans">{pair.answer}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+            {!isGeneratingQnA && !qnaError && (!qnaPairs || qnaPairs.length === 0) && (
+               <p className="text-slate-500 dark:text-slate-400 p-2">No questions and answers to display.</p>
+            )}
+          </Modal>
+          {/* End New Q&A Modal */}
+        </div>
+      </div>
       <footer className="w-full max-w-5xl mx-auto mt-8 pt-6 border-t border-slate-300/70 dark:border-slate-700/70 text-center">
         <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center justify-center">
           <BookOpenHeroIcon className="w-4 h-4 mr-1.5 opacity-70" />
