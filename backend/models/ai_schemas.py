@@ -37,3 +37,14 @@ class QuestionAnswerPair(BaseModel):
 class QuestionAnswerResponse(BaseModel):
     qna_pairs: List[QuestionAnswerPair] = Field(..., description="A list of generated question and answer pairs.")
 
+# --- Schemas for Glossary Generation ---
+class TextForGlossary(BaseModel):
+    text_to_generate_glossary_from: str = Field(..., min_length=20, description="Text selected by the user to generate a glossary from.")
+
+class GlossaryEntry(BaseModel):
+    word: str = Field(..., description="A complex or difficult word from the text.")
+    definition: str = Field(..., description="The meaning or definition of the word.")
+
+class GlossaryResponse(BaseModel):
+    glossary: List[GlossaryEntry] = Field(..., description="A list of glossary entries (word and definition).")
+
