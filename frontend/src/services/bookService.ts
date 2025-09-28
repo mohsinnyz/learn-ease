@@ -1,4 +1,4 @@
-// frontend/src/services/bookService.ts
+// learn-ease-fyp/frontend/src/services/bookService.ts
 
 // Define the Book interface here
 export interface Book {
@@ -6,6 +6,7 @@ export interface Book {
   title: string;
   filename: string; 
   upload_date: string;
+  status: string; // Keep status for UI updates
   category_id?: string | null;
 }
 
@@ -44,14 +45,11 @@ export interface QnAApiResponse {
 }
 // --- End New Interfaces for Q&A ---
 
-// --- Glossary Types and Service ---
+// --- Glossary Type ---
 export interface GlossaryEntry {
-  word: string;
+  term: string;
   definition: string;
-}
-
-export interface GlossaryApiResponse {
-  glossary: GlossaryEntry[];
+  source: 'context' | 'general';
 }
 
 const API_BASE_URL = 'http://localhost:8000';
@@ -323,23 +321,22 @@ export async function deleteBook(bookId: string): Promise<void> {
   }
 }
 
-export async function generateGlossaryService(text: string): Promise<GlossaryApiResponse> {
+export const fetchGlossaryForPage = async (bookId: string, pageNumber: number): Promise<GlossaryEntry[]> => {
   const token = getAuthToken();
-  if (!token) {
-    throw new Error('Authentication token not found. Please log in again.');
-  }
+  if (!token) throw new Error("Not authenticated");
 
-  const response = await fetch(`${API_BASE_URL}/ai/generate-glossary`, {
-    method: 'POST',
+  // This calls the new endpoint we built
+  const response = await fetch(`${API_BASE_URL}/books/${bookId}/glossary/${pageNumber}`, {
+    method: "GET",
     headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
+      "Authorization": `Bearer ${token}`,
     },
-    body: JSON.stringify({ text_to_generate_glossary_from: text }),
   });
 
   if (!response.ok) {
-    await handleApiError(response, 'Failed to generate glossary from the server.');
+    const errorData = await response.json();
+    throw new Error(errorData.detail || "Failed to fetch glossary");
   }
-  return response.json() as Promise<GlossaryApiResponse>;
-}
+
+  return response.json();
+};

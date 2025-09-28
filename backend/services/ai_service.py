@@ -5,14 +5,18 @@ import torch
 import json
 import os
 import re # For Q&A Question Generation
-from typing import List, Dict, Any 
+from typing import List, Dict, Any, Optional
 from fastapi import HTTPException, status 
+
+import spacy
+import nltk # <<< NEW
+from nltk.corpus import wordnet # <<< NEW
 
 # --- Google Gemini API ---
 import google.generativeai as genai
 
 # Import new schemas
-from models.ai_schemas import QuestionAnswerPair 
+from models.ai_schemas import QuestionAnswerPair, GlossaryTerm
 
 # Load configurations from environment variables
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
@@ -496,3 +500,93 @@ async def _call_gemini_for_json_list(prompt: str, error_context: str) -> List[Di
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"An unexpected error occurred while generating {error_context} with Gemini: {str(e)}"
         )
+    
+nlp: Any = None
+
+def load_glossary_tools():
+    """Loads the SpaCy model and ensures WordNet is available."""
+    global nlp
+    try:
+        # Check if wordnet is downloaded, if not, attempt to download it
+        try:
+            nltk.data.find('corpora/wordnet.zip')
+        except nltk.downloader.DownloadError:
+            print("INFO: AI Service - WordNet corpus not found. Attempting to download...")
+            nltk.download('wordnet')
+            print("INFO: AI Service - WordNet downloaded successfully.")
+
+        print("INFO: AI Service - Loading SpaCy model 'en_core_web_sm'...")
+        nlp = spacy.load("en_core_web_sm")
+        print("INFO: AI Service - SpaCy model loaded.")
+        
+    except Exception as e:
+        print(f"ERROR: AI Service - Failed to load glossary tools: {e}")
+        nlp = None
+
+if nlp is None:
+    load_glossary_tools()
+
+def _find_definition_in_context(term: str, sentence: str) -> Optional[str]:
+    # This helper function remains the same
+    match = re.search(rf"{re.escape(term)}\s*,\s*which\s+(is|are)\s+(.+)", sentence, re.IGNORECASE)
+    if match: return match.group(2).strip(" .")
+    match = re.search(rf"{re.escape(term)}\s+(is|are)\s+defined\s+as\s+(.+)", sentence, re.IGNORECASE)
+    if match: return match.group(2).strip(" .")
+    match = re.search(rf"{re.escape(term)}\s+refers\s+to\s+(.+)", sentence, re.IGNORECASE)
+    if match: return match.group(2).strip(" .")
+    return None
+
+async def generate_glossary_from_text(page_text: str) -> List[GlossaryTerm]:
+    """
+    Generates a list of glossary terms from a single page of text using an offline method.
+    """
+    if not nlp:
+        print("ERROR: AI Service (Glossary) - Glossary tools not loaded.")
+        return []
+
+    if not page_text or len(page_text.strip()) < 50:
+        return []
+
+    doc = nlp(page_text)
+    glossary_terms: List[GlossaryTerm] = []
+    processed_terms = set()
+
+    potential_terms = [ent.text for ent in doc.ents if ent.label_ not in ["DATE", "TIME", "CARDINAL", "MONEY"]]
+    potential_terms.extend([chunk.text for chunk in doc.noun_chunks])
+
+    for term_text in potential_terms:
+        term_clean = term_text.strip().lower()
+
+        if len(term_clean) < 3 or term_clean.isnumeric() or term_clean in processed_terms:
+            continue
+        
+        processed_terms.add(term_clean)
+        definition = None
+        source = None
+
+        for sent in doc.sents:
+            if term_clean in sent.text.lower():
+                definition = _find_definition_in_context(term_clean, sent.text)
+                if definition:
+                    source = "context"
+                    break
+        
+        # --- MODIFIED FALLBACK LOGIC ---
+        if not definition:
+            if len(term_clean.split()) == 1:
+                synsets = wordnet.synsets(term_clean)
+                if synsets:
+                    # Get the definition from the first synset (most common meaning)
+                    definition = synsets[0].definition()
+                    # Capitalize the first letter for better readability
+                    definition = definition[0].upper() + definition[1:]
+                    source = "general"
+        
+        if definition and source:
+            glossary_terms.append(
+                GlossaryTerm(term=term_text.strip(), definition=definition, source=source)
+            )
+            if len(glossary_terms) >= 7:
+                break
+            
+    return glossary_terms
