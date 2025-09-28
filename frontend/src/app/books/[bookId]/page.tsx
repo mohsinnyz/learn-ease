@@ -13,7 +13,9 @@ import { Document, Page, pdfjs } from "react-pdf";
 import "react-pdf/dist/esm/Page/AnnotationLayer.css";
 import "react-pdf/dist/esm/Page/TextLayer.css";
 import ReactMarkdown from 'react-markdown'; // For study notes
-import jsPDF from "jspdf"; // For exporting study notes
+import jsPDF from "jspdf";
+import useSWR from 'swr'; // For exporting study notes
+
 
 
 import {
@@ -30,6 +32,8 @@ import {
   generateQnAService, // New: Q&A service function
   QuestionAnswerPair, // New: Q&A pair type
   QnAApiResponse,     // New: Q&A API response type
+  GlossaryEntry, // <<< ADD THIS
+  fetchGlossaryForPage // <<< AND THIS
 } from "@/services/bookService";
 
 // --- Icons ---
@@ -243,7 +247,25 @@ export default function BookViewPage() {
   const [qnaError, setQnaError] = useState<string | null>(null);
   const [showQnAModal, setShowQnAModal] = useState(false);
   // --- End New State for Q&A ---
+
+  const [currentPageInView, setCurrentPageInView] = useState<number>(1);
   
+  const { 
+    data: autoGlossaryData, 
+    error: autoGlossaryError, 
+    isLoading: isAutoGlossaryLoading 
+  } = useSWR(
+    bookId ? [bookId, currentPageInView] : null,
+    ([id, pageNum]: [string, number]) => fetchGlossaryForPage(id, pageNum)
+  );
+
+  // Add this temporary logger to check if it's working
+  useEffect(() => {
+    if (autoGlossaryData) {
+      console.log(`Glossary data for page ${currentPageInView}:`, autoGlossaryData);
+    }
+  }, [autoGlossaryData, currentPageInView]);  
+
   useEffect(() => {
     if (typeof window !== "undefined" && !localStorage.getItem("authToken")) {
       router.push("/login?message=Please log in to view books");
