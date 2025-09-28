@@ -1,4 +1,5 @@
-# backend/models/ai_schemas.py
+#learn-ease-fyp/backend/models/ai_schemas.py
+
 from pydantic import BaseModel, Field
 from typing import List # Ensure List is imported
 
@@ -41,10 +42,8 @@ class QuestionAnswerResponse(BaseModel):
 class TextForGlossary(BaseModel):
     text_to_generate_glossary_from: str = Field(..., min_length=20, description="Text selected by the user to generate a glossary from.")
 
-class GlossaryEntry(BaseModel):
-    word: str = Field(..., description="A complex or difficult word from the text.")
-    definition: str = Field(..., description="The meaning or definition of the word.")
-
-class GlossaryResponse(BaseModel):
-    glossary: List[GlossaryEntry] = Field(..., description="A list of glossary entries (word and definition).")
+class GlossaryTerm(BaseModel):
+    term: str
+    definition: str
+    source: str # Will be 'context' or 'general'
 

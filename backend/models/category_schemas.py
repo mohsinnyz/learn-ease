@@ -1,4 +1,4 @@
-#C:\Users\mohsi\Projects\learn-ease-fyp\backend\models\category_schemas.py
+#learn-ease-fyp\backend\models\category_schemas.py
 from pydantic import BaseModel, Field, constr
 from typing import Optional
 from datetime import datetime

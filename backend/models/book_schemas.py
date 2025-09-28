@@ -1,10 +1,10 @@
-#C:\Users\mohsi\Projects\learn-ease-fyp\backend\models\book_schemas.py
+#learn-ease-fyp\backend\models\book_schemas.py
 from pydantic import BaseModel, Field
-from typing import Optional, List # Keep List if used elsewhere
+from typing import Optional, List
 from datetime import datetime
 from bson import ObjectId
 
-from .user_schemas import PyObjectId # This should already be there
+from .user_schemas import PyObjectId
 
 class BookBase(BaseModel):
     title: str = Field(..., min_length=1, max_length=255)
@@ -12,18 +12,17 @@ class BookBase(BaseModel):
     content_type: Optional[str] = None
     file_size_bytes: Optional[int] = None
 
-class BookCreateInternal(BookBase): # Data for creating DB entry
+class BookCreateInternal(BookBase):
     user_id: PyObjectId
     stored_filename: str
     file_path_local: str
     extracted_text_path_local: Optional[str] = None
-    category_id: Optional[PyObjectId] = None # <<< NEW FIELD
+    category_id: Optional[PyObjectId] = None
 
 class BookInDB(BookCreateInternal):
     id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
     upload_date: datetime = Field(default_factory=datetime.utcnow)
-    status: str = "processing" 
-    # category_id is inherited from BookCreateInternal <<< ALREADY INCLUDED IF ADDED ABOVE
+    status: str = "processing" # This field is essential for the background task
 
     class Config:
         populate_by_name = True
@@ -38,7 +37,8 @@ class BookPublic(BaseModel): # Data returned to client
     title: str
     filename: Optional[str] = None
     upload_date: str
-    category_id: Optional[str] = None # <<< NEW FIELD
+    category_id: Optional[str] = None
+    status: str # <<< NEW FIELD FOR UI STATUS
 
     @classmethod
     def from_db_model(cls, db_book: BookInDB):
@@ -47,7 +47,8 @@ class BookPublic(BaseModel): # Data returned to client
             title=db_book.title,
             filename=db_book.original_filename,
             upload_date=db_book.upload_date.isoformat(),
-            category_id=str(db_book.category_id) if db_book.category_id else None # <<< UPDATE THIS
+            category_id=str(db_book.category_id) if db_book.category_id else None,
+            status=db_book.status # <<< POPULATE NEW FIELD
         )
 
 # Schema for updating a book's category
