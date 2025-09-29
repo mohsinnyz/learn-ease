@@ -20,7 +20,7 @@ from models.ai_schemas import QuestionAnswerPair, GlossaryTerm
 
 # Load configurations from environment variables
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
-GEMINI_MODEL_NAME = os.getenv("GEMINI_MODEL_NAME", "gemini-1.5-flash-latest") 
+GEMINI_MODEL_NAME = os.getenv("GEMINI_MODEL_NAME", "gemini-pro") 
 
 if GOOGLE_API_KEY:
     genai.configure(api_key=GOOGLE_API_KEY)
