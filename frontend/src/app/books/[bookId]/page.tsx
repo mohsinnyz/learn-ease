@@ -174,7 +174,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, children, title }) => {
   if (!isOpen) return null;
   return (
     <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 transition-opacity duration-300 ease-in-out">
-      <div className="learn-ease-card p-6 sm:p-8 w-full max-w-lg transform transition-all duration-300 ease-in-out opacity-0 animate-bookViewModalShow">
+      <div className="learn-ease-card p-6 sm:p-8 w-full max-w-lg transform transition-all duration-300 ease-in-out">
         <div className="flex justify-between items-center mb-6 pb-3 border-b border-slate-300 dark:border-slate-700">
           <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100">{title}</h2>
           <button 
@@ -331,26 +331,30 @@ export default function BookViewPage() {
     };
   }, [numPages, handleIntersect]);
 
-  const handleRequestSummary = async (textToSummarize: string) => {
-    if (!textToSummarize) {
-      setSummarizeError("No text selected to summarize.");
-      setShowSummaryModal(true);
-      return;
-    }
-    setIsSummarizing(true);
-    setSummarizeError(null);
-    setSummary(null);
-    setShowSummaryModal(true);
-    try {
-      const result: SummarizeResponse = await summarizeTextService(textToSummarize);
-      setSummary(result.summary);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Failed to get summary.";
-      setSummarizeError(msg);
-    } finally {
-      setIsSummarizing(false);
-    }
-  };
+const handleRequestSummary = async (textToSummarize: string) => {
+    if (!textToSummarize) {
+      setSummarizeError("No text selected to summarize.");
+      setShowSummaryModal(true);
+      return;
+    }
+    console.log("1. Starting summary request...");
+    setIsSummarizing(true);
+    setSummarizeError(null);
+    setSummary(null);
+    setShowSummaryModal(true);
+    try {
+      const result: SummarizeResponse = await summarizeTextService(textToSummarize);
+      console.log("2. Received summary from backend:", result.summary);
+      setSummary(result.summary);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to get summary.";
+      console.error("Error during summarization:", msg);
+      setSummarizeError(msg);
+    } finally {
+      setIsSummarizing(false);
+      console.log("3. Summary process finished.");
+    }
+  };
 
   const handleExportNotesAsPDF = () => {
     if (!studyNotes || !markdownRef.current) {
@@ -624,7 +628,7 @@ export default function BookViewPage() {
               {bookDetails.title}
             </h1>
           </div>
-          <div ref={scrollContainerRef} className="rounded-lg shadow-xl overflow-y-auto max-h-[calc(100vh-10rem)] border border-slate-300 dark:border-slate-700">
+          <div ref={scrollContainerRef} className="rounded-lg shadow-xl overflow-y-auto max-h-[calc(100vh-10rem)] border border-slate-300 dark:border-slate-700" onContextMenu={handleContextMenuAction} onClick={(e) => e.stopPropagation()}>
             <Document 
                 file={pdfFileUrl} 
                 onLoadSuccess={onDocumentLoadSuccess} 
@@ -693,7 +697,7 @@ export default function BookViewPage() {
           >
             {isSummarizing && <div className="text-center py-4"><SpinnerIcon className="w-8 h-8 text-orange-500 mx-auto mb-2" /><p className="text-slate-600 dark:text-slate-300">Please wait, AI is processing...</p></div>}
             {summarizeError && <p className="text-red-500 dark:text-red-400 p-2 text-sm">{summarizeError}</p>}
-            {summary && !isSummarizing && <div className="max-h-[60vh] overflow-y-auto p-1 text-sm"><pre className="text-slate-700 dark:text-slate-200 whitespace-pre-wrap font-sans">{summary}</pre></div>}
+            {summary && !isSummarizing && <div className="max-h-[60vh] overflow-y-auto p-1 text-sm"><p className="text-slate-700 dark:text-slate-200 whitespace-pre-wrap font-sans">{summary}</p></div>}
             {!isSummarizing && !summary && !summarizeError && <p className="text-slate-500 dark:text-slate-400">No summary details to display.</p>}
           </Modal>
 
