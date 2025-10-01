@@ -1,6 +1,6 @@
 //learn-ease-fyp\frontend\src\services\authService.ts
 
-const API_BASE_URL = 'http://localhost:8000';
+export const API_BASE_URL = 'http://localhost:8000';
 
 interface SignupData {
   email: string;

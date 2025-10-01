@@ -6,14 +6,13 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 from typing import List, Annotated, Optional
 from pydantic import BaseModel
 import os
-
+from typing import List, Dict # <-- Make sure Dict is included here
 from models.book_schemas import BookPublic, BookCategoryUpdate
 from models.user_schemas import UserInDB
 from services import book_service
 from core.db import get_database
 from core.security import get_current_user
 from models.ai_schemas import GlossaryTerm 
-from typing import List 
 
 router = APIRouter(
     prefix="/books",
@@ -203,3 +202,29 @@ async def api_get_glossary_for_page(
         db=db, book_id=book_db.id, page_number=page_number
     )
     return terms
+
+# Add this endpoint inside backend/routers/book_router.py
+
+@router.get(
+    "/{book_id}/text",
+    response_model=Dict[str, str], # Returns a simple {"text": "..."} object
+    summary="Get the full extracted text of a book"
+)
+async def http_get_book_text(
+    book_id: str,
+    db: AsyncIOMotorDatabase = Depends(get_database),
+    current_user: UserInDB = Depends(get_current_user),
+):
+    """
+    Retrieves the full, pre-extracted text content of a book.
+    This is used by the frontend to parse topics for quiz generation.
+    """
+    if not current_user.id:
+        raise HTTPException(status_code=403, detail="User not authenticated")
+
+    text_content = await book_service.get_book_extracted_text(db, book_id, current_user.id)
+    
+    if text_content is None:
+        raise HTTPException(status_code=404, detail="Book not found or text content not available.")
+        
+    return {"text": text_content}
