@@ -341,19 +341,47 @@ export const fetchGlossaryForPage = async (bookId: string, pageNumber: number): 
   return response.json();
 };
 
-// Add this function inside frontend/src/services/bookService.ts
+export const fetchBookTopics = async (bookId: string): Promise<string[]> => {
+  const token = getAuthToken();
+  if (!token) throw new Error("Authentication token not found.");
 
-export const fetchBookText = async (bookId: string): Promise<{ text: string }> => {
-  const token = localStorage.getItem("authToken");
-  const response = await fetch(`${API_BASE_URL}/books/${bookId}/text`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
+  const response = await fetch(`${API_BASE_URL}/books/${bookId}/topics`, {
+    headers: { Authorization: `Bearer ${token}` },
   });
 
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to fetch book text.");
+    await handleApiError(response, "Failed to fetch book topics.");
   }
   return response.json();
 };
+
+export const fetchTopicContent = async (
+  bookId: string,
+  topicTitles: string[],
+  targetTitle: string
+): Promise<{ content: string }> => {
+  const token = getAuthToken();
+  if (!token) throw new Error("Authentication token not found.");
+
+  const response = await fetch(`${API_BASE_URL}/books/${bookId}/topic-content`, {
+    method: 'POST',
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      topic_titles: topicTitles,
+      target_title: targetTitle,
+    }),
+  });
+
+  if (!response.ok) {
+    await handleApiError(response, "Failed to fetch topic content.");
+  }
+  return response.json();
+};
+
+export interface ChatResponse {
+  answer: string;
+  sources: string[];
+}
