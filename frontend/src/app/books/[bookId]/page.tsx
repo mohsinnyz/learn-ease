@@ -37,6 +37,9 @@ import {
   fetchGlossaryForPage,
 } from "@/services/bookService";
 
+// <<< 1. IMPORT THE NEW CHAT COMPONENT >>>
+import { BookMentorChat } from "@/components/BookMentorChat";
+
 // --- PDF.js Worker Configuration ---
 if (typeof window !== "undefined") {
   pdfjs.GlobalWorkerOptions.workerSrc = `/js/pdf.worker.min.mjs`;
@@ -81,6 +84,9 @@ const BeakerIcon = (props: React.SVGProps<SVGSVGElement>) => (
     <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19 14.5M14.25 3.104c.251.023.501.05.75.082M19 14.5v-5.714m0 0a24.298 24.298 0 00-4.5 0m4.5 0a24.298 24.298 0 01-4.5 0M9 17.25v2.25a2.25 2.25 0 002.25 2.25h1.5a2.25 2.25 0 002.25-2.25v-2.25M15 17.25h-6M9 17.25H5.625a1.125 1.125 0 01-1.125-1.125v-1.5c0-.517.21-1.01.562-1.375L9 11.25m6 0l3.188-2.812a1.125 1.125 0 011.625 1.375v1.5c0 .621-.504 1.125-1.125 1.125H15m-6 0h6" />
   </svg>
 );
+
+// <<< 2. ADD NEW ICON FOR CHAT MENTOR >>>
+const ChatBubbleOvalLeftEllipsisIcon = (props: React.SVGProps<SVGSVGElement>) => (<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}><path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" /></svg>);
 
 
 // --- Standardized Dot Patterns ---
@@ -359,9 +365,9 @@ const handleRequestSummary = async (textToSummarize: string) => {
     }
 
     const doc = new jsPDF({
-        orientation: "portrait",
-        unit: "pt",
-        format: "a4",
+      orientation: "portrait",
+      unit: "pt",
+      format: "a4",
     });
 
     const title = bookDetails?.title ? `Study Notes - ${bookDetails.title}` : "Study Notes";
@@ -532,7 +538,7 @@ const handleRequestSummary = async (textToSummarize: string) => {
     <div style={{ width: calculatedPageWidth, height: pagePlaceholderHeight }} className="flex items-center justify-center bg-slate-200/70 dark:bg-slate-700/70 text-slate-500 dark:text-slate-400 rounded-md animate-pulse">
       Loading page...
     </div>
-  ), [calculatedPageWidth, pagePlaceholderHeight]); 	
+  ), [calculatedPageWidth, pagePlaceholderHeight]);   
 
   if (isLoading) return (
     <div 
@@ -578,8 +584,12 @@ const handleRequestSummary = async (textToSummarize: string) => {
       <GlobalStyles />
       <div className="w-full max-w-7xl mx-auto flex flex-row gap-6">
         
-        {/* Left Panel */}
-        <aside className="w-72 min-w-[16rem] max-w-xs h-fit sticky top-6 self-start space-y-6">
+        {/* <<< 3. UPDATE THE LEFT PANEL WIDTH AND ADD CHAT COMPONENT >>> */}
+        <aside className="w-96 min-w-[22rem] max-w-sm h-fit sticky top-6 self-start space-y-6">
+            
+            {/* AI Mentor Panel */}
+            <BookMentorChat bookId={bookId} ChatIcon={ChatBubbleOvalLeftEllipsisIcon} />
+
             {/* Glossary Panel */}
             <div className="bg-white/80 dark:bg-slate-800/80 rounded-xl shadow-md p-4 border border-slate-200 dark:border-slate-700">
                 <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200 mb-3 pb-3 border-b border-slate-300 dark:border-slate-700 flex items-center gap-2">
@@ -591,7 +601,8 @@ const handleRequestSummary = async (textToSummarize: string) => {
                         Page {currentPageInView}
                     </span>
                 </h3>
-                <div className="max-h-[calc(100vh-24rem)] overflow-y-auto pr-2">
+                {/* Glossary Height reduced to accommodate Chat Mentor */}
+                <div className="max-h-[25vh] overflow-y-auto pr-2">
                     {isGlossaryLoading && ( <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300 text-sm"><SpinnerIcon className="w-5 h-5 text-orange-500" /> Loading...</div> )}
                     {glossaryError && ( <p className="text-red-500 dark:text-red-400 text-sm">Error: {glossaryError.message}</p> )}
                     {!isGlossaryLoading && glossaryData && glossaryData.length > 0 && (
@@ -609,7 +620,7 @@ const handleRequestSummary = async (textToSummarize: string) => {
                 </div>
             </div>
 
-            {/* --- MODIFICATION: ADDED QUIZ PANEL --- */}
+            {/* --- MODIFICATION: QUIZ PANEL --- */}
             <div className="bg-white/80 dark:bg-slate-800/80 rounded-xl shadow-md p-4 border border-slate-200 dark:border-slate-700">
                 <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200 mb-3 pb-3 border-b border-slate-300 dark:border-slate-700 flex items-center gap-2">
                     <BeakerIcon className="w-6 h-6 text-orange-500" />

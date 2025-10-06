@@ -1,4 +1,3 @@
-#learn-ease-fyp\backend\core\config.py
 import os
 from dotenv import load_dotenv
 
@@ -17,9 +16,11 @@ PROJECT_ROOT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 
 BOOK_SUBPATH_FROM_ROOT = os.getenv("LOCAL_BOOK_UPLOAD_DIR_SUBPATH", "user-book-files/books")
 TEXT_SUBPATH_FROM_ROOT = os.getenv("LOCAL_EXTRACTED_TEXT_DIR_SUBPATH", "user-book-files/extracted-texts")
+VECTOR_STORE_SUBPATH_FROM_ROOT = os.getenv("LOCAL_VECTOR_STORE_DIR_SUBPATH", "user-book-files/vector-stores") # <<< ADD THIS
 
 LOCAL_BOOK_UPLOAD_DIR = os.path.join(PROJECT_ROOT_DIR, BOOK_SUBPATH_FROM_ROOT)
 LOCAL_EXTRACTED_TEXT_DIR = os.path.join(PROJECT_ROOT_DIR, TEXT_SUBPATH_FROM_ROOT)
+LOCAL_VECTOR_STORE_DIR = os.path.join(PROJECT_ROOT_DIR, VECTOR_STORE_SUBPATH_FROM_ROOT) # <<< AND THIS
 
 # Basic check
 if not MONGO_DATABASE_URL:

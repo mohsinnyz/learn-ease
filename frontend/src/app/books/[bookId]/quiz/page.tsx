@@ -1,10 +1,11 @@
 // frontend/src/app/books/[bookId]/quiz/page.tsx
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useRouter, notFound } from "next/navigation";
 import Link from "next/link";
-import { fetchBookText } from "@/services/bookService";
+// --- MODIFICATION: Import the new service functions ---
+import { fetchBookTopics, fetchTopicContent } from "@/services/bookService";
 import {
   generateQuizService,
   evaluateQuizService,
@@ -13,30 +14,6 @@ import {
   QuizEvaluationResponse,
 } from "@/services/quizService";
 
-// --- Helper function to parse topics from text ---
-const parseTopics = (text: string): { title: string; content: string }[] => {
-    // This regex looks for patterns like "Chapter 1", "Introduction", "Section A.", etc.
-    const topicRegex = /^(Chapter\s+\d+|Part\s+[A-Z\d]+|Section\s+[A-Z\d]+|Introduction|Conclusion|Appendix\s*\w*)\s*[:.\n]/gim;
-    const parts = text.split(topicRegex);
-    
-    if (parts.length <= 1) {
-        // If no topics found, treat the whole book as one topic
-        return [{ title: "Full Document", content: text }];
-    }
-
-    const topics: { title: string; content: string }[] = [];
-    for (let i = 1; i < parts.length; i += 2) {
-        const title = parts[i].trim();
-        const content = (parts[i + 1] || "").trim();
-        // Only add topics with substantial content
-        if (content.length > 500) { // at least 500 characters
-            topics.push({ title, content });
-        }
-    }
-    return topics.length > 0 ? topics : [{ title: "Full Document", content: text }];
-};
-
-
 // --- Icons ---
 const SpinnerIcon = () => ( <svg className="animate-spin h-8 w-8 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>);
 const ChevronLeftIcon = (props: React.SVGProps<SVGSVGElement>) => ( <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" {...props}><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" /></svg>);
@@ -44,46 +21,49 @@ const ChevronLeftIcon = (props: React.SVGProps<SVGSVGElement>) => ( <svg xmlns="
 
 export default function QuizPage() {
   const params = useParams();
-  const router = useRouter();
   const bookId = params.bookId as string;
 
-  // State management for the different phases of the quiz
   const [quizPhase, setQuizPhase] = useState<"loading_topics" | "topic_selection" | "generating" | "in_progress" | "evaluating" | "results">("loading_topics");
   const [error, setError] = useState<string | null>(null);
   
-  // Data states
-  const [topics, setTopics] = useState<{ title: string; content: string }[]>([]);
-  const [selectedTopic, setSelectedTopic] = useState<{ title: string; content: string } | null>(null);
+  // --- MODIFICATION: Updated state to handle the new two-step flow ---
+  const [topicTitles, setTopicTitles] = useState<string[]>([]);
+  const [selectedTopicTitle, setSelectedTopicTitle] = useState<string | null>(null);
   const [generatedQuiz, setGeneratedQuiz] = useState<GeneratedQuiz | null>(null);
   const [userAnswers, setUserAnswers] = useState<string[]>([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [evaluationResult, setEvaluationResult] = useState<QuizEvaluationResponse | null>(null);
 
-  // Effect to fetch book text and parse topics on component mount
+  // --- MODIFICATION: useEffect now only fetches the topic titles ---
   useEffect(() => {
     if (!bookId) return;
     
     const loadTopics = async () => {
       try {
-        const { text } = await fetchBookText(bookId);
-        const parsed = parseTopics(text);
-        setTopics(parsed);
+        const titles = await fetchBookTopics(bookId);
+        setTopicTitles(titles);
         setQuizPhase("topic_selection");
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load book content.");
-        setQuizPhase("topic_selection"); // Still show the page, but with an error
+        setQuizPhase("topic_selection");
       }
     };
     loadTopics();
   }, [bookId]);
 
-  // Handler for when a user selects a topic to start the quiz
-  const handleTopicSelect = async (topic: { title: string; content: string }) => {
-    setSelectedTopic(topic);
+  // --- MODIFICATION: handleTopicSelect now fetches content on demand ---
+  const handleTopicSelect = async (title: string) => {
+    setSelectedTopicTitle(title);
     setQuizPhase("generating");
     setError(null);
     try {
-      const quiz = await generateQuizService(topic.content);
+      // Step 1: Fetch the content for the selected topic
+      const { content } = await fetchTopicContent(bookId, topicTitles, title);
+
+      // Step 2: Generate the quiz using that content
+      const quiz = await generateQuizService(content);
+
+      // Step 3: Set up the quiz state
       setGeneratedQuiz(quiz);
       setUserAnswers(new Array(quiz.questions.length).fill(""));
       setCurrentQuestionIndex(0);
@@ -94,9 +74,8 @@ export default function QuizPage() {
     }
   };
 
-  // Handler for submitting the completed quiz for evaluation
   const handleSubmitQuiz = async () => {
-    if (!generatedQuiz || !selectedTopic) return;
+    if (!generatedQuiz || !selectedTopicTitle) return;
     
     setQuizPhase("evaluating");
     setError(null);
@@ -111,19 +90,19 @@ export default function QuizPage() {
             generatedQuiz.quiz_id,
             attemptedAnswers,
             bookId,
-            selectedTopic.title
+            selectedTopicTitle
         );
         setEvaluationResult(result);
         setQuizPhase("results");
     } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to evaluate quiz.");
-        setQuizPhase("in_progress"); // Go back to the quiz to let them try again
+        setQuizPhase("in_progress");
     }
   };
 
   const handleRestart = () => {
     setQuizPhase("topic_selection");
-    setSelectedTopic(null);
+    setSelectedTopicTitle(null);
     setGeneratedQuiz(null);
     setEvaluationResult(null);
     setError(null);
@@ -133,12 +112,10 @@ export default function QuizPage() {
     notFound();
   }
 
-  // --- Render different UI based on the current quiz phase ---
-
   const renderContent = () => {
     switch (quizPhase) {
       case "loading_topics":
-        return <div className="text-center"><SpinnerIcon /> <p className="mt-4">Loading topics...</p></div>;
+        return <div className="text-center"><SpinnerIcon /> <p className="mt-4">Analyzing book structure...</p></div>;
       
       case "topic_selection":
         return (
@@ -146,16 +123,13 @@ export default function QuizPage() {
             <h2 className="text-2xl font-bold mb-4">Select a Topic to Start Quiz</h2>
             {error && <p className="text-red-400 bg-red-900/50 p-3 rounded-md mb-4">{error}</p>}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {topics.map((topic, index) => (
+              {topicTitles.map((title, index) => (
                 <button
                   key={index}
-                  onClick={() => handleTopicSelect(topic)}
+                  onClick={() => handleTopicSelect(title)}
                   className="p-6 bg-slate-700/50 hover:bg-slate-600/70 rounded-lg shadow-lg text-left transition-all hover:scale-105"
                 >
-                  <h3 className="font-semibold text-lg text-orange-400">{topic.title}</h3>
-                  <p className="text-sm text-slate-400 mt-2">
-                    {topic.content.substring(0, 100)}...
-                  </p>
+                  <h3 className="font-semibold text-lg text-orange-400">{title}</h3>
                 </button>
               ))}
             </div>
@@ -163,7 +137,7 @@ export default function QuizPage() {
         );
 
       case "generating":
-        return <div className="text-center"><SpinnerIcon /> <p className="mt-4">Generating your quiz, please wait...</p></div>;
+        return <div className="text-center"><SpinnerIcon /> <p className="mt-4">Fetching topic and generating your quiz...</p></div>;
 
       case "in_progress":
         if (!generatedQuiz) return <p>Something went wrong.</p>;
@@ -217,7 +191,7 @@ export default function QuizPage() {
         return (
             <div className="w-full max-w-3xl mx-auto">
                 <h2 className="text-3xl font-bold text-center mb-2">Quiz Results</h2>
-                <p className="text-center text-slate-400 mb-6">Topic: {selectedTopic?.title}</p>
+                <p className="text-center text-slate-400 mb-6">Topic: {selectedTopicTitle}</p>
                 <div className="text-center bg-slate-800/70 p-6 rounded-lg mb-8">
                     <p className="text-lg text-slate-300">Your Score</p>
                     <p className="text-6xl font-bold text-orange-400 my-2">{scorePercentage}%</p>

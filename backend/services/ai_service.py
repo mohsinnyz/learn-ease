@@ -8,12 +8,14 @@ import os
 import re
 from typing import List, Dict, Any, Optional
 from fastapi import HTTPException, status 
-
-# --- New Imports for Quiz Evaluation ---
+from langchain_groq import ChatGroq
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.runnables import RunnablePassthrough
+from . import vector_service
 from sentence_transformers import SentenceTransformer
 import numpy as np
 from scipy.spatial.distance import cosine
-
 import spacy
 import nltk
 from nltk.corpus import wordnet
@@ -152,15 +154,17 @@ Generate EXACTLY {num_questions} unique question-answer pairs based ONLY on the 
 
 ### Instructions:
 1.  **Question:** Must be an open-ended question that requires a short, factual answer.
-2.  **Correct Answer:** Must be a concise, precise, short phrase or sentence directly answering the question based on the text. This will be used for vector comparison.
-3.  **Explanation:** Must be a brief, one-sentence explanation providing context or detail for the correct answer.
-4.  **Format:** Output STRICTLY as a JSON array of objects. Do NOT include any code block syntax (e.g., ```json) or any introductory/explanatory text outside the array.
+2.  **Correct Answer:** Must be a **complete but concise sentence** that fully answers the question. For example, instead of just 'Routers', the answer should be 'The nodes in a graph represent routers.' This creates a fair target for vector comparison.
+3.  **Acceptable Answer Variants:** Provide a JSON array of 2-3 alternative, concise phrases that are also correct. These will be used to evaluate differently phrased user answers. For example, if the main answer is 'A logically centralized controller,' a variant could be 'An SDN controller'
+4.  **Explanation:** Must be a brief, one-sentence explanation providing context or detail for the correct answer.
+5.  **Format:** Output STRICTLY as a JSON array of objects. Do NOT include any code block syntax (e.g., ```json) or any introductory/explanatory text outside the array.
 
 ### JSON Structure:
 [
   {{
     "question_text": "...",
     "correct_answer": "...",
+    "answer_variants": ["...", "..."],
     "explanation": "..."
   }},
   ... ({num_questions} items)
@@ -179,6 +183,7 @@ Generate EXACTLY {num_questions} unique question-answer pairs based ONLY on the 
             questions.append(QuizQuestion(
                 question_text=item['question_text'],
                 correct_answer=item['correct_answer'],
+                answer_variants=item['answer_variants'],
                 explanation=item['explanation']
             ))
         except (KeyError, ValueError) as e:
@@ -193,6 +198,8 @@ Generate EXACTLY {num_questions} unique question-answer pairs based ONLY on the 
     return GeneratedQuiz(quiz_id=quiz_id, questions=questions)
 
 
+# backend/services/ai_service.py
+
 # =========================================================================
 # --- CORE QUIZ EVALUATION (Module 4) ---
 # =========================================================================
@@ -201,11 +208,11 @@ async def evaluate_quiz_attempt(
     request: QuizEvaluationRequest, 
     generated_quiz: GeneratedQuiz,
     db: AsyncIOMotorDatabase, # For DB storage
-    user_id: ObjectId         # For DB storage
+    user_id: ObjectId        # For DB storage
 ) -> QuizEvaluationResponse:
     """
     Evaluates the user's short-answer quiz attempt using cosine similarity of embeddings
-    and saves the result to the DB, providing the explanation (FE-3).
+    and saves the result to the DB, providing the explanation.
     """
     if not embedding_model:
         raise HTTPException(
@@ -235,18 +242,27 @@ async def evaluate_quiz_attempt(
         
         similarity_score = 0.0
         
+        # --- INTEGRATED LOGIC TO CHECK ALL ANSWER VARIANTS ---
         try:
-            # 3. Get embeddings for both answers
+            # 3. Get user answer embedding once
             user_embedding = get_sentence_embedding(user_answer)
-            correct_embedding = get_sentence_embedding(correct_answer)
+
+            # Create a list of all possible correct answers
+            all_correct_answers = [correct_answer] + ai_question.answer_variants
             
-            # 4. Calculate Cosine Similarity (1 - cosine distance)
-            if user_answer and correct_answer:
-                cos_distance = cosine(user_embedding, correct_embedding)
-                similarity_score = 1.0 - cos_distance
-            else:
-                similarity_score = 0.0 
+            highest_score = 0.0
             
+            # 4. Loop through all correct answers and find the best match
+            for answer_text in all_correct_answers:
+                if user_answer and answer_text:
+                    correct_embedding = get_sentence_embedding(answer_text.strip())
+                    cos_distance = cosine(user_embedding, correct_embedding)
+                    current_score = 1.0 - cos_distance
+                    
+                    if current_score > highest_score:
+                        highest_score = current_score
+            
+            similarity_score = highest_score
             # Clamp score between 0.0 and 1.0
             similarity_score = max(0.0, min(1.0, similarity_score))
 
@@ -270,16 +286,17 @@ async def evaluate_quiz_attempt(
     if num_evaluated_questions == 0:
         avg_score = 0.0
     else:
-        # Sum of 10 similarity scores divided by 10 (as per plan)
+        # Sum of similarity scores divided by number of questions
         avg_score = total_similarity_score / num_evaluated_questions 
     
-    # 7. Determine Grade
+    # 7. Determine Grade (Using your updated, more lenient scale)
     def get_grade(score: float) -> str:
-        if score >= 0.90: return "Excellent (A+)"
-        if score >= 0.80: return "Very Good (A)"
-        if score >= 0.70: return "Good (B+)"
-        if score >= 0.60: return "Fair (B)"
-        if score >= 0.50: return "Needs Improvement (C)"
+        if score >= 0.75: return "Excellent (A+)"
+        if score >= 0.70: return "Very Good (A)"
+        if score >= 0.60: return "Good (B+)"
+        if score >= 0.50: return "Fair (B)"
+        if score >= 0.40: return "Average (C+)"
+        if score >= 0.35: return "Needs Improvement (C)"
         return "Poor (D)"
 
     final_response = QuizEvaluationResponse(
@@ -836,3 +853,159 @@ async def generate_glossary_from_text(page_text: str) -> List[GlossaryTerm]:
                 break
             
     return glossary_terms
+
+
+
+
+# Import ALL relevant schemas
+from models.ai_schemas import (
+    QuestionAnswerPair, GlossaryTerm,
+    QuizGenerationRequest, GeneratedQuiz, QuizQuestion, 
+    QuizEvaluationRequest, QuizEvaluationResponse, EvaluatedQuestionResult,
+    ChatRequest, ChatResponse # <<< Add new chat schemas
+)
+
+# ... (rest of the file until after GEMINI configuration)
+
+# --- Groq Llama3 Configuration for RAG Chat ---
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+if not GROQ_API_KEY:
+    print("WARNING: GROQ_API_KEY not found in environment. AI Mentor feature will not work.")
+    chat_model = None
+else:
+    try:
+        chat_model = ChatGroq(temperature=0, model_name="llama-3.3-70b-versatile", api_key=GROQ_API_KEY)
+        print("INFO: Groq Llama3 chat model loaded successfully.")
+    except Exception as e:
+        print(f"ERROR: Failed to load Groq chat model: {e}")
+        chat_model = None
+
+# =========================================================================
+# --- RAG CHAT FOR AI MENTOR (Module 8) ---
+# =========================================================================
+
+async def get_rag_answer(book_id: str, query: str) -> ChatResponse:
+    """
+    Handles a user's query using the RAG pipeline for a specific book.
+    """
+    if not chat_model:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="AI Mentor service is currently unavailable (Chat model not loaded)."
+        )
+
+    # 1. Retrieve relevant context from the vector store
+    # This is a synchronous call, but FastAPI will run it in a thread pool
+    relevant_docs = vector_service.search_in_vector_store(book_id, query)
+
+    if not relevant_docs:
+        # If no context is found, provide a graceful fallback response
+        return ChatResponse(
+            answer="I couldn't find any information about that in this book. Please try rephrasing your question or asking something else.",
+            sources=[]
+        )
+
+    # 2. Format the retrieved documents into a context string
+    context_string = "\n\n---\n\n".join([doc.page_content for doc in relevant_docs])
+    source_chunks = [doc.page_content for doc in relevant_docs]
+
+    # 3. Define the prompt template
+    template = """
+
+    You are an expert AI assistant, the 'Book Mentor'. Your primary goal is to answer the user's QUESTION based *only* on the provided CONTEXT.
+
+    **Instructions:**
+    1. Synthesize a direct and helpful answer from the CONTEXT.
+    2. Do not use any external knowledge. Your world is limited to the CONTEXT provided.
+    3. If the CONTEXT does not contain enough information to fully answer the QUESTION, do the following:
+       - First, provide whatever partial answer you *can* form from the text.
+       - Then, in a single, concluding sentence, state that the context does not provide further details or a complete comparison.
+    4. **Do not repeat** that the information is missing from the context for every point you make. State it only once at the very end, and only if necessary.
+    5. Be concise and clear.
+
+    CONTEXT:
+    {context}
+
+    QUESTION:
+    {question}
+
+    ANSWER:
+    """
+    prompt = ChatPromptTemplate.from_template(template)
+    
+    # 4. Create and invoke the RAG chain
+    try:
+        rag_chain = (
+            {"context": lambda x: context_string, "question": RunnablePassthrough()}
+            | prompt
+            | chat_model
+            | StrOutputParser()
+        )
+        
+        # We pass the original query to the chain
+        answer = rag_chain.invoke(query)
+        
+        return ChatResponse(answer=answer, sources=source_chunks)
+
+    except Exception as e:
+        print(f"ERROR: AI Service (RAG Chain) - An error occurred: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An unexpected error occurred while generating the chat response."
+        )
+
+# Add this entire function to backend/services/ai_service.py
+
+async def generate_topic_titles_from_text(full_text: str) -> List[str]:
+    """
+    Uses an LLM to intelligently parse a book's Table of Contents and extract
+    only the main topic titles.
+    """
+    text_sample = full_text[:15000]
+
+    prompt = f"""
+You are an expert document analyst specializing in parsing a book's Table of Contents (ToC).
+Your task is to analyze the provided ToC text and extract the titles of the main sections.
+
+### Instructions:
+1.  Read the ToC and identify the main sections and their titles.
+2.  You must extract only the primary section levels (e.g., `1.1`, `1.2`, `2.1`).
+3.  **IGNORE** all subsections (e.g., `1.1.1`, `1.1.2`, `1.2.1`).
+4.  Include the section number in the title (e.g., "1.1 What Is the Internet?").
+5.  Do not include page numbers.
+6.  The output must be a clean JSON array of strings. Do not include any extra text or markdown.
+
+### JSON Structure Example:
+[
+  "1.1 What Is the Internet?",
+  "1.2 The Network Edge",
+  "1.3 The Network Core"
+]
+
+### Table of Contents Text to Analyze:
+---
+{text_sample}
+---
+"""
+    try:
+        gemini_model = genai.GenerativeModel(GEMINI_MODEL_NAME)
+        response = await gemini_model.generate_content_async(prompt)
+        
+        cleaned_text = response.text.strip().replace("```json", "").replace("```", "").strip()
+        
+        json_start_index = cleaned_text.find('[')
+        json_end_index = cleaned_text.rfind(']')
+
+        if json_start_index != -1 and json_end_index != -1:
+            json_string = cleaned_text[json_start_index : json_end_index + 1]
+            topic_titles = json.loads(json_string)
+            if isinstance(topic_titles, list) and all(isinstance(t, str) for t in topic_titles):
+                return topic_titles
+
+        # Fallback if AI parsing or JSON loading fails
+        return ["Full Document"]
+
+    except Exception as e:
+        print(f"ERROR: AI Service (Topic Title Generation) - Failed: {e}")
+        # Provide a safe fallback in case of any error
+        return ["Full Document"]

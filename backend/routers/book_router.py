@@ -1,5 +1,4 @@
 #learn-ease-fyp\backend\routers\book_router.py
-
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status, Path, Form, BackgroundTasks # <<< 1. IMPORT
 from fastapi.responses import FileResponse
 from motor.motor_asyncio import AsyncIOMotorDatabase
@@ -9,7 +8,7 @@ import os
 from typing import List, Dict # <-- Make sure Dict is included here
 from models.book_schemas import BookPublic, BookCategoryUpdate
 from models.user_schemas import UserInDB
-from services import book_service
+from services import book_service, ai_service
 from core.db import get_database
 from core.security import get_current_user
 from models.ai_schemas import GlossaryTerm 
@@ -228,3 +227,85 @@ async def http_get_book_text(
         raise HTTPException(status_code=404, detail="Book not found or text content not available.")
         
     return {"text": text_content}
+
+# Define a Pydantic model for the new request body
+class TopicContentRequest(BaseModel):
+    topic_titles: List[str]
+    target_title: str
+
+
+@router.post(
+    "/{book_id}/topic-content",
+    response_model=Dict[str, str],
+    summary="Get content for a single topic without an LLM call"
+)
+async def http_get_topic_content(
+    book_id: str,
+    request: TopicContentRequest,
+    db: AsyncIOMotorDatabase = Depends(get_database),
+    current_user: UserInDB = Depends(get_current_user),
+):
+    """
+    Retrieves the text content for a single, user-selected topic.
+    This is token-free.
+    """
+    full_text = await book_service.get_book_extracted_text(db, book_id, current_user.id)
+    if not full_text:
+        raise HTTPException(status_code=404, detail="Book text content not found.")
+
+    # This calls the non-AI helper function in book_service
+    content = book_service.get_content_for_topic(full_text, request.topic_titles, request.target_title)
+    
+    if content is None:
+        raise HTTPException(status_code=404, detail="Could not find content for the specified topic.")
+        
+    return {"content": content}
+
+
+# In backend/routers/book_router.py
+
+# ... (other imports remain the same)
+
+# FIND THIS EXISTING ENDPOINT:
+@router.get(
+    "/{book_id}/topics",
+    response_model=List[str],
+    summary="Get parsed topic titles for a book" # Summary is more accurate now
+)
+async def http_get_book_topic_titles(
+    book_id: str,
+    db: AsyncIOMotorDatabase = Depends(get_database),
+    current_user: UserInDB = Depends(get_current_user),
+):
+    """
+    Retrieves a list of main topic titles from the book's Table of Contents
+    by directly parsing the PDF.
+    """
+    # --- OLD LOGIC TO BE REPLACED ---
+    # full_text = await book_service.get_book_extracted_text(db, book_id, current_user.id)
+    # if not full_text:
+    #     raise HTTPException(status_code=404, detail="Book text content not found.")
+    # titles = await ai_service.generate_topic_titles_from_text(full_text)
+    # return titles
+
+    # +++ NEW, EFFICIENT LOGIC +++
+    try:
+        if not current_user.id:
+             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User not authenticated")
+
+        titles = await book_service.extract_topics_from_pdf(
+            db=db, book_id_str=book_id, user_id=current_user.id
+        )
+        if not titles:
+            # You can decide what to do here. Maybe return a helpful message
+            # or just an empty list. For now, an empty list is fine.
+            print(f"WARN: No topics found for book {book_id}. The PDF may not have a standard ToC.")
+
+        return titles
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except Exception as e:
+        print(f"ERROR: Failed to get topics for book {book_id}: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to extract topics from the book.")
+
+# ... (the rest of the file)
