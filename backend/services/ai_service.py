@@ -1,31 +1,313 @@
 # learn-ease-fyp/backend/services/ai_service.py
-from transformers import T5ForConditionalGeneration, T5Tokenizer # For summarization
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM # For Q&A Question Generation
+
+from transformers import T5ForConditionalGeneration, T5Tokenizer
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 import torch 
 import json
 import os
-import re # For Q&A Question Generation
+import re
 from typing import List, Dict, Any, Optional
 from fastapi import HTTPException, status 
 
+# --- New Imports for Quiz Evaluation ---
+from sentence_transformers import SentenceTransformer
+import numpy as np
+from scipy.spatial.distance import cosine
+
 import spacy
-import nltk # <<< NEW
-from nltk.corpus import wordnet # <<< NEW
+import nltk
+from nltk.corpus import wordnet
 
 # --- Google Gemini API ---
 import google.generativeai as genai
 
-# Import new schemas
-from models.ai_schemas import QuestionAnswerPair, GlossaryTerm
+# --- MODIFICATION: ADDED IMPORTS FOR DB STORAGE ---
+from motor.motor_asyncio import AsyncIOMotorDatabase
+from bson import ObjectId
+from . import quiz_service
+
+# Import ALL relevant schemas
+from models.ai_schemas import (
+    QuestionAnswerPair, GlossaryTerm,
+    QuizGenerationRequest, GeneratedQuiz, QuizQuestion, 
+    QuizEvaluationRequest, QuizEvaluationResponse, EvaluatedQuestionResult
+)
 
 # Load configurations from environment variables
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 GEMINI_MODEL_NAME = os.getenv("GEMINI_MODEL_NAME", "gemini-pro") 
 
+# --- New Configuration for Embeddings (Required for Evaluation) ---
+EMBEDDING_MODEL_NAME = os.getenv("EMBEDDING_MODEL_NAME", "all-MiniLM-L6-v2") 
+
 if GOOGLE_API_KEY:
     genai.configure(api_key=GOOGLE_API_KEY)
 else:
-    print("WARNING: GOOGLE_API_KEY not found in environment. AI generation features (Flashcards, Study Notes, Q&A Answers) will not work.")
+    print("WARNING: GOOGLE_API_KEY not found in environment. AI generation features will be limited.")
+
+
+# =========================================================================
+# --- EMBEDDING MODEL (For Quiz Evaluation - Module 4) ---
+# =========================================================================
+embedding_model: Optional[SentenceTransformer] = None
+
+def load_embedding_model():
+    """Loads the Sentence Transformer model for generating vector embeddings."""
+    global embedding_model
+    try:
+        print(f"INFO: AI Service - Loading embedding model '{EMBEDDING_MODEL_NAME}'...")
+        embedding_model = SentenceTransformer(EMBEDDING_MODEL_NAME)
+        print(f"INFO: AI Service - Embedding model '{EMBEDDING_MODEL_NAME}' loaded successfully.")
+    except Exception as e:
+        print(f"ERROR: AI Service - Failed to load embedding model '{EMBEDDING_MODEL_NAME}': {e}")
+        embedding_model = None
+
+if embedding_model is None:
+    load_embedding_model()
+
+def get_sentence_embedding(text: str) -> np.ndarray:
+    """Generates the vector embedding for a given text."""
+    if not embedding_model:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Embedding model is not available for evaluation."
+        )
+    clean_text = str(text).strip() or " "
+    return embedding_model.encode(clean_text, convert_to_numpy=True)
+
+# =========================================================================
+# --- CORE QUIZ GENERATION (Module 4) ---
+# =========================================================================
+
+async def _call_gemini_for_quiz_json(prompt: str) -> List[Dict[str, str]]:
+    """Helper function to call Gemini API to generate the quiz JSON."""
+    if not GOOGLE_API_KEY or not GEMINI_MODEL_NAME:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Gemini API is not configured (API Key or Model Name missing)."
+        )
+
+    try:
+        gemini_model = genai.GenerativeModel(GEMINI_MODEL_NAME)
+        generation_config = genai.types.GenerationConfig(
+            temperature=0.7,
+            max_output_tokens=3072
+        )
+        response = gemini_model.generate_content(prompt, generation_config=generation_config)
+
+        if not response.parts:
+            print(f"ERROR: AI Service (Quiz Generation) - Gemini API response has no parts.")
+            return []
+
+        raw_generated_text = response.text.strip()
+        
+        cleaned_text = raw_generated_text
+        # Robust JSON cleaning: remove markdown code blocks
+        if cleaned_text.startswith("```json"):
+            cleaned_text = cleaned_text[len("```json"):]
+        elif cleaned_text.startswith("```"):
+            cleaned_text = cleaned_text[len("```"):]
+        if cleaned_text.endswith("```"):
+            cleaned_text = cleaned_text[:-len("```")]
+        cleaned_text = cleaned_text.strip()
+        
+        # Find the array bounds [..] for robust parsing
+        json_start_index = cleaned_text.find('[')
+        json_end_index = cleaned_text.rfind(']')
+
+        if json_start_index != -1 and json_end_index != -1 and json_end_index > json_start_index:
+            json_string_to_parse = cleaned_text[json_start_index : json_end_index+1]
+        else:
+            json_string_to_parse = cleaned_text
+        
+        parsed_data = json.loads(json_string_to_parse)
+
+        if not isinstance(parsed_data, list):
+            raise ValueError("Parsed data is not a list.")
+            
+        return parsed_data
+
+    except json.JSONDecodeError as e:
+        print(f"ERROR: AI Service (Quiz Generation) - Failed to decode JSON. Error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to parse quiz data from Gemini API (JSONDecodeError)."
+        )
+    except Exception as e:
+        print(f"ERROR: AI Service (Quiz Generation) - Unexpected error: {type(e).__name__} - {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An unexpected error occurred during quiz generation: {str(e)}"
+        )
+
+async def generate_quiz_from_text(request: QuizGenerationRequest) -> GeneratedQuiz:
+    """
+    Generates a quiz (short QA pairs with explanations) from the given text 
+    using the Gemini LLM, adhering to the user's plan (FE-1).
+    """
+    num_questions = request.num_questions
+    
+    prompt = f"""You are an expert educational assistant creating a study quiz.
+Generate EXACTLY {num_questions} unique question-answer pairs based ONLY on the following content.
+
+### Instructions:
+1.  **Question:** Must be an open-ended question that requires a short, factual answer.
+2.  **Correct Answer:** Must be a concise, precise, short phrase or sentence directly answering the question based on the text. This will be used for vector comparison.
+3.  **Explanation:** Must be a brief, one-sentence explanation providing context or detail for the correct answer.
+4.  **Format:** Output STRICTLY as a JSON array of objects. Do NOT include any code block syntax (e.g., ```json) or any introductory/explanatory text outside the array.
+
+### JSON Structure:
+[
+  {{
+    "question_text": "...",
+    "correct_answer": "...",
+    "explanation": "..."
+  }},
+  ... ({num_questions} items)
+]
+
+### Content to use:
+---
+{request.content_text}
+---
+"""
+    raw_quiz_data = await _call_gemini_for_quiz_json(prompt)
+    
+    questions: List[QuizQuestion] = []
+    for item in raw_quiz_data:
+        try:
+            questions.append(QuizQuestion(
+                question_text=item['question_text'],
+                correct_answer=item['correct_answer'],
+                explanation=item['explanation']
+            ))
+        except (KeyError, ValueError) as e:
+            print(f"WARN: Quiz Generation - Skipping invalid question item: {item}. Error: {e}")
+            
+    if not questions:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="AI failed to generate any valid quiz questions.")
+
+    import uuid
+    quiz_id = str(uuid.uuid4())
+    
+    return GeneratedQuiz(quiz_id=quiz_id, questions=questions)
+
+
+# =========================================================================
+# --- CORE QUIZ EVALUATION (Module 4) ---
+# =========================================================================
+
+async def evaluate_quiz_attempt(
+    request: QuizEvaluationRequest, 
+    generated_quiz: GeneratedQuiz,
+    db: AsyncIOMotorDatabase, # For DB storage
+    user_id: ObjectId         # For DB storage
+) -> QuizEvaluationResponse:
+    """
+    Evaluates the user's short-answer quiz attempt using cosine similarity of embeddings
+    and saves the result to the DB, providing the explanation (FE-3).
+    """
+    if not embedding_model:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Evaluation service is unavailable (Embedding model not loaded)."
+        )
+
+    # 1. Map generated quiz questions for easy lookup by question text
+    quiz_map = {q.question_text: q for q in generated_quiz.questions}
+    
+    total_similarity_score = 0.0
+    results: List[EvaluatedQuestionResult] = []
+    num_evaluated_questions = 0
+
+    # 2. Process each user answer
+    for user_attempt in request.attempted_answers:
+        question_text = user_attempt.question_text
+        user_answer = user_attempt.user_answer.strip()
+        
+        if question_text not in quiz_map:
+            print(f"WARN: Evaluation - Skipping answer for unknown question: {question_text}")
+            continue
+
+        ai_question = quiz_map[question_text]
+        correct_answer = ai_question.correct_answer.strip()
+        correct_explanation = ai_question.explanation.strip() # Get the explanation!
+        
+        similarity_score = 0.0
+        
+        try:
+            # 3. Get embeddings for both answers
+            user_embedding = get_sentence_embedding(user_answer)
+            correct_embedding = get_sentence_embedding(correct_answer)
+            
+            # 4. Calculate Cosine Similarity (1 - cosine distance)
+            if user_answer and correct_answer:
+                cos_distance = cosine(user_embedding, correct_embedding)
+                similarity_score = 1.0 - cos_distance
+            else:
+                similarity_score = 0.0 
+            
+            # Clamp score between 0.0 and 1.0
+            similarity_score = max(0.0, min(1.0, similarity_score))
+
+        except Exception as e:
+            print(f"ERROR: Evaluation - Failed to calculate similarity for question '{question_text}': {e}")
+            similarity_score = 0.0
+            
+        total_similarity_score += similarity_score
+        num_evaluated_questions += 1
+        
+        # 5. Compile result
+        results.append(EvaluatedQuestionResult(
+            question_text=question_text,
+            user_answer=user_answer,
+            correct_answer=correct_answer,
+            correct_explanation=correct_explanation, # <-- INCLUDED FOR FE-3
+            similarity_score=round(similarity_score, 4), 
+        ))
+
+    # 6. Final Evaluation (Total Score)
+    if num_evaluated_questions == 0:
+        avg_score = 0.0
+    else:
+        # Sum of 10 similarity scores divided by 10 (as per plan)
+        avg_score = total_similarity_score / num_evaluated_questions 
+    
+    # 7. Determine Grade
+    def get_grade(score: float) -> str:
+        if score >= 0.90: return "Excellent (A+)"
+        if score >= 0.80: return "Very Good (A)"
+        if score >= 0.70: return "Good (B+)"
+        if score >= 0.60: return "Fair (B)"
+        if score >= 0.50: return "Needs Improvement (C)"
+        return "Poor (D)"
+
+    final_response = QuizEvaluationResponse(
+        quiz_id=request.quiz_id,
+        total_score=round(avg_score, 4),
+        total_grade=get_grade(avg_score),
+        results=results
+    )
+
+    # 8. Save result to DB
+    try:
+        await quiz_service.create_quiz_result(
+            db=db,
+            user_id=user_id,
+            book_id=ObjectId(request.book_id),
+            topic_name=request.topic_name,
+            eval_response=final_response
+        )
+        print(f"INFO: Quiz result saved to DB for user {user_id}.")
+    except Exception as e:
+        # Log the error but don't fail the request.
+        print(f"ERROR: Failed to save quiz result to DB for user {user_id}. Error: {e}")
+
+    return final_response
+
+# =========================================================================
+# --- EXISTING / OTHER AI MODULES (Unchanged) ---
+# =========================================================================
 
 # --- Summarization Model (existing) ---
 MODEL_NAME_SUMMARIZE = "mohsinnyz/Booksum-Edu"
@@ -183,17 +465,11 @@ Passage:
         )
 
 async def _generate_answer_with_gemini(question: str, context_text: str) -> str:
-    if not GOOGLE_API_KEY:
-        print("ERROR: AI Service (_generate_answer_with_gemini) - GOOGLE_API_KEY is not configured.")
+    if not GOOGLE_API_KEY or not GEMINI_MODEL_NAME:
+        print("ERROR: AI Service (_generate_answer_with_gemini) - API Key or Model Name is not configured.")
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Answer generation service is not configured (API Key missing)."
-        )
-    if not GEMINI_MODEL_NAME:
-        print(f"ERROR: AI Service (_generate_answer_with_gemini) - GEMINI_MODEL_NAME is not configured.")
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Answer generation service is not configured (Model Name missing)."
+            detail="Answer generation service is not configured (API Key or Model Name missing)."
         )
 
     prompt = f"""Given the following context text and a question, provide a concise and accurate answer based *only* on the information available in the context.
@@ -215,11 +491,8 @@ Answer:"""
             max_output_tokens=256 
         )
 
-        if hasattr(gemini_model, 'generate_content_async'):
-            response = await gemini_model.generate_content_async(prompt, generation_config=generation_config)
-        else:
-            print(f"WARN: AI Service (_generate_answer_with_gemini) - generate_content_async not found. Using synchronous call.")
-            response = gemini_model.generate_content(prompt, generation_config=generation_config)
+        # Using synchronous call as the original snippet did, but logging a warning about async
+        response = gemini_model.generate_content(prompt, generation_config=generation_config)
 
         if not response.parts:
             print(f"ERROR: AI Service (_generate_answer_with_gemini) - Gemini API response has no parts. Full response: {response}")
@@ -262,7 +535,7 @@ async def generate_qna_from_text(text_to_generate_from: str) -> List[QuestionAns
             qna_pairs.append(QuestionAnswerPair(question=question_text, answer=answer_text))
         
         if not qna_pairs and generated_questions: 
-             print("WARN: AI Service (Q&A) - Questions were generated, but no Q&A pairs were formed (all answers might have been empty).")
+            print("WARN: AI Service (Q&A) - Questions were generated, but no Q&A pairs were formed (all answers might have been empty).")
         
         return qna_pairs
 
@@ -275,6 +548,100 @@ async def generate_qna_from_text(text_to_generate_from: str) -> List[QuestionAns
             detail="An unexpected error occurred during Q&A generation."
         )
     
+# --- Helper function to call Gemini API and parse JSON list output (for Flashcards) ---
+async def _call_gemini_for_json_list(prompt: str, error_context: str) -> List[Dict[str, str]]:
+    if not GOOGLE_API_KEY or not GEMINI_MODEL_NAME:
+        print(f"ERROR: AI Service ({error_context}) - API Key or Model Name is not configured.")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"{error_context} service is not configured (API Key or Model Name missing)."
+        )
+
+    raw_generated_text = ""
+    parsed_data: List[Dict[str,str]] = [] 
+    json_string_to_parse = "" # Initialize for logging in case of error
+
+    try:
+        print(f"INFO: AI Service ({error_context}) - Calling Gemini API ({GEMINI_MODEL_NAME}).")
+        gemini_model = genai.GenerativeModel(GEMINI_MODEL_NAME)
+        generation_config = genai.types.GenerationConfig(
+            temperature=0.2,
+            max_output_tokens=1024
+        )
+
+        response = gemini_model.generate_content(prompt, generation_config=generation_config)
+
+        if not response.parts:
+            print(f"ERROR: AI Service ({error_context}) - Gemini API response has no parts. Full response: {response}")
+            if response.prompt_feedback and response.prompt_feedback.block_reason:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
+                    detail=f"Gemini API call blocked for {error_context}: {response.prompt_feedback.block_reason_message}"
+                )
+            return []
+
+        raw_generated_text = response.text.strip()
+        cleaned_text = raw_generated_text
+        
+        # Robust JSON cleaning
+        if cleaned_text.startswith("```json"):
+            cleaned_text = cleaned_text[len("```json"):]
+        elif cleaned_text.startswith("```"):
+            cleaned_text = cleaned_text[len("```"):]
+        if cleaned_text.endswith("```"):
+            cleaned_text = cleaned_text[:-len("```")]
+
+        cleaned_text = cleaned_text.strip()
+
+        if not cleaned_text:
+            print(f"ERROR: AI Service ({error_context}) - Content became empty after cleaning attempts.")
+            return []
+
+        # Find the array bounds [..] for robust parsing
+        json_string_to_parse = cleaned_text 
+        json_start_index = cleaned_text.find('[')
+        json_end_index = cleaned_text.rfind(']')
+
+        if json_start_index != -1 and json_end_index != -1 and json_end_index > json_start_index:
+            json_string_to_parse = cleaned_text[json_start_index : json_end_index+1]
+        
+        parsed_data = json.loads(json_string_to_parse)
+
+        if not isinstance(parsed_data, list):
+            raise ValueError("Parsed data is not a list.")
+
+        validated_items: List[Dict[str,str]] = []
+        for item in parsed_data: # Validation specific to flashcards
+            if isinstance(item, dict) and "front" in item and "back" in item: 
+                validated_items.append({"front": str(item["front"]), "back": str(item["back"])})
+            else:
+                print(f"WARN: AI Service ({error_context}) - Skipping invalid item: {item}")
+
+        if not validated_items and parsed_data: 
+            raise ValueError("No valid items found after validation, though initial parse was a list.")
+        return validated_items
+
+    except json.JSONDecodeError as e:
+        text_that_failed_parsing = json_string_to_parse or cleaned_text
+        print(f"ERROR: AI Service ({error_context}) - Failed to decode JSON. Text attempted for parsing was: '{text_that_failed_parsing}'. Error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to parse {error_context} data from Gemini API (JSONDecodeError)."
+        )
+    except ValueError as e: 
+        print(f"ERROR: AI Service ({error_context}) - Data structure validation failed or invalid JSON. Error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"{error_context} data from Gemini API has incorrect structure or is invalid JSON: {e}"
+        )
+    except HTTPException as he: 
+        raise he
+    except Exception as e:
+        print(f"ERROR: AI Service ({error_context}) - Error during Gemini API call: {type(e).__name__} - {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An unexpected error occurred while generating {error_context} with Gemini: {str(e)}"
+        )
 # --- Flashcard Generation using Gemini ---
 async def generate_flashcards_from_text(text_to_generate_from: str) -> List[Dict[str, str]]:
     if not text_to_generate_from or len(text_to_generate_from.strip()) < 10:
@@ -334,17 +701,11 @@ Text to process:
 ---
 """
 
-    if not GOOGLE_API_KEY:
-        print("ERROR: AI Service (Study Notes) - GOOGLE_API_KEY is not configured.")
+    if not GOOGLE_API_KEY or not GEMINI_MODEL_NAME:
+        print("ERROR: AI Service (Study Notes) - API Key or Model Name is not configured.")
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Study notes generation service is not configured (API Key missing)."
-        )
-    if not GEMINI_MODEL_NAME:
-        print(f"ERROR: AI Service (Study Notes) - GEMINI_MODEL_NAME is not configured.")
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Study notes generation service is not configured (Model Name missing)."
+            detail="Study notes generation service is not configured (API Key or Model Name missing)."
         )
 
     raw_generated_text_notes = ""
@@ -357,11 +718,7 @@ Text to process:
             max_output_tokens=1500
         )
 
-        if hasattr(gemini_model, 'generate_content_async'):
-            response = await gemini_model.generate_content_async(prompt, generation_config=generation_config)
-        else:
-            print(f"WARN: AI Service (Study Notes) - generate_content_async not found. Using synchronous call.")
-            response = gemini_model.generate_content(prompt, generation_config=generation_config)
+        response = gemini_model.generate_content(prompt, generation_config=generation_config)
 
         if not response.parts:
             print(f"ERROR: AI Service (Study Notes) - Gemini API response has no parts. Full response: {response}")
@@ -389,118 +746,7 @@ Text to process:
             detail=f"An unexpected error occurred while generating study notes with Gemini: {str(e)}"
         )
 
-# --- Helper function to call Gemini API and parse JSON list output (for Flashcards) ---
-# This function (_call_gemini_for_json_list) remains as previously defined, 
-# as it's used by generate_flashcards_from_text and is not part of the Q&A specific section you wanted to overwrite.
-# If you intended to include it, please clarify. For now, I'm assuming it's outside the overwrite scope.
-async def _call_gemini_for_json_list(prompt: str, error_context: str) -> List[Dict[str, str]]:
-    if not GOOGLE_API_KEY:
-        print(f"ERROR: AI Service ({error_context}) - GOOGLE_API_KEY is not configured.")
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"{error_context} service is not configured (API Key missing)."
-        )
-    if not GEMINI_MODEL_NAME:
-        print(f"ERROR: AI Service ({error_context}) - GEMINI_MODEL_NAME is not configured.")
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"{error_context} service is not configured (Model Name missing)."
-        )
-
-    raw_generated_text = ""
-    parsed_data: List[Dict[str,str]] = [] 
-
-    try:
-        print(f"INFO: AI Service ({error_context}) - Calling Gemini API ({GEMINI_MODEL_NAME}).")
-        gemini_model = genai.GenerativeModel(GEMINI_MODEL_NAME)
-        generation_config = genai.types.GenerationConfig(
-            temperature=0.2,
-            max_output_tokens=1024
-        )
-
-        if hasattr(gemini_model, 'generate_content_async'):
-            response = await gemini_model.generate_content_async(prompt, generation_config=generation_config)
-        else:
-            print(f"WARN: AI Service ({error_context}) - generate_content_async not found. Using synchronous call.")
-            response = gemini_model.generate_content(prompt, generation_config=generation_config)
-
-        if not response.parts:
-            print(f"ERROR: AI Service ({error_context}) - Gemini API response has no parts. Full response: {response}")
-            if response.prompt_feedback and response.prompt_feedback.block_reason:
-                 raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
-                    detail=f"Gemini API call blocked for {error_context}: {response.prompt_feedback.block_reason_message}"
-                )
-            return []
-
-        raw_generated_text = response.text.strip()
-        print(f"DEBUG: AI Service ({error_context}) - Gemini API Raw Response Text: {raw_generated_text}")
-
-        cleaned_text = raw_generated_text
-        if cleaned_text.startswith("```json"):
-            cleaned_text = cleaned_text[len("```json"):]
-        elif cleaned_text.startswith("```"):
-            cleaned_text = cleaned_text[len("```"):]
-
-        if cleaned_text.endswith("```"):
-            cleaned_text = cleaned_text[:-len("```")]
-
-        cleaned_text = cleaned_text.strip()
-
-        if not cleaned_text:
-            print(f"ERROR: AI Service ({error_context}) - Content became empty after cleaning attempts.")
-            return []
-
-        print(f"DEBUG: AI Service ({error_context}) - Text after initial cleaning for JSON: '{cleaned_text}'")
-
-        json_string_to_parse = cleaned_text 
-        json_start_index = cleaned_text.find('[')
-        json_end_index = cleaned_text.rfind(']')
-
-        if json_start_index != -1 and json_end_index != -1 and json_end_index > json_start_index:
-            json_string_to_parse = cleaned_text[json_start_index : json_end_index+1]
-            print(f"DEBUG: AI Service ({error_context}) - Extracted JSON string for parsing: '{json_string_to_parse}'")
-        else:
-            print(f"WARN: AI Service ({error_context}) - Could not find clear JSON array [..] in Gemini output. Attempting to parse cleaned string as is: '{cleaned_text}'")
-        
-        parsed_data = json.loads(json_string_to_parse)
-
-        if not isinstance(parsed_data, list):
-            raise ValueError("Parsed data is not a list.")
-
-        validated_items: List[Dict[str,str]] = []
-        for item in parsed_data: # This validation part is specific to flashcards, adjust if needed for other JSON list types
-            if isinstance(item, dict) and "front" in item and "back" in item: 
-                validated_items.append({"front": str(item["front"]), "back": str(item["back"])})
-            else:
-                print(f"WARN: AI Service ({error_context}) - Skipping invalid item: {item}")
-
-        if not validated_items and parsed_data: 
-            raise ValueError("No valid items found after validation, though initial parse was a list.")
-        return validated_items
-
-    except json.JSONDecodeError as e:
-        text_that_failed_parsing = json_string_to_parse if 'json_string_to_parse' in locals() and json_string_to_parse != cleaned_text else cleaned_text
-        print(f"ERROR: AI Service ({error_context}) - Failed to decode JSON. Text attempted for parsing was: '{text_that_failed_parsing}'. Error: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to parse {error_context} data from Gemini API (JSONDecodeError)."
-        )
-    except ValueError as e: # This catches issues from json.loads if the string is not a valid JSON structure at all, or from our own isinstance checks
-        print(f"ERROR: AI Service ({error_context}) - Data structure validation failed or invalid JSON. Parsed data: {parsed_data if 'parsed_data' in locals() else 'N/A'}. Error: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"{error_context} data from Gemini API has incorrect structure or is invalid JSON: {e}"
-        )
-    except HTTPException as he: 
-        raise he
-    except Exception as e:
-        print(f"ERROR: AI Service ({error_context}) - Error during Gemini API call: {type(e).__name__} - {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"An unexpected error occurred while generating {error_context} with Gemini: {str(e)}"
-        )
-    
+# --- Glossary Generation (Offline/Tool-based) ---
 nlp: Any = None
 
 def load_glossary_tools():
@@ -510,7 +756,7 @@ def load_glossary_tools():
         # Check if wordnet is downloaded, if not, attempt to download it
         try:
             nltk.data.find('corpora/wordnet.zip')
-        except nltk.downloader.DownloadError:
+        except LookupError:
             print("INFO: AI Service - WordNet corpus not found. Attempting to download...")
             nltk.download('wordnet')
             print("INFO: AI Service - WordNet downloaded successfully.")
@@ -527,7 +773,7 @@ if nlp is None:
     load_glossary_tools()
 
 def _find_definition_in_context(term: str, sentence: str) -> Optional[str]:
-    # This helper function remains the same
+    # Regex checks for in-context definitions (e.g., "term, which is...", "term is defined as...")
     match = re.search(rf"{re.escape(term)}\s*,\s*which\s+(is|are)\s+(.+)", sentence, re.IGNORECASE)
     if match: return match.group(2).strip(" .")
     match = re.search(rf"{re.escape(term)}\s+(is|are)\s+defined\s+as\s+(.+)", sentence, re.IGNORECASE)
@@ -551,6 +797,7 @@ async def generate_glossary_from_text(page_text: str) -> List[GlossaryTerm]:
     glossary_terms: List[GlossaryTerm] = []
     processed_terms = set()
 
+    # Extract potential terms from named entities and noun chunks
     potential_terms = [ent.text for ent in doc.ents if ent.label_ not in ["DATE", "TIME", "CARDINAL", "MONEY"]]
     potential_terms.extend([chunk.text for chunk in doc.noun_chunks])
 
@@ -564,6 +811,7 @@ async def generate_glossary_from_text(page_text: str) -> List[GlossaryTerm]:
         definition = None
         source = None
 
+        # 1. Try to find an in-context definition
         for sent in doc.sents:
             if term_clean in sent.text.lower():
                 definition = _find_definition_in_context(term_clean, sent.text)
@@ -571,22 +819,20 @@ async def generate_glossary_from_text(page_text: str) -> List[GlossaryTerm]:
                     source = "context"
                     break
         
-        # --- MODIFIED FALLBACK LOGIC ---
+        # 2. Fallback to WordNet for single-word terms
         if not definition:
             if len(term_clean.split()) == 1:
                 synsets = wordnet.synsets(term_clean)
                 if synsets:
-                    # Get the definition from the first synset (most common meaning)
                     definition = synsets[0].definition()
-                    # Capitalize the first letter for better readability
-                    definition = definition[0].upper() + definition[1:]
+                    definition = definition[0].upper() + definition[1:] # Capitalize
                     source = "general"
         
         if definition and source:
             glossary_terms.append(
                 GlossaryTerm(term=term_text.strip(), definition=definition, source=source)
             )
-            if len(glossary_terms) >= 7:
+            if len(glossary_terms) >= 7: # Limit the output size
                 break
             
     return glossary_terms

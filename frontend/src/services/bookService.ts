@@ -340,3 +340,20 @@ export const fetchGlossaryForPage = async (bookId: string, pageNumber: number): 
 
   return response.json();
 };
+
+// Add this function inside frontend/src/services/bookService.ts
+
+export const fetchBookText = async (bookId: string): Promise<{ text: string }> => {
+  const token = localStorage.getItem("authToken");
+  const response = await fetch(`${API_BASE_URL}/books/${bookId}/text`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.detail || "Failed to fetch book text.");
+  }
+  return response.json();
+};
