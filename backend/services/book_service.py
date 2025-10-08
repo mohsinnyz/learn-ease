@@ -16,6 +16,8 @@ from . import category_service
 from . import ai_service
 from . import vector_service 
 import re
+import asyncio
+from concurrent.futures import ProcessPoolExecutor # <<< 1. IMPORT THIS
 
 # Ensure upload directories exist when the service module is loaded
 os.makedirs(LOCAL_BOOK_UPLOAD_DIR, exist_ok=True)
@@ -43,6 +45,17 @@ async def _save_glossary_terms_for_page(
     await db[GLOSSARY_TERMS_COLLECTION].insert_one(document)
 
 
+def run_vector_creation_in_process(book_id: str, book_text: str) -> bool:
+    """
+    This is a synchronous wrapper function that will be executed in a separate process.
+    It's designed to handle the CPU-bound task of vector store creation.
+    """
+    # We must re-import services here because this is a new process.
+    from services import vector_service
+    # Since the target function is async, we run it inside a new event loop for this process.
+    return asyncio.run(vector_service.create_vector_store_for_book(book_id, book_text))
+
+
 async def process_book_in_background(
     db: AsyncIOMotorDatabase,
     book_id: PyObjectId,
@@ -51,7 +64,7 @@ async def process_book_in_background(
 ):
     """
     This function runs in the background. It extracts text, generates glossary data,
-    creates a vector store, and updates the book status.
+    creates a vector store in a separate process, and updates the book status.
     """
     print(f"INFO: Starting background processing for book_id: {book_id}")
     chatbot_text_parts = []
@@ -87,24 +100,28 @@ async def process_book_in_background(
         
         doc.close()
 
-        # 4. Finalize Chatbot Text
         full_chatbot_text = "\n\n".join(chatbot_text_parts)
         with open(text_save_path, "w", encoding="utf-8") as text_f:
             text_f.write(full_chatbot_text)
         
-        # <<< 2. CREATE VECTOR STORE (NEW STEP) >>>
+        # <<< 3. MODIFIED VECTOR STORE CREATION STEP >>>
         if full_chatbot_text.strip():
-            print(f"INFO: Handing off to vector_service for book_id: {book_id}")
-            vector_creation_success = await vector_service.create_vector_store_for_book(
-                book_id=str(book_id),
-                book_text=full_chatbot_text
-            )
+            print(f"INFO: Offloading CPU-bound vector store creation to a separate process for book_id: {book_id}")
+            loop = asyncio.get_running_loop()
+            
+            # This is the key change: we run the blocking function in a separate process pool
+            # so it doesn't freeze the main server's event loop.
+            with ProcessPoolExecutor() as pool:
+                vector_creation_success = await loop.run_in_executor(
+                    pool, run_vector_creation_in_process, str(book_id), full_chatbot_text
+                )
+            
             if not vector_creation_success:
                 print(f"WARNING: Vector store creation failed for book_id: {book_id}. AI Mentor will not work for this book.")
         else:
             print(f"WARNING: Skipping vector store creation for book_id: {book_id} due to empty text content.")
 
-        # 6. Update book status to 'ready'
+        # Update book status to 'ready'
         await db[BOOKS_COLLECTION].update_one(
             {"_id": book_id},
             {"$set": {"status": "ready"}}
