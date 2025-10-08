@@ -161,6 +161,7 @@ const GlobalStyles = () => (
       height: 100%;
       backface-visibility: hidden;
       -webkit-backface-visibility: hidden; /* Safari */
+      transform: translateZ(0);
       border-radius: 0.75rem;
       display: flex;
       flex-direction: column;
@@ -575,22 +576,19 @@ const handleRequestSummary = async (textToSummarize: string) => {
     </div>
 );
 
-  return (
-    <div 
-      className="min-h-screen bg-slate-100 dark:bg-slate-900 flex flex-col items-center p-3 sm:p-4 lg:p-6" 
-      onClick={closeContextMenu}
-      style={{ backgroundImage: `var(--dot-pattern-url, ${lightModeDotPatternUrl})` }}
-    >
+    return (
+      <div 
+        className="min-h-screen bg-slate-100 dark:bg-slate-900 flex flex-col items-center p-3 sm:p-4 lg:p-6" 
+        onClick={closeContextMenu}
+        style={{ backgroundImage: `var(--dot-pattern-url, ${lightModeDotPatternUrl})` }}
+      >
       <GlobalStyles />
-      <div className="w-full max-w-7xl mx-auto flex flex-row gap-6">
+      <div className="w-full max-w-full mx-auto flex flex-row gap-6 px-6">
         
-        {/* <<< 3. UPDATE THE LEFT PANEL WIDTH AND ADD CHAT COMPONENT >>> */}
-        <aside className="w-96 min-w-[22rem] max-w-sm h-fit sticky top-6 self-start space-y-6">
+        {/* --- COLUMN 1: GLOSSARY & QUIZ (Left) --- */}
+        <aside className="w-72 min-w-[18rem] max-w-xs h-fit sticky top-6 self-start space-y-6">
             
-            {/* AI Mentor Panel */}
-            <BookMentorChat bookId={bookId} ChatIcon={ChatBubbleOvalLeftEllipsisIcon} />
-
-            {/* Glossary Panel */}
+            {/* Glossary Panel (now shorter) */}
             <div className="bg-white/80 dark:bg-slate-800/80 rounded-xl shadow-md p-4 border border-slate-200 dark:border-slate-700">
                 <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200 mb-3 pb-3 border-b border-slate-300 dark:border-slate-700 flex items-center gap-2">
                     <BookOpenHeroIcon className="w-6 h-6 text-orange-500" />
@@ -601,17 +599,17 @@ const handleRequestSummary = async (textToSummarize: string) => {
                         Page {currentPageInView}
                     </span>
                 </h3>
-                {/* Glossary Height reduced to accommodate Chat Mentor */}
-                <div className="max-h-[25vh] overflow-y-auto pr-2">
+                {/* MODIFICATION: Shortened the max-height */}
+                <div className="max-h-[40vh] overflow-y-auto pr-2">
                     {isGlossaryLoading && ( <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300 text-sm"><SpinnerIcon className="w-5 h-5 text-orange-500" /> Loading...</div> )}
                     {glossaryError && ( <p className="text-red-500 dark:text-red-400 text-sm">Error: {glossaryError.message}</p> )}
                     {!isGlossaryLoading && glossaryData && glossaryData.length > 0 && (
                         <ul className="space-y-4">
                         {glossaryData.map((entry, idx) => (
                             <li key={idx}>
-                            <p className="font-semibold text-slate-700 dark:text-slate-200">{entry.term}</p>
-                            <p className="text-sm text-slate-600 dark:text-slate-400 mt-0.5">{entry.definition}</p>
-                            <p className="text-right text-xs text-slate-400 dark:text-slate-500 mt-1 capitalize">({entry.source})</p>
+                                <p className="font-semibold text-slate-700 dark:text-slate-200">{entry.term}</p>
+                                <p className="text-sm text-slate-600 dark:text-slate-400 mt-0.5">{entry.definition}</p>
+                                <p className="text-right text-xs text-slate-400 dark:text-slate-500 mt-1 capitalize">({entry.source})</p>
                             </li>
                         ))}
                         </ul>
@@ -620,7 +618,7 @@ const handleRequestSummary = async (textToSummarize: string) => {
                 </div>
             </div>
 
-            {/* --- MODIFICATION: QUIZ PANEL --- */}
+            {/* MODIFICATION: Quiz Panel moved here */}
             <div className="bg-white/80 dark:bg-slate-800/80 rounded-xl shadow-md p-4 border border-slate-200 dark:border-slate-700">
                 <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200 mb-3 pb-3 border-b border-slate-300 dark:border-slate-700 flex items-center gap-2">
                     <BeakerIcon className="w-6 h-6 text-orange-500" />
@@ -640,89 +638,91 @@ const handleRequestSummary = async (textToSummarize: string) => {
             </div>
         </aside>
 
-        {/* Book Viewer (Right) */}
-        <div className="flex-1 min-w-0">
-          <div className="mb-4">
-            <Link href="/dashboard" className="inline-flex items-center text-orange-600 dark:text-orange-400 hover:text-red-600 dark:hover:text-red-500 transition-colors group text-sm font-medium">
-              <ChevronLeftIcon className="w-5 h-5 mr-1 transition-transform group-hover:-translate-x-0.5" />
-              Back to Dashboard
-            </Link>
-            <h1 className="text-3xl font-bold text-slate-800 dark:text-slate-100 mt-2 truncate" title={bookDetails.title}>
-              {bookDetails.title}
-            </h1>
-          </div>
-          <div ref={scrollContainerRef} className="rounded-lg shadow-xl overflow-y-auto max-h-[calc(100vh-10rem)] border border-slate-300 dark:border-slate-700" onContextMenu={handleContextMenuAction} onClick={(e) => e.stopPropagation()}>
-            <Document 
-                file={pdfFileUrl} 
-                onLoadSuccess={onDocumentLoadSuccess} 
-                onLoadError={(pdfError) => { console.error("PDF Load Error object:", pdfError); setError(`Failed to load PDF: ${pdfError.message || "Unknown PDF loading error"}`); }} 
-                loading={<div className="text-center p-10">Loading document...</div>}
-            >
-              {Array.from(new Array(numPages || 0), (el, index) => (
-                <div
-                    key={`page_observer_${index + 1}`}
-                    ref={(el) => {
-                        if (el) {
-                            pageRefs.current.set(index + 1, el);
-                        } else {
-                            pageRefs.current.delete(index + 1);
-                        }
-                    }}
-                    data-page-number={index + 1}
-                >
-                    <div key={`page_wrapper_${index + 1}`} className="flex justify-center py-1.5 my-0.5">
-                        <Page
-                            key={`page_${index + 1}`}
-                            pageNumber={index + 1}
-                            width={calculatedPageWidth}
-                            renderTextLayer={true}
-                            renderAnnotationLayer={true}
-                            className="react-pdf__Page__canvas"
-                            loading={pageLoadingIndicator}
-                        />
-                    </div>
-                </div>
-              ))}
-            </Document>
-          </div>
-          {contextMenu.visible && (
-            <div
-              style={{ top: contextMenu.y, left: contextMenu.x, position: 'fixed' }}
-              className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-md border border-slate-300 dark:border-slate-600 rounded-lg shadow-2xl py-1.5 z-[100] w-72" 
-              onClick={(e) => e.stopPropagation()}
-            >
-              {[
-                { label: "Summarize", icon: DocumentTextIcon, action: () => handleRequestSummary(contextMenu.selectedTextContent), shortTextLength: 30 },
-                { label: "Generate Flashcards", icon: LayersIcon, action: () => handleRequestFlashcards(contextMenu.selectedTextContent), shortTextLength: 25 },
-                { label: "Generate Study Notes", icon: LightBulbIcon, action: () => handleRequestStudyNotes(contextMenu.selectedTextContent), shortTextLength: 22 },
-                { label: "Generate Q&A", icon: QuestionMarkCircleIcon, action: () => handleRequestQnA(contextMenu.selectedTextContent), shortTextLength: 28 },
-              ].map(item => (
-                <button
-                  key={item.label}
-                  onClick={() => { item.action(); closeContextMenu(); }}
-                  className="w-full text-left px-3.5 py-2.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-orange-100 dark:hover:bg-orange-700/30 hover:text-orange-700 dark:hover:text-orange-300 flex items-center space-x-3 transition-colors rounded-md"
-                >
-                  <item.icon className="w-5 h-5 flex-shrink-0 text-orange-500 dark:text-orange-400 opacity-90" />
-                  <span className="truncate">
-                    {item.label}: &quot;{contextMenu.selectedTextContent.substring(0, item.shortTextLength)}
-                    {contextMenu.selectedTextContent.length > item.shortTextLength ? "..." : ""}&quot;
-                  </span>
-                </button>
-              ))}
+          {/* --- COLUMN 2: BOOK VIEWER (Center) --- */}
+          <div className="flex-1 min-w-0">
+            <div className="mb-4">
+              <Link href="/dashboard" className="inline-flex items-center text-orange-600 dark:text-orange-400 hover:text-red-600 dark:hover:text-red-500 transition-colors group text-sm font-medium">
+                <ChevronLeftIcon className="w-5 h-5 mr-1 transition-transform group-hover:-translate-x-0.5" />
+                Back to Dashboard
+              </Link>
+              <h1 className="text-3xl font-bold text-slate-800 dark:text-slate-100 mt-2 truncate" title={bookDetails.title}>
+                {bookDetails.title}
+              </h1>
             </div>
-          )}
+            <div ref={scrollContainerRef} className="rounded-lg shadow-xl overflow-y-auto max-h-[calc(100vh-10rem)] border border-slate-300 dark:border-slate-700" onContextMenu={handleContextMenuAction} onClick={(e) => e.stopPropagation()}>
+              <Document 
+                  file={pdfFileUrl} 
+                  onLoadSuccess={onDocumentLoadSuccess} 
+                  onLoadError={(pdfError) => { console.error("PDF Load Error object:", pdfError); setError(`Failed to load PDF: ${pdfError.message || "Unknown PDF loading error"}`); }} 
+                  loading={<div className="text-center p-10">Loading document...</div>}
+              >
+                {Array.from(new Array(numPages || 0), (el, index) => (
+                  <div
+                      key={`page_observer_${index + 1}`}
+                      ref={(el) => {
+                          if (el) { pageRefs.current.set(index + 1, el); } 
+                          else { pageRefs.current.delete(index + 1); }
+                      }}
+                      data-page-number={index + 1}
+                  >
+                      <div key={`page_wrapper_${index + 1}`} className="flex justify-center py-1.5 my-0.5">
+                          <Page
+                              key={`page_${index + 1}`}
+                              pageNumber={index + 1}
+                              width={calculatedPageWidth}
+                              renderTextLayer={true}
+                              renderAnnotationLayer={true}
+                              className="react-pdf__Page__canvas"
+                              loading={pageLoadingIndicator}
+                          />
+                      </div>
+                  </div>
+                ))}
+              </Document>
+            </div>
+          </div>
 
-          {/* Modals */}
-          <Modal
-            isOpen={showSummaryModal}
-            onClose={() => setShowSummaryModal(false)}
-            title={summarizeError ? "Summarization Error" : isSummarizing ? "Generating Summary..." : summary ? "Generated Summary" : "Summary"}
+          {/* --- COLUMN 3: QUIZ & AI MENTOR (Right) --- */}
+          <aside className="w-96 min-w-[22rem] max-w-sm h-fit sticky top-6 self-start space-y-6">
+              {/* AI Mentor Panel */}
+              <BookMentorChat bookId={bookId} ChatIcon={ChatBubbleOvalLeftEllipsisIcon} />
+          </aside>
+        </div>
+
+        {/* --- Overlays (Context Menu and Modals) must be outside the main layout container --- */}
+        {contextMenu.visible && (
+          <div
+            style={{ top: contextMenu.y, left: contextMenu.x, position: 'fixed' }}
+            className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-md border border-slate-300 dark:border-slate-600 rounded-lg shadow-2xl py-1.5 z-[100] w-72" 
+            onClick={(e) => e.stopPropagation()}
           >
-            {isSummarizing && <div className="text-center py-4"><SpinnerIcon className="w-8 h-8 text-orange-500 mx-auto mb-2" /><p className="text-slate-600 dark:text-slate-300">Please wait, AI is processing...</p></div>}
-            {summarizeError && <p className="text-red-500 dark:text-red-400 p-2 text-sm">{summarizeError}</p>}
-            {summary && !isSummarizing && <div className="max-h-[60vh] overflow-y-auto p-1 text-sm"><p className="text-slate-700 dark:text-slate-200 whitespace-pre-wrap font-sans">{summary}</p></div>}
-            {!isSummarizing && !summary && !summarizeError && <p className="text-slate-500 dark:text-slate-400">No summary details to display.</p>}
-          </Modal>
+            {[
+              { label: "Summarize", icon: DocumentTextIcon, action: () => handleRequestSummary(contextMenu.selectedTextContent), shortTextLength: 30 },
+              { label: "Generate Flashcards", icon: LayersIcon, action: () => handleRequestFlashcards(contextMenu.selectedTextContent), shortTextLength: 25 },
+              { label: "Generate Study Notes", icon: LightBulbIcon, action: () => handleRequestStudyNotes(contextMenu.selectedTextContent), shortTextLength: 22 },
+              { label: "Generate Q&A", icon: QuestionMarkCircleIcon, action: () => handleRequestQnA(contextMenu.selectedTextContent), shortTextLength: 28 },
+            ].map(item => (
+              <button
+                key={item.label}
+                onClick={() => { item.action(); closeContextMenu(); }}
+                className="w-full text-left px-3.5 py-2.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-orange-100 dark:hover:bg-orange-700/30 hover:text-orange-700 dark:hover:text-orange-300 flex items-center space-x-3 transition-colors rounded-md"
+              >
+                <item.icon className="w-5 h-5 flex-shrink-0 text-orange-500 dark:text-orange-400 opacity-90" />
+                <span className="flex-1 min-w-0">
+                  {item.label}: "{contextMenu.selectedTextContent.substring(0, item.shortTextLength)}
+                  {contextMenu.selectedTextContent.length > item.shortTextLength ? "..." : ""}"
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        <Modal isOpen={showSummaryModal} onClose={() => setShowSummaryModal(false)} title={summarizeError ? "Summarization Error" : isSummarizing ? "Generating Summary..." : summary ? "Generated Summary" : "Summary"}>
+          {isSummarizing && <div className="text-center py-4"><SpinnerIcon className="w-8 h-8 text-orange-500 mx-auto mb-2" /><p className="text-slate-600 dark:text-slate-300">Please wait, AI is processing...</p></div>}
+          {summarizeError && <p className="text-red-500 dark:text-red-400 p-2 text-sm">{summarizeError}</p>}
+          {summary && !isSummarizing && <div className="max-h-[60vh] overflow-y-auto p-1 text-sm"><p className="text-slate-700 dark:text-slate-200 whitespace-pre-wrap font-sans">{summary}</p></div>}
+          {!isSummarizing && !summary && !summarizeError && <p className="text-slate-500 dark:text-slate-400">No summary details to display.</p>}
+        </Modal>
 
           <Modal
             isOpen={showFlashcardsModal}
@@ -737,7 +737,7 @@ const handleRequestSummary = async (textToSummarize: string) => {
                 : "Flashcards"
             }
           >
-            <div className="bg-white/80 dark:bg-slate-800/70 rounded-xl p-4 backdrop-blur-sm">
+            <div className="bg-transparent rounded-xl p-4">
               {isGeneratingFlashcards && (
                 <div className="text-center py-4">
                   <SpinnerIcon className="w-8 h-8 text-orange-500 mx-auto mb-2" />
@@ -758,43 +758,37 @@ const handleRequestSummary = async (textToSummarize: string) => {
                   {flashcards.map((card, index) => {
                     const isFlipped = flippedCards[index];
                     return (
-                      <div
-                        key={index}
-                        className="flip-container w-full h-40 sm:h-44 md:h-48 lg:h-52 xl:h-56"
-                      >
-                        <div 
-                            className="learn-ease-card"
-                            style={{width: "100%", height: "100%", position: "relative"}}
-                        >
-                            <div className={`flip-inner ${isFlipped ? "flipped" : ""}`}>
-                                {/* Front */}
-                                <div className="flip-front p-4 bg-white/70 dark:bg-slate-700/60 flex flex-col justify-between">
-                                    <div>
-                                        <p className="font-semibold text-orange-600 dark:text-orange-400 mb-1 text-xs uppercase tracking-wider">Front:</p>
-                                        <p className="text-slate-800 dark:text-slate-200 text-sm sm:text-base leading-relaxed overflow-y-auto max-h-[calc(100%-2.5rem)]">{card.front}</p>
-                                    </div>
-                                    <button
-                                        onClick={() => toggleFlip(index)}
-                                        className="mt-auto self-start text-xs bg-orange-500 hover:bg-orange-600 text-white py-1.5 px-3.5 rounded-md shadow-sm transition-colors"
-                                    >
-                                        Flip to Back
-                                    </button>
-                                </div>
+                      <div key={index} className="flip-container w-full h-48">
+                        <div className={`flip-inner ${isFlipped ? "flipped" : ""}`}>
 
-                                {/* Back */}
-                                <div className="flip-back p-4 bg-white/70 dark:bg-slate-700/60 flex flex-col justify-between">
-                                    <div>
-                                        <p className="font-semibold text-orange-600 dark:text-orange-400 mb-1 text-xs uppercase tracking-wider">Back:</p>
-                                        <p className="text-slate-800 dark:text-slate-200 text-sm sm:text-base leading-relaxed overflow-y-auto max-h-[calc(100%-2.5rem)]">{card.back}</p>
-                                    </div>
-                                    <button
-                                        onClick={() => toggleFlip(index)}
-                                        className="mt-auto self-start text-xs bg-orange-500 hover:bg-orange-600 text-white py-1.5 px-3.5 rounded-md shadow-sm transition-colors"
-                                    >
-                                        Flip to Front
-                                    </button>
-                                </div>
+                          {/* Front Face: Given a simple, opaque background */}
+                          <div className="flip-front rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 p-4 flex flex-col justify-between">
+                            <div className="flex-1 min-h-0">
+                              <p className="font-semibold text-orange-600 dark:text-orange-400 mb-1 text-xs uppercase tracking-wider">Front:</p>
+                              <p className="text-slate-800 dark:text-slate-200 text-sm sm:text-base leading-relaxed overflow-y-auto h-full pr-2">{card.front}</p>
                             </div>
+                            <button
+                              onClick={() => toggleFlip(index)}
+                              className="mt-2 self-start text-xs bg-orange-500 hover:bg-orange-600 text-white py-1.5 px-3 rounded-md shadow-sm transition-colors"
+                            >
+                              Flip to Back
+                            </button>
+                          </div>
+
+                          {/* Back Face: Given a simple, opaque background */}
+                          <div className="flip-back rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 p-4 flex flex-col justify-between">
+                            <div className="flex-1 min-h-0">
+                              <p className="font-semibold text-orange-600 dark:text-orange-400 mb-1 text-xs uppercase tracking-wider">Back:</p>
+                              <p className="text-slate-800 dark:text-slate-200 text-sm sm:text-base leading-relaxed overflow-y-auto h-full pr-2">{card.back}</p>
+                            </div>
+                            <button
+                              onClick={() => toggleFlip(index)}
+                              className="mt-2 self-start text-xs bg-orange-500 hover:bg-orange-600 text-white py-1.5 px-3 rounded-md shadow-sm transition-colors"
+                            >
+                              Flip to Front
+                            </button>
+                          </div>
+
                         </div>
                       </div>
                     );
@@ -876,8 +870,6 @@ const handleRequestSummary = async (textToSummarize: string) => {
                <p className="text-slate-500 dark:text-slate-400 p-2">No questions and answers to display.</p>
             )}
           </Modal>
-        </div>
-      </div>
       <footer className="w-full max-w-5xl mx-auto mt-8 pt-6 border-t border-slate-300/70 dark:border-slate-700/70 text-center">
         <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center justify-center">
           <BookOpenHeroIcon className="w-4 h-4 mr-1.5 opacity-70" />
