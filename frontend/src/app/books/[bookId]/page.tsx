@@ -227,10 +227,7 @@ export default function BookViewPage() {
   const params = useParams();
   const bookId = params.bookId as string;
 
-  const [bookDetails, setBookDetails] = useState<Book | null>(null);
-  const [pdfFileUrl, setPdfFileUrl] = useState<string | null>(null);
   const [numPages, setNumPages] = useState<number | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<ContextMenuState>({
     visible: false,
@@ -261,13 +258,45 @@ export default function BookViewPage() {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const { 
+    data: bookDetails, 
+    error: bookDetailsError,
+    isLoading: isDetailsLoading // We get the loading state directly from SWR
+  } = useSWR(
+    bookId, // The key is just the bookId. SWR won't run if bookId is null.
+    fetchBookDetails, // The fetcher is simply the function reference. SWR will call it with the key.
+    {
+      refreshInterval: (latestData) => {
+        // Only refresh every 5 seconds if the book is still processing.
+        return latestData?.status === 'processing' ? 5000 : 0;
+      }
+    }
+  );
+
+  const { 
     data: glossaryData, 
     error: glossaryError, 
     isLoading: isGlossaryLoading 
   } = useSWR(
-    bookId ? [bookId, currentPageInView] : null,
+    // The key is now also conditional on the book status
+    bookId && bookDetails?.status === 'ready' ? [bookId, currentPageInView] : null,
     ([id, pageNum]: [string, number]) => fetchGlossaryForPage(id, pageNum)
   );
+
+  const { data: pdfBlob, error: pdfError } = useSWR(
+    bookId ? `${bookId}-pdf` : null, // A unique, stable key for the PDF
+    () => fetchBookPdfAsBlob(bookId),
+    { 
+      revalidateOnFocus: false, 
+      revalidateOnReconnect: false // Prevents re-fetching the large PDF file
+    }
+  );
+  
+  // This memoizes the PDF URL, preventing the Document from re-rendering unnecessarily
+  const pdfFileUrl = useMemo(() => {
+    if (pdfBlob) return URL.createObjectURL(pdfBlob);
+    return null;
+  }, [pdfBlob]);
+
 
   const handleIntersect = useCallback((entries: IntersectionObserverEntry[]) => {
     const visiblePages = entries
@@ -281,42 +310,13 @@ export default function BookViewPage() {
     }
   }, []);
 
+
+  // This effect handles the initial authentication check
   useEffect(() => {
     if (typeof window !== "undefined" && !localStorage.getItem("authToken")) {
       router.push("/login?message=Please log in to view books");
-      return;
     }
-
-    if (bookId) {
-      setIsLoading(true);
-      setError(null);
-      setNumPages(null); 
-      let objectUrl: string | null = null; 
-
-      const loadBookData = async () => {
-        try {
-          const details = await fetchBookDetails(bookId);
-          setBookDetails(details);
-          const blob = await fetchBookPdfAsBlob(bookId);
-          objectUrl = URL.createObjectURL(blob); 
-          setPdfFileUrl(objectUrl);
-        } catch (err: unknown) {
-          const errorMessage = err instanceof Error ? err.message : "An unknown error occurred.";
-          setError(`Failed to load book data: ${errorMessage}`);
-          setPdfFileUrl(null);
-        } finally {
-          setIsLoading(false);
-        }
-      };
-      loadBookData();
-    
-      return () => {
-        if (objectUrl) { 
-          URL.revokeObjectURL(objectUrl);
-        }
-      };
-    }
-  }, [bookId, router]);
+  }, [router]);
 
   useEffect(() => {
     if (!numPages || !scrollContainerRef.current) return;
@@ -337,6 +337,14 @@ export default function BookViewPage() {
       if (observerRef.current) observerRef.current.disconnect();
     };
   }, [numPages, handleIntersect]);
+
+  useEffect(() => {
+    return () => {
+      if (pdfFileUrl) {
+        URL.revokeObjectURL(pdfFileUrl);
+      }
+    };
+  }, [pdfFileUrl]);
 
 const handleRequestSummary = async (textToSummarize: string) => {
     if (!textToSummarize) {
@@ -541,7 +549,7 @@ const handleRequestSummary = async (textToSummarize: string) => {
     </div>
   ), [calculatedPageWidth, pagePlaceholderHeight]);   
 
-  if (isLoading) return (
+  if (isDetailsLoading) return (
     <div 
         className="flex min-h-screen flex-col items-center justify-center bg-slate-100 dark:bg-slate-900 transition-colors duration-500" 
         style={{ backgroundImage: `var(--dot-pattern-url, ${lightModeDotPatternUrl})` }}
@@ -588,54 +596,72 @@ const handleRequestSummary = async (textToSummarize: string) => {
         {/* --- COLUMN 1: GLOSSARY & QUIZ (Left) --- */}
         <aside className="w-72 min-w-[18rem] max-w-xs h-fit sticky top-6 self-start space-y-6">
             
-            {/* Glossary Panel (now shorter) */}
-            <div className="bg-white/80 dark:bg-slate-800/80 rounded-xl shadow-md p-4 border border-slate-200 dark:border-slate-700">
-                <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200 mb-3 pb-3 border-b border-slate-300 dark:border-slate-700 flex items-center gap-2">
-                    <BookOpenHeroIcon className="w-6 h-6 text-orange-500" />
-                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-red-500">
-                        Glossary
-                    </span>
-                    <span className="text-sm font-normal text-slate-500 dark:text-slate-400 ml-auto">
-                        Page {currentPageInView}
-                    </span>
-                </h3>
-                {/* MODIFICATION: Shortened the max-height */}
-                <div className="max-h-[40vh] overflow-y-auto pr-2">
-                    {isGlossaryLoading && ( <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300 text-sm"><SpinnerIcon className="w-5 h-5 text-orange-500" /> Loading...</div> )}
-                    {glossaryError && ( <p className="text-red-500 dark:text-red-400 text-sm">Error: {glossaryError.message}</p> )}
-                    {!isGlossaryLoading && glossaryData && glossaryData.length > 0 && (
-                        <ul className="space-y-4">
-                        {glossaryData.map((entry, idx) => (
-                            <li key={idx}>
-                                <p className="font-semibold text-slate-700 dark:text-slate-200">{entry.term}</p>
-                                <p className="text-sm text-slate-600 dark:text-slate-400 mt-0.5">{entry.definition}</p>
-                                <p className="text-right text-xs text-slate-400 dark:text-slate-500 mt-1 capitalize">({entry.source})</p>
-                            </li>
-                        ))}
-                        </ul>
-                    )}
-                    {!isGlossaryLoading && !glossaryError && (!glossaryData || glossaryData.length === 0) && ( <p className="text-slate-500 dark:text-slate-400 text-sm">No key terms found on this page.</p> )}
-                </div>
-            </div>
+            {/* This is the start of the entire conditional block */}
+            {
+                // IF the book status is 'processing'...
+                bookDetails?.status === 'processing' ? (
+                    // ...THEN render this "Processing..." message div.
+                    <div className="bg-white/80 dark:bg-slate-800/80 rounded-xl shadow-md p-4 border border-slate-200 dark:border-slate-700 text-center">
+                        <SpinnerIcon className="w-8 h-8 text-orange-500 mx-auto mb-3" />
+                        <p className="text-sm text-slate-600 dark:text-slate-400">
+                            Analyzing book...<br/>
+                            AI features will appear here automatically when ready.
+                        </p>
+                    </div>
+                // This parenthesis is the closing bracket for the 'processing' condition.
+                ) 
+                // ELSE IF the book status is 'ready'...
+                : bookDetails?.status === 'ready' ? (
+                    // ...THEN render both the Glossary and Quiz panels inside a fragment.
+                    <>
+                        {/* Glossary Panel */}
+                        <div className="bg-white/80 dark:bg-slate-800/80 rounded-xl shadow-md p-4 border border-slate-200 dark:border-slate-700">
+                            <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200 mb-3 pb-3 border-b border-slate-300 dark:border-slate-700 flex items-center gap-2">
+                                <BookOpenHeroIcon className="w-6 h-6 text-orange-500" />
+                                <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-red-500">Glossary</span>
+                                <span className="text-sm font-normal text-slate-500 dark:text-slate-400 ml-auto">Page {currentPageInView}</span>
+                            </h3>
+                            <div className="max-h-[40vh] overflow-y-auto pr-2">
+                                {isGlossaryLoading && ( <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300 text-sm"><SpinnerIcon className="w-5 h-5 text-orange-500" /> Loading...</div> )}
+                                {glossaryError && ( <p className="text-red-500 dark:text-red-400 text-sm">Error: {glossaryError.message}</p> )}
+                                {!isGlossaryLoading && glossaryData && glossaryData.length > 0 && (
+                                    <ul className="space-y-4">
+                                    {glossaryData.map((entry, idx) => (
+                                        <li key={idx}>
+                                            <p className="font-semibold text-slate-700 dark:text-slate-200">{entry.term}</p>
+                                            <p className="text-sm text-slate-600 dark:text-slate-400 mt-0.5">{entry.definition}</p>
+                                            <p className="text-right text-xs text-slate-400 dark:text-slate-500 mt-1 capitalize">({entry.source})</p>
+                                        </li>
+                                    ))}
+                                    </ul>
+                                )}
+                                {!isGlossaryLoading && !glossaryError && (!glossaryData || glossaryData.length === 0) && ( <p className="text-slate-500 dark:text-slate-400 text-sm">No key terms found on this page.</p> )}
+                            </div>
+                        </div>
 
-            {/* MODIFICATION: Quiz Panel moved here */}
-            <div className="bg-white/80 dark:bg-slate-800/80 rounded-xl shadow-md p-4 border border-slate-200 dark:border-slate-700">
-                <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200 mb-3 pb-3 border-b border-slate-300 dark:border-slate-700 flex items-center gap-2">
-                    <BeakerIcon className="w-6 h-6 text-orange-500" />
-                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-red-500">
-                        Test Your Knowledge
-                    </span>
-                </h3>
-                <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
-                    Generate a quiz from the book's content to check your understanding.
-                </p>
-                <Link 
-                    href={`/books/${bookId}/quiz`}
-                    className="w-full flex items-center justify-center px-4 py-2 bg-gradient-to-r from-orange-500 to-red-500 text-white text-sm font-medium rounded-lg shadow-md hover:from-orange-600 hover:to-red-600 focus:outline-none focus:ring-2 ring-offset-2 dark:ring-offset-slate-900 ring-red-500 transition-all"
-                >
-                    Start Quiz
-                </Link>
-            </div>
+                        {/* Quiz Panel */}
+                        <div className="bg-white/80 dark:bg-slate-800/80 rounded-xl shadow-md p-4 border border-slate-200 dark:border-slate-700">
+                           <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200 mb-3 pb-3 border-b border-slate-300 dark:border-slate-700 flex items-center gap-2">
+                                <BeakerIcon className="w-6 h-6 text-orange-500" />
+                                <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-red-500">Test Your Knowledge</span>
+                            </h3>
+                            <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
+                                Generate a quiz from the book's content to check your understanding.
+                            </p>
+                            <Link 
+                                href={`/books/${bookId}/quiz`}
+                                className="w-full flex items-center justify-center px-4 py-2 bg-gradient-to-r from-orange-500 to-red-500 text-white text-sm font-medium rounded-lg shadow-md hover:from-orange-600 hover:to-red-600 focus:outline-none focus:ring-2 ring-offset-2 dark:ring-offset-slate-900 ring-red-500 transition-all"
+                            >
+                                Start Quiz
+                            </Link>
+                        </div>
+                    </>
+                // This parenthesis is the closing bracket for the 'ready' condition.
+                ) 
+                // ELSE (if the status is neither 'processing' nor 'ready', e.g., 'failed' or null)...
+                : null 
+            }
+            {/* This is the final closing brace for the entire conditional block */}
         </aside>
 
           {/* --- COLUMN 2: BOOK VIEWER (Center) --- */}
@@ -683,10 +709,19 @@ const handleRequestSummary = async (textToSummarize: string) => {
           </div>
 
           {/* --- COLUMN 3: QUIZ & AI MENTOR (Right) --- */}
-          <aside className="w-96 min-w-[22rem] max-w-sm h-fit sticky top-6 self-start space-y-6">
-              {/* AI Mentor Panel */}
-              <BookMentorChat bookId={bookId} ChatIcon={ChatBubbleOvalLeftEllipsisIcon} />
-          </aside>
+        <aside className="w-96 min-w-[22rem] max-w-sm h-fit sticky top-6 self-start space-y-6">
+            {bookDetails?.status === 'processing' ? (
+                <div className="bg-white/80 dark:bg-slate-800/80 rounded-xl shadow-md p-4 border border-slate-200 dark:border-slate-700 text-center">
+                    <SpinnerIcon className="w-8 h-8 text-orange-500 mx-auto mb-3" />
+                    <p className="text-sm text-slate-600 dark:text-slate-400">
+                        Preparing AI Mentor...<br/>
+                        This will be available shortly.
+                    </p>
+                </div>
+            ) : bookDetails?.status === 'ready' ? (
+                <BookMentorChat bookId={bookId} ChatIcon={ChatBubbleOvalLeftEllipsisIcon} />
+            ) : null}
+        </aside>
         </div>
 
         {/* --- Overlays (Context Menu and Modals) must be outside the main layout container --- */}
