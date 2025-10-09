@@ -19,6 +19,10 @@ from scipy.spatial.distance import cosine
 import spacy
 import nltk
 from nltk.corpus import wordnet
+import json
+import google.generativeai as genai
+
+
 
 # --- Google Gemini API ---
 import google.generativeai as genai
@@ -153,9 +157,11 @@ async def generate_quiz_from_text(request: QuizGenerationRequest) -> GeneratedQu
 Generate EXACTLY {num_questions} unique question-answer pairs based ONLY on the following content.
 
 ### Instructions:
-1.  **Question:** Must be an open-ended question that requires a short, factual answer.
-2.  **Correct Answer:** Must be a **complete but concise sentence** that fully answers the question. For example, instead of just 'Routers', the answer should be 'The nodes in a graph represent routers.' This creates a fair target for vector comparison.
-3.  **Acceptable Answer Variants:** Provide a JSON array of 2-3 alternative, concise phrases that are also correct. These will be used to evaluate differently phrased user answers. For example, if the main answer is 'A logically centralized controller,' a variant could be 'An SDN controller'
+1. **Question Goal:** Your primary goal is to create questions that test **conceptual understanding**, not simple fact memorization. Questions should require the user to explain **'why'** or **'how'** something works, **compare/contrast** concepts, or state the **implications** of a fact.
+* **AVOID:** Simple questions like "What is X?" or "List the two types of Y."
+* **PREFER:** Analytical questions like "How does X differ from Y?" or "What is the main advantage of using X?"
+2.  **Correct Answer:** Must be a **complete but concise sentence** that fully answers the question. For example, instead of just 'Routers,' the answer should be 'The nodes in a graph represent routers.' This creates a fair target for vector comparison.
+3.  **Acceptable Answer Variants:** Provide a JSON array of 2-3 alternative, concise phrases or keywords that are also correct. These will be used to evaluate differently phrased user answers. For example, if the main answer is 'A logically centralized controller,' a variant could be 'An SDN controller.'
 4.  **Explanation:** Must be a brief, one-sentence explanation providing context or detail for the correct answer.
 5.  **Format:** Output STRICTLY as a JSON array of objects. Do NOT include any code block syntax (e.g., ```json) or any introductory/explanatory text outside the array.
 
