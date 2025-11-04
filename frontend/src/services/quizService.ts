@@ -25,7 +25,6 @@ export interface EvaluatedQuestionResult {
   user_answer: string;
   correct_answer: string;
   similarity_score: number;
-  // This will be added in the final step, but let's define it now
   correct_explanation?: string; 
 }
 
@@ -36,9 +35,9 @@ export interface QuizEvaluationResponse {
   results: EvaluatedQuestionResult[];
 }
 
-// API function to generate a quiz
+// --- (MODIFIED) This function now sends a topic_id ---
 export const generateQuizService = async (
-  contentText: string, 
+  topicId: string, // Changed from contentText
   numQuestions: number = 10
 ): Promise<GeneratedQuiz> => {
   const token = localStorage.getItem("authToken");
@@ -49,7 +48,7 @@ export const generateQuizService = async (
       Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify({
-      content_text: contentText,
+      topic_id: topicId, // Changed from content_text
       num_questions: numQuestions,
     }),
   });
@@ -60,6 +59,7 @@ export const generateQuizService = async (
   }
   return response.json();
 };
+// --- End of modification ---
 
 // API function to evaluate a quiz
 export const evaluateQuizService = async (

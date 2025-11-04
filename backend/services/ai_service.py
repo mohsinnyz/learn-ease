@@ -22,8 +22,6 @@ from nltk.corpus import wordnet
 import json
 import google.generativeai as genai
 
-
-
 # --- Google Gemini API ---
 import google.generativeai as genai
 
@@ -36,12 +34,15 @@ from . import quiz_service
 from models.ai_schemas import (
     QuestionAnswerPair, GlossaryTerm,
     QuizGenerationRequest, GeneratedQuiz, QuizQuestion, 
-    QuizEvaluationRequest, QuizEvaluationResponse, EvaluatedQuestionResult
+    QuizEvaluationRequest, QuizEvaluationResponse, EvaluatedQuestionResult,
+    ChatRequest, ChatResponse
 )
+from models.book_schemas import BookTopicInDB # <<< IMPORT FOR TOPICS
 
 # Load configurations from environment variables
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 GEMINI_MODEL_NAME = os.getenv("GEMINI_MODEL_NAME", "gemini-pro") 
+BOOK_TOPICS_COLLECTION = "book_topics" # <<< COLLECTION NAME
 
 # --- New Configuration for Embeddings (Required for Evaluation) ---
 EMBEDDING_MODEL_NAME = os.getenv("EMBEDDING_MODEL_NAME", "all-MiniLM-L6-v2") 
@@ -146,11 +147,53 @@ async def _call_gemini_for_quiz_json(prompt: str) -> List[Dict[str, str]]:
             detail=f"An unexpected error occurred during quiz generation: {str(e)}"
         )
 
-async def generate_quiz_from_text(request: QuizGenerationRequest) -> GeneratedQuiz:
+# --- (MODIFIED) Function signature and logic updated ---
+async def generate_quiz_from_text(
+    request: QuizGenerationRequest,
+    db: AsyncIOMotorDatabase,
+    user_id: ObjectId
+) -> GeneratedQuiz:
     """
-    Generates a quiz (short QA pairs with explanations) from the given text 
-    using the Gemini LLM, adhering to the user's plan (FE-1).
+    Generates a quiz from a specific topic_id, verifying user access.
     """
+    
+    # 1. Fetch the topic content securely
+    try:
+        topic_oid = ObjectId(request.topic_id)
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid Topic ID format."
+        )
+
+    topic_doc = await db[BOOK_TOPICS_COLLECTION].find_one({"_id": topic_oid})
+    if not topic_doc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Topic not found."
+        )
+    
+    topic = BookTopicInDB(**topic_doc)
+
+    # 2. Verify user ownership by checking the parent book
+    book_doc = await db["books"].find_one(
+        {"_id": topic.book_id, "user_id": user_id}
+    )
+    if not book_doc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Book for this topic not found or access denied."
+        )
+
+    # 3. Get the content and validate length
+    topic_content = topic.content
+    if not topic_content or len(topic_content.strip()) < 100: # 100 is min_length from old schema
+         raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="The selected topic content is too short to generate a quiz."
+        )
+
+    # 4. Proceed with quiz generation using the fetched content
     num_questions = request.num_questions
     
     prompt = f"""You are an expert educational assistant creating a study quiz.
@@ -178,7 +221,7 @@ Generate EXACTLY {num_questions} unique question-answer pairs based ONLY on the 
 
 ### Content to use:
 ---
-{request.content_text}
+{topic_content} 
 ---
 """
     raw_quiz_data = await _call_gemini_for_quiz_json(prompt)
@@ -202,6 +245,7 @@ Generate EXACTLY {num_questions} unique question-answer pairs based ONLY on the 
     quiz_id = str(uuid.uuid4())
     
     return GeneratedQuiz(quiz_id=quiz_id, questions=questions)
+# --- End of modification ---
 
 
 # backend/services/ai_service.py
@@ -211,10 +255,10 @@ Generate EXACTLY {num_questions} unique question-answer pairs based ONLY on the 
 # =========================================================================
 
 async def evaluate_quiz_attempt(
-    request: QuizEvaluationRequest, 
+    request: QuizEvaluationRequest,
     generated_quiz: GeneratedQuiz,
-    db: AsyncIOMotorDatabase, # For DB storage
-    user_id: ObjectId        # For DB storage
+    db: AsyncIOMotorDatabase,  # For DB storage
+    user_id: ObjectId  # For DB storage
 ) -> QuizEvaluationResponse:
     """
     Evaluates the user's short-answer quiz attempt using cosine similarity of embeddings
@@ -454,7 +498,7 @@ Passage:
         outputs = model_qna_questions.generate(
             inputs.input_ids,
             attention_mask=inputs.attention_mask,
-            max_new_tokens=256,  
+            max_new_tokens=256,
             do_sample=True,
             temperature=0.7,
             top_k=50,
@@ -514,7 +558,6 @@ Answer:"""
             max_output_tokens=256 
         )
 
-        # Using synchronous call as the original snippet did, but logging a warning about async
         response = gemini_model.generate_content(prompt, generation_config=generation_config)
 
         if not response.parts:
@@ -692,37 +735,133 @@ Text to process:
     return await _call_gemini_for_json_list(prompt, "flashcards")
 
 
+# --- Study Notes Generation (from Topic ID) ---
+
+async def generate_study_notes_from_topic(
+    db: AsyncIOMotorDatabase,
+    topic_id_str: str,
+    user_id: ObjectId
+) -> str:
+    """
+    Fetches topic content from the DB and generates study notes.
+    This function is called by the router.
+    """
+    try:
+        topic_oid = ObjectId(topic_id_str)
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid Topic ID format."
+        )
+
+    # 1. Fetch the topic
+    topic_doc = await db[BOOK_TOPICS_COLLECTION].find_one({"_id": topic_oid})
+    if not topic_doc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Topic not found."
+        )
+    
+    topic = BookTopicInDB(**topic_doc)
+
+    # 2. Verify user ownership by checking the parent book
+    book_doc = await db["books"].find_one(
+        {"_id": topic.book_id, "user_id": user_id}
+    )
+    if not book_doc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Book for this topic not found or access denied."
+        )
+
+    # 3. If ownership is verified, generate notes from the topic's content
+    if not topic.content or len(topic.content.strip()) < 20:
+        return "The selected topic content is too short to generate study notes."
+        
+    return await generate_study_notes_from_text(topic.content)
+
+
 # --- Study Notes Generation using Gemini ---
 async def generate_study_notes_from_text(text_to_generate_from: str) -> str:
     if not text_to_generate_from or len(text_to_generate_from.strip()) < 20:
         print("WARN: AI Service - Input text for study notes is too short.")
         return "Input text is too short to generate effective study notes."
 
-    prompt = f"""You are an expert educational assistant. Your task is to generate *comprehensive, clearly structured, and visually well-formatted study notes* from the following academic text.
+    # <<< (NEW, ADVANCED PROMPT) >>>
+    prompt = f"""
+You are an expert academic instructor and curriculum designer. 
+Your task is to generate **high-quality, deeply structured, and pedagogically optimized study notes** from the provided academic text.
 
-### Instructions:
-- Carefully read and analyze the input content.
-- Identify and extract all major concepts, terms, and themes.
-- Present the information using a hierarchical structure with *headings* and *subheadings*.
-- Under each heading, give a *concise but informative explanation* of the concept in your own words.
-- Use bullet points or numbered lists to break down key details, facts, definitions, or processes under each sub-topic.
-- Use clear and consistent *markdown formatting*:
-  - ## for major headings (main concepts)
-  - ### for subheadings (supporting ideas, components, or examples)
-  - - for bullet points under each section
-- Avoid copying long phrases directly from the source — rephrase and simplify for easier learning.
-- Ensure that *all relevant ideas are covered*; do not skip minor but useful points.
-- At the end, write a *Conclusion* section summarizing the key takeaways from the entire content.
+## ✅ Core Requirements
+- Conduct a deep analysis of the input text to identify **all concepts**, **definitions**, **arguments**, **examples**, **numerical details**, and **supporting points**.
+- Rewrite the entire content in **your own clear academic wording**. Avoid copying sentences.
+- Output must be **comprehensive**, **long-form**, and **logically organized**.
 
-### Output Style:
-- The final output should be a *single markdown-formatted text block* ready for display in a study application.
-- The tone should be academic but accessible to students.
+## ✅ Structure & Formatting Rules (VERY IMPORTANT)
+Use this exact structure:
 
-Text to process:
+### 1. Title
+- Generate a clear and meaningful title for the notes.
+
+### 2. Overview
+Provide a short 4–6 sentence summary describing:
+- What the text is about
+- Why it is important
+- What major themes it covers
+
+### 3. Key Concepts (Bullet List)
+List all important concepts, terms, and ideas extracted from the source.
+
+### 4. Detailed Notes (Main Body)
+For the main notes, follow this strict hierarchy:
+
+## Main Heading (H2)
+- A comprehensive explanation of the concept.
+- Key points:
+  - Bullet point 1
+  - Bullet point 2
+  - Bullet point 3
+- Examples (if relevant)
+
+### Subheading (H3)
+- A detailed explanation of the sub-concept.
+- Bullet points for supporting details
+
+### Sub-Subheading (H4) — optional when content is dense
+- Short definition or detail
+
+Repeat this structure for **every major topic** in the input.
+
+### 5. Visual Learning Aids
+Include at least:
+- ✅ comparison tables (if relevant)
+- ✅ step-by-step processes
+- ✅ diagrams described in text (ASCII or conceptual)
+
+### 6. Conclusion
+Summarize the text in **5–7 strong points** focusing on:
+- What the student must remember
+- Concepts that are most exam-relevant
+- Connections between concepts
+
+## ✅ Writing Style Rules
+- Academic but simple.
+- No fluff, filler, or generic sentences.
+- Use precise wording.
+- Ensure high coverage: **include every single important detail** from the source text.
+- Ensure notes are longer, clearer, and better structured than the original.
+
+## ✅ Final Output
+- Return **one complete markdown block**.
+- No external commentary.
+
+---
+### Text to process:
 ---
 {text_to_generate_from}
 ---
 """
+    # <<< (END OF NEW PROMPT) >>>
 
     if not GOOGLE_API_KEY or not GEMINI_MODEL_NAME:
         print("ERROR: AI Service (Study Notes) - API Key or Model Name is not configured.")
@@ -738,7 +877,7 @@ Text to process:
         gemini_model = genai.GenerativeModel(GEMINI_MODEL_NAME)
         generation_config = genai.types.GenerationConfig(
             temperature=0.5,
-            max_output_tokens=1500
+            max_output_tokens=4096 # <<< Increased token limit for this complex prompt
         )
 
         response = gemini_model.generate_content(prompt, generation_config=generation_config)
@@ -860,19 +999,6 @@ async def generate_glossary_from_text(page_text: str) -> List[GlossaryTerm]:
             
     return glossary_terms
 
-
-
-
-# Import ALL relevant schemas
-from models.ai_schemas import (
-    QuestionAnswerPair, GlossaryTerm,
-    QuizGenerationRequest, GeneratedQuiz, QuizQuestion, 
-    QuizEvaluationRequest, QuizEvaluationResponse, EvaluatedQuestionResult,
-    ChatRequest, ChatResponse # <<< Add new chat schemas
-)
-
-# ... (rest of the file until after GEMINI configuration)
-
 # --- Groq Llama3 Configuration for RAG Chat ---
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 if not GROQ_API_KEY:
@@ -959,59 +1085,5 @@ async def get_rag_answer(book_id: str, query: str) -> ChatResponse:
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An unexpected error occurred while generating the chat response."
         )
-
-# Add this entire function to backend/services/ai_service.py
-
-async def generate_topic_titles_from_text(full_text: str) -> List[str]:
-    """
-    Uses an LLM to intelligently parse a book's Table of Contents and extract
-    only the main topic titles.
-    """
-    text_sample = full_text[:15000]
-
-    prompt = f"""
-You are an expert document analyst specializing in parsing a book's Table of Contents (ToC).
-Your task is to analyze the provided ToC text and extract the titles of the main sections.
-
-### Instructions:
-1.  Read the ToC and identify the main sections and their titles.
-2.  You must extract only the primary section levels (e.g., `1.1`, `1.2`, `2.1`).
-3.  **IGNORE** all subsections (e.g., `1.1.1`, `1.1.2`, `1.2.1`).
-4.  Include the section number in the title (e.g., "1.1 What Is the Internet?").
-5.  Do not include page numbers.
-6.  The output must be a clean JSON array of strings. Do not include any extra text or markdown.
-
-### JSON Structure Example:
-[
-  "1.1 What Is the Internet?",
-  "1.2 The Network Edge",
-  "1.3 The Network Core"
-]
-
-### Table of Contents Text to Analyze:
----
-{text_sample}
----
-"""
-    try:
-        gemini_model = genai.GenerativeModel(GEMINI_MODEL_NAME)
-        response = await gemini_model.generate_content_async(prompt)
-        
-        cleaned_text = response.text.strip().replace("```json", "").replace("```", "").strip()
-        
-        json_start_index = cleaned_text.find('[')
-        json_end_index = cleaned_text.rfind(']')
-
-        if json_start_index != -1 and json_end_index != -1:
-            json_string = cleaned_text[json_start_index : json_end_index + 1]
-            topic_titles = json.loads(json_string)
-            if isinstance(topic_titles, list) and all(isinstance(t, str) for t in topic_titles):
-                return topic_titles
-
-        # Fallback if AI parsing or JSON loading fails
-        return ["Full Document"]
-
-    except Exception as e:
-        print(f"ERROR: AI Service (Topic Title Generation) - Failed: {e}")
-        # Provide a safe fallback in case of any error
-        return ["Full Document"]
+# =========================================================================
+# --- END OF AI SERVICE MODULE ---

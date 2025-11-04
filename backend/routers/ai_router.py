@@ -1,6 +1,7 @@
 # backend/routers/ai_router.py
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel
 from typing import List, Dict
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
@@ -116,6 +117,7 @@ async def http_generate_study_notes(
     request_data: TextForStudyNotes,
 ):
     """
+    (DEPRECATED - use /topic)
     Receives text input and generates structured study notes using the AI service.
     """
     try:
@@ -129,6 +131,41 @@ async def http_generate_study_notes(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An unexpected error occurred while generating study notes."
             )
+
+# --- (NEW) ENDPOINT FOR TOPIC-BASED NOTES ---
+
+class TopicStudyNotesRequest(BaseModel):
+    """Request model for generating notes from a topic ID."""
+    topic_id: str
+
+@router.post("/generate-study-notes/topic", response_model=StudyNotesResponse)
+async def http_generate_study_notes_from_topic(
+    request_data: TopicStudyNotesRequest,
+    db: AsyncIOMotorDatabase = Depends(get_database),
+    current_user: UserInDB = Depends(get_current_user)
+):
+    """
+    Generates study notes from a specific, user-selected topic ID
+    by fetching the topic's content from the database.
+    """
+    try:
+        notes_content = await ai_service.generate_study_notes_from_topic(
+            db=db,
+            topic_id_str=request_data.topic_id,
+            user_id=current_user.id
+        )
+        return StudyNotesResponse(study_notes=notes_content)
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        print(f"ERROR: /generate-study-notes/topic endpoint - Unexpected error: {type(e).__name__} - {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An unexpected error occurred while generating study notes from the topic."
+        )
+
+# --- END OF NEW CODE ---
+
 
 @router.post("/generate-qna", response_model=QuestionAnswerResponse)
 async def http_generate_question_answers(
@@ -153,14 +190,24 @@ async def http_generate_question_answers(
 # --- ROUTES FOR QUIZ GENERATION AND EVALUATION (Module 4) ---
 # =========================================================================
 
+# --- (MODIFIED) This endpoint now requires db and user ---
 @router.post("/quiz/generate", response_model=GeneratedQuiz)
-async def http_generate_quiz(request: QuizGenerationRequest):
+async def http_generate_quiz(
+    request: QuizGenerationRequest,
+    db: AsyncIOMotorDatabase = Depends(get_database),
+    current_user: UserInDB = Depends(get_current_user)
+):
     """
-    Generates the quiz and stores it temporarily for later evaluation.
+    Generates the quiz from a topic_id and stores it temporarily.
     """
-    print(f"INFO: API - Received quiz generation request.")
+    print(f"INFO: API - Received quiz generation request for topic: {request.topic_id}")
     try:
-        generated_quiz = await ai_service.generate_quiz_from_text(request)
+        # --- (MODIFIED) Pass db and user_id to the service ---
+        generated_quiz = await ai_service.generate_quiz_from_text(
+            request=request,
+            db=db,
+            user_id=current_user.id
+        )
 
         global temp_quiz_storage
         temp_quiz_storage[generated_quiz.quiz_id] = generated_quiz
@@ -172,6 +219,7 @@ async def http_generate_quiz(request: QuizGenerationRequest):
     except Exception as e:
         print(f"ERROR: API (/ai/quiz/generate) - Unexpected error: {type(e).__name__} - {str(e)}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to generate quiz: {str(e)}")
+# --- End of modification ---
 
 
 @router.post("/quiz/evaluate", response_model=QuizEvaluationResponse)

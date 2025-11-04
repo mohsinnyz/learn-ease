@@ -1,4 +1,4 @@
-//learn-ease-fyp\frontend\src/app/books/[bookId]/page.tsx
+//learn-ease-fyp\frontend\src/app\books\[bookId]\page.tsx
 "use client";
 
 import {
@@ -35,10 +35,13 @@ import {
   QnAApiResponse,
   GlossaryEntry,
   fetchGlossaryForPage,
+  // --- (NEW) We only need the service function here ---
+  generateStudyNotesFromTopic,
 } from "@/services/bookService";
 
-// <<< 1. IMPORT THE NEW CHAT COMPONENT >>>
+// --- (NEW) Import our new components ---
 import { BookMentorChat } from "@/components/BookMentorChat";
+import { StudyNotesPanel } from "@/components/StudyNotesPanel"; // <<< NEW
 
 // --- PDF.js Worker Configuration ---
 if (typeof window !== "undefined") {
@@ -78,14 +81,12 @@ const QuestionMarkCircleIcon = (props: React.SVGProps<SVGSVGElement>) => (
     </svg>
 );
 
-// --- MODIFICATION: ADDED NEW ICON FOR QUIZ FEATURE ---
 const BeakerIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}>
     <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19 14.5M14.25 3.104c.251.023.501.05.75.082M19 14.5v-5.714m0 0a24.298 24.298 0 00-4.5 0m4.5 0a24.298 24.298 0 01-4.5 0M9 17.25v2.25a2.25 2.25 0 002.25 2.25h1.5a2.25 2.25 0 002.25-2.25v-2.25M15 17.25h-6M9 17.25H5.625a1.125 1.125 0 01-1.125-1.125v-1.5c0-.517.21-1.01.562-1.375L9 11.25m6 0l3.188-2.812a1.125 1.125 0 011.625 1.375v1.5c0 .621-.504 1.125-1.125 1.125H15m-6 0h6" />
   </svg>
 );
 
-// <<< 2. ADD NEW ICON FOR CHAT MENTOR >>>
 const ChatBubbleOvalLeftEllipsisIcon = (props: React.SVGProps<SVGSVGElement>) => (<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}><path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" /></svg>);
 
 
@@ -243,10 +244,13 @@ export default function BookViewPage() {
   const [isGeneratingFlashcards, setIsGeneratingFlashcards] = useState(false);
   const [flashcardsError, setFlashcardsError] = useState<string | null>(null);
   const [showFlashcardsModal, setShowFlashcardsModal] = useState(false);
+  
+  // State for Study Notes (re-used for both text and topic)
   const [studyNotes, setStudyNotes] = useState<string | null>(null);
   const [isGeneratingStudyNotes, setIsGeneratingStudyNotes] = useState(false);
   const [studyNotesError, setStudyNotesError] = useState<string | null>(null);
   const [showStudyNotesModal, setShowStudyNotesModal] = useState(false);
+  
   const [qnaPairs, setQnaPairs] = useState<QuestionAnswerPair[] | null>(null);
   const [isGeneratingQnA, setIsGeneratingQnA] = useState(false);
   const [qnaError, setQnaError] = useState<string | null>(null);
@@ -257,16 +261,18 @@ export default function BookViewPage() {
   const pageRefs = useRef<Map<number, HTMLDivElement>>(new Map());
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
+  // --- (NEW) State to track which topic is being generated ---
+  const [generatingTopicId, setGeneratingTopicId] = useState<string | null>(null);
+
   const { 
     data: bookDetails, 
     error: bookDetailsError,
-    isLoading: isDetailsLoading // We get the loading state directly from SWR
+    isLoading: isDetailsLoading
   } = useSWR(
-    bookId, // The key is just the bookId. SWR won't run if bookId is null.
-    fetchBookDetails, // The fetcher is simply the function reference. SWR will call it with the key.
+    bookId, 
+    fetchBookDetails, 
     {
       refreshInterval: (latestData) => {
-        // Only refresh every 5 seconds if the book is still processing.
         return latestData?.status === 'processing' ? 5000 : 0;
       }
     }
@@ -277,21 +283,22 @@ export default function BookViewPage() {
     error: glossaryError, 
     isLoading: isGlossaryLoading 
   } = useSWR(
-    // The key is now also conditional on the book status
     bookId && bookDetails?.status === 'ready' ? [bookId, currentPageInView] : null,
     ([id, pageNum]: [string, number]) => fetchGlossaryForPage(id, pageNum)
   );
 
+  // --- (REMOVED) SWR Hook for topics is no longer needed here ---
+  // It now lives inside StudyNotesPanel.tsx
+
   const { data: pdfBlob, error: pdfError } = useSWR(
-    bookId ? `${bookId}-pdf` : null, // A unique, stable key for the PDF
+    bookId ? `${bookId}-pdf` : null, 
     () => fetchBookPdfAsBlob(bookId),
     { 
       revalidateOnFocus: false, 
-      revalidateOnReconnect: false // Prevents re-fetching the large PDF file
+      revalidateOnReconnect: false 
     }
   );
   
-  // This memoizes the PDF URL, preventing the Document from re-rendering unnecessarily
   const pdfFileUrl = useMemo(() => {
     if (pdfBlob) return URL.createObjectURL(pdfBlob);
     return null;
@@ -485,6 +492,29 @@ const handleRequestSummary = async (textToSummarize: string) => {
     }
   };
 
+  // --- (NEW) Handler for Topic-Based Study Notes ---
+  const handleRequestStudyNotesFromTopic = async (topicId: string) => {
+    setGeneratingTopicId(topicId); // Show spinner on button
+    setIsGeneratingStudyNotes(true); // Show modal with global spinner
+    setStudyNotesError(null);
+    setStudyNotes(null);
+    setShowStudyNotesModal(true);
+    
+    try {
+      const result: StudyNotesApiResponse = await generateStudyNotesFromTopic(topicId);
+      setStudyNotes(result.study_notes);
+      if (!result.study_notes) { 
+        setStudyNotesError("The AI could not generate study notes from this topic.");
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to generate study notes from topic.";
+      setStudyNotesError(msg);
+    } finally {
+      setIsGeneratingStudyNotes(false); // Hide modal spinner (modal stays open)
+      setGeneratingTopicId(null); // Hide button spinner
+    }
+  };
+
   const handleRequestQnA = async (textToGenerateFrom: string) => {
     if (!textToGenerateFrom) {
       setQnaError("No text selected to generate Q&A from.");
@@ -547,7 +577,7 @@ const handleRequestSummary = async (textToSummarize: string) => {
     <div style={{ width: calculatedPageWidth, height: pagePlaceholderHeight }} className="flex items-center justify-center bg-slate-200/70 dark:bg-slate-700/70 text-slate-500 dark:text-slate-400 rounded-md animate-pulse">
       Loading page...
     </div>
-  ), [calculatedPageWidth, pagePlaceholderHeight]);   
+  ), [calculatedPageWidth, pagePlaceholderHeight]);   
 
   if (isDetailsLoading) return (
     <div 
@@ -593,14 +623,11 @@ const handleRequestSummary = async (textToSummarize: string) => {
       <GlobalStyles />
       <div className="w-full max-w-full mx-auto flex flex-row gap-6 px-6">
         
-        {/* --- COLUMN 1: GLOSSARY & QUIZ (Left) --- */}
+        {/* --- COLUMN 1: GLOSSARY, QUIZ, NOTES (Left) --- */}
         <aside className="w-72 min-w-[18rem] max-w-xs h-fit sticky top-6 self-start space-y-6">
             
-            {/* This is the start of the entire conditional block */}
             {
-                // IF the book status is 'processing'...
                 bookDetails?.status === 'processing' ? (
-                    // ...THEN render this "Processing..." message div.
                     <div className="bg-white/80 dark:bg-slate-800/80 rounded-xl shadow-md p-4 border border-slate-200 dark:border-slate-700 text-center">
                         <SpinnerIcon className="w-8 h-8 text-orange-500 mx-auto mb-3" />
                         <p className="text-sm text-slate-600 dark:text-slate-400">
@@ -608,11 +635,8 @@ const handleRequestSummary = async (textToSummarize: string) => {
                             AI features will appear here automatically when ready.
                         </p>
                     </div>
-                // This parenthesis is the closing bracket for the 'processing' condition.
                 ) 
-                // ELSE IF the book status is 'ready'...
                 : bookDetails?.status === 'ready' ? (
-                    // ...THEN render both the Glossary and Quiz panels inside a fragment.
                     <>
                         {/* Glossary Panel */}
                         <div className="bg-white/80 dark:bg-slate-800/80 rounded-xl shadow-md p-4 border border-slate-200 dark:border-slate-700">
@@ -621,7 +645,7 @@ const handleRequestSummary = async (textToSummarize: string) => {
                                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-red-500">Glossary</span>
                                 <span className="text-sm font-normal text-slate-500 dark:text-slate-400 ml-auto">Page {currentPageInView}</span>
                             </h3>
-                            <div className="max-h-[40vh] overflow-y-auto pr-2">
+                            <div className="max-h-[25vh] overflow-y-auto pr-2">
                                 {isGlossaryLoading && ( <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300 text-sm"><SpinnerIcon className="w-5 h-5 text-orange-500" /> Loading...</div> )}
                                 {glossaryError && ( <p className="text-red-500 dark:text-red-400 text-sm">Error: {glossaryError.message}</p> )}
                                 {!isGlossaryLoading && glossaryData && glossaryData.length > 0 && (
@@ -655,256 +679,262 @@ const handleRequestSummary = async (textToSummarize: string) => {
                                 Start Quiz
                             </Link>
                         </div>
+                        
+                        {/* --- (NEW) STUDY NOTES PANEL --- */}
+                        {/* All the complex logic is now inside this component */}
+                        <StudyNotesPanel
+                          bookId={bookId}
+                          generatingTopicId={generatingTopicId}
+                          onGenerate={handleRequestStudyNotesFromTopic}
+                        />
+
                     </>
-                // This parenthesis is the closing bracket for the 'ready' condition.
                 ) 
-                // ELSE (if the status is neither 'processing' nor 'ready', e.g., 'failed' or null)...
                 : null 
             }
-            {/* This is the final closing brace for the entire conditional block */}
         </aside>
 
-          {/* --- COLUMN 2: BOOK VIEWER (Center) --- */}
-          <div className="flex-1 min-w-0">
-            <div className="mb-4">
-              <Link href="/dashboard" className="inline-flex items-center text-orange-600 dark:text-orange-400 hover:text-red-600 dark:hover:text-red-500 transition-colors group text-sm font-medium">
-                <ChevronLeftIcon className="w-5 h-5 mr-1 transition-transform group-hover:-translate-x-0.5" />
-                Back to Dashboard
-              </Link>
-              <h1 className="text-3xl font-bold text-slate-800 dark:text-slate-100 mt-2 truncate" title={bookDetails.title}>
-                {bookDetails.title}
-              </h1>
-            </div>
-            <div ref={scrollContainerRef} className="rounded-lg shadow-xl overflow-y-auto max-h-[calc(100vh-10rem)] border border-slate-300 dark:border-slate-700" onContextMenu={handleContextMenuAction} onClick={(e) => e.stopPropagation()}>
-              <Document 
-                  file={pdfFileUrl} 
-                  onLoadSuccess={onDocumentLoadSuccess} 
-                  onLoadError={(pdfError) => { console.error("PDF Load Error object:", pdfError); setError(`Failed to load PDF: ${pdfError.message || "Unknown PDF loading error"}`); }} 
-                  loading={<div className="text-center p-10">Loading document...</div>}
-              >
-                {Array.from(new Array(numPages || 0), (el, index) => (
-                  <div
-                      key={`page_observer_${index + 1}`}
-                      ref={(el) => {
-                          if (el) { pageRefs.current.set(index + 1, el); } 
-                          else { pageRefs.current.delete(index + 1); }
-                      }}
-                      data-page-number={index + 1}
-                  >
-                      <div key={`page_wrapper_${index + 1}`} className="flex justify-center py-1.5 my-0.5">
-                          <Page
-                              key={`page_${index + 1}`}
-                              pageNumber={index + 1}
-                              width={calculatedPageWidth}
-                              renderTextLayer={true}
-                              renderAnnotationLayer={true}
-                              className="react-pdf__Page__canvas"
-                              loading={pageLoadingIndicator}
-                          />
-                      </div>
-                  </div>
-                ))}
-              </Document>
-            </div>
+        {/* --- COLUMN 2: BOOK VIEWER (Center) --- */}
+        <div className="flex-1 min-w-0">
+          <div className="mb-4">
+            <Link href="/dashboard" className="inline-flex items-center text-orange-600 dark:text-orange-400 hover:text-red-600 dark:hover:text-red-500 transition-colors group text-sm font-medium">
+              <ChevronLeftIcon className="w-5 h-5 mr-1 transition-transform group-hover:-translate-x-0.5" />
+              Back to Dashboard
+            </Link>
+            <h1 className="text-3xl font-bold text-slate-800 dark:text-slate-100 mt-2 truncate" title={bookDetails.title}>
+              {bookDetails.title}
+            </h1>
           </div>
-
-          {/* --- COLUMN 3: QUIZ & AI MENTOR (Right) --- */}
-        <aside className="w-96 min-w-[22rem] max-w-sm h-fit sticky top-6 self-start space-y-6">
-            {bookDetails?.status === 'processing' ? (
-                <div className="bg-white/80 dark:bg-slate-800/80 rounded-xl shadow-md p-4 border border-slate-200 dark:border-slate-700 text-center">
-                    <SpinnerIcon className="w-8 h-8 text-orange-500 mx-auto mb-3" />
-                    <p className="text-sm text-slate-600 dark:text-slate-400">
-                        Preparing AI Mentor...<br/>
-                        This will be available shortly.
-                    </p>
+          <div ref={scrollContainerRef} className="rounded-lg shadow-xl overflow-y-auto max-h-[calc(100vh-10rem)] border border-slate-300 dark:border-slate-700" onContextMenu={handleContextMenuAction} onClick={(e) => e.stopPropagation()}>
+            <Document 
+                file={pdfFileUrl} 
+                onLoadSuccess={onDocumentLoadSuccess} 
+                onLoadError={(pdfError) => { console.error("PDF Load Error object:", pdfError); setError(`Failed to load PDF: ${pdfError.message || "Unknown PDF loading error"}`); }} 
+                loading={<div className="text-center p-10">Loading document...</div>}
+            >
+              {Array.from(new Array(numPages || 0), (el, index) => (
+                <div
+                    key={`page_observer_${index + 1}`}
+                    ref={(el) => {
+                        if (el) { pageRefs.current.set(index + 1, el); } 
+                        else { pageRefs.current.delete(index + 1); }
+                    }}
+                    data-page-number={index + 1}
+                >
+                    <div key={`page_wrapper_${index + 1}`} className="flex justify-center py-1.5 my-0.5">
+                        <Page
+                            key={`page_${index + 1}`}
+                            pageNumber={index + 1}
+                            width={calculatedPageWidth}
+                            renderTextLayer={true}
+                            renderAnnotationLayer={true}
+                            className="react-pdf__Page__canvas"
+                            loading={pageLoadingIndicator}
+                        />
+                    </div>
                 </div>
-            ) : bookDetails?.status === 'ready' ? (
-                <BookMentorChat bookId={bookId} ChatIcon={ChatBubbleOvalLeftEllipsisIcon} />
-            ) : null}
-        </aside>
+              ))}
+            </Document>
+          </div>
         </div>
 
-        {/* --- Overlays (Context Menu and Modals) must be outside the main layout container --- */}
-        {contextMenu.visible && (
-          <div
-            style={{ top: contextMenu.y, left: contextMenu.x, position: 'fixed' }}
-            className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-md border border-slate-300 dark:border-slate-600 rounded-lg shadow-2xl py-1.5 z-[100] w-72" 
-            onClick={(e) => e.stopPropagation()}
-          >
-            {[
-              { label: "Summarize", icon: DocumentTextIcon, action: () => handleRequestSummary(contextMenu.selectedTextContent), shortTextLength: 30 },
-              { label: "Generate Flashcards", icon: LayersIcon, action: () => handleRequestFlashcards(contextMenu.selectedTextContent), shortTextLength: 25 },
-              { label: "Generate Study Notes", icon: LightBulbIcon, action: () => handleRequestStudyNotes(contextMenu.selectedTextContent), shortTextLength: 22 },
-              { label: "Generate Q&A", icon: QuestionMarkCircleIcon, action: () => handleRequestQnA(contextMenu.selectedTextContent), shortTextLength: 28 },
-            ].map(item => (
-              <button
-                key={item.label}
-                onClick={() => { item.action(); closeContextMenu(); }}
-                className="w-full text-left px-3.5 py-2.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-orange-100 dark:hover:bg-orange-700/30 hover:text-orange-700 dark:hover:text-orange-300 flex items-center space-x-3 transition-colors rounded-md"
-              >
-                <item.icon className="w-5 h-5 flex-shrink-0 text-orange-500 dark:text-orange-400 opacity-90" />
-                <span className="flex-1 min-w-0">
-                  {item.label}: "{contextMenu.selectedTextContent.substring(0, item.shortTextLength)}
-                  {contextMenu.selectedTextContent.length > item.shortTextLength ? "..." : ""}"
-                </span>
-              </button>
-            ))}
-          </div>
-        )}
-
-        <Modal isOpen={showSummaryModal} onClose={() => setShowSummaryModal(false)} title={summarizeError ? "Summarization Error" : isSummarizing ? "Generating Summary..." : summary ? "Generated Summary" : "Summary"}>
-          {isSummarizing && <div className="text-center py-4"><SpinnerIcon className="w-8 h-8 text-orange-500 mx-auto mb-2" /><p className="text-slate-600 dark:text-slate-300">Please wait, AI is processing...</p></div>}
-          {summarizeError && <p className="text-red-500 dark:text-red-400 p-2 text-sm">{summarizeError}</p>}
-          {summary && !isSummarizing && <div className="max-h-[60vh] overflow-y-auto p-1 text-sm"><p className="text-slate-700 dark:text-slate-200 whitespace-pre-wrap font-sans">{summary}</p></div>}
-          {!isSummarizing && !summary && !summarizeError && <p className="text-slate-500 dark:text-slate-400">No summary details to display.</p>}
-        </Modal>
-
-          <Modal
-            isOpen={showFlashcardsModal}
-            onClose={() => setShowFlashcardsModal(false)}
-            title={
-              flashcardsError
-                ? "Flashcard Error"
-                : isGeneratingFlashcards
-                ? "Generating Flashcards..."
-                : flashcards && flashcards.length > 0
-                ? "Generated Flashcards"
-                : "Flashcards"
-            }
-          >
-            <div className="bg-transparent rounded-xl p-4">
-              {isGeneratingFlashcards && (
-                <div className="text-center py-4">
-                  <SpinnerIcon className="w-8 h-8 text-orange-500 mx-auto mb-2" />
-                  <p className="text-slate-600 dark:text-slate-300">
-                    Please wait, AI is creating flashcards...
+        {/* --- COLUMN 3: QUIZ & AI MENTOR (Right) --- */}
+      <aside className="w-96 min-w-[22rem] max-w-sm h-fit sticky top-6 self-start space-y-6">
+          {bookDetails?.status === 'processing' ? (
+              <div className="bg-white/80 dark:bg-slate-800/80 rounded-xl shadow-md p-4 border border-slate-200 dark:border-slate-700 text-center">
+                  <SpinnerIcon className="w-8 h-8 text-orange-500 mx-auto mb-3" />
+                  <p className="text-sm text-slate-600 dark:text-slate-400">
+                      Preparing AI Mentor...<br/>
+                      This will be available shortly.
                   </p>
-                </div>
-              )}
+              </div>
+          ) : bookDetails?.status === 'ready' ? (
+              <BookMentorChat bookId={bookId} ChatIcon={ChatBubbleOvalLeftEllipsisIcon} />
+          ) : null}
+      </aside>
+      </div>
 
-              {flashcardsError && (
-                <p className="text-red-500 dark:text-red-400 p-2 text-sm">
-                  {flashcardsError}
+      {/* --- Overlays (Context Menu and Modals) must be outside the main layout container --- */}
+      {contextMenu.visible && (
+        <div
+          style={{ top: contextMenu.y, left: contextMenu.x, position: 'fixed' }}
+          className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-md border border-slate-300 dark:border-slate-600 rounded-lg shadow-2xl py-1.5 z-[100] w-72" 
+          onClick={(e) => e.stopPropagation()}
+        >
+          {[
+            { label: "Summarize", icon: DocumentTextIcon, action: () => handleRequestSummary(contextMenu.selectedTextContent), shortTextLength: 30 },
+            { label: "Generate Flashcards", icon: LayersIcon, action: () => handleRequestFlashcards(contextMenu.selectedTextContent), shortTextLength: 25 },
+            { label: "Generate Study Notes", icon: LightBulbIcon, action: () => handleRequestStudyNotes(contextMenu.selectedTextContent), shortTextLength: 22 },
+            { label: "Generate Q&A", icon: QuestionMarkCircleIcon, action: () => handleRequestQnA(contextMenu.selectedTextContent), shortTextLength: 28 },
+          ].map(item => (
+            <button
+              key={item.label}
+              onClick={() => { item.action(); closeContextMenu(); }}
+              className="w-full text-left px-3.5 py-2.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-orange-100 dark:hover:bg-orange-700/30 hover:text-orange-700 dark:hover:text-orange-300 flex items-center space-x-3 transition-colors rounded-md"
+            >
+              <item.icon className="w-5 h-5 flex-shrink-0 text-orange-500 dark:text-orange-400 opacity-90" />
+              <span className="flex-1 min-w-0">
+                {item.label}: "{contextMenu.selectedTextContent.substring(0, item.shortTextLength)}
+                {contextMenu.selectedTextContent.length > item.shortTextLength ? "..." : ""}"
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      <Modal isOpen={showSummaryModal} onClose={() => setShowSummaryModal(false)} title={summarizeError ? "Summarization Error" : isSummarizing ? "Generating Summary..." : summary ? "Generated Summary" : "Summary"}>
+        {isSummarizing && <div className="text-center py-4"><SpinnerIcon className="w-8 h-8 text-orange-500 mx-auto mb-2" /><p className="text-slate-600 dark:text-slate-300">Please wait, AI is processing...</p></div>}
+        {summarizeError && <p className="text-red-500 dark:text-red-400 p-2 text-sm">{summarizeError}</p>}
+        {summary && !isSummarizing && <div className="max-h-[60vh] overflow-y-auto p-1 text-sm"><p className="text-slate-700 dark:text-slate-200 whitespace-pre-wrap font-sans">{summary}</p></div>}
+        {!isSummarizing && !summary && !summarizeError && <p className="text-slate-500 dark:text-slate-400">No summary details to display.</p>}
+      </Modal>
+
+        <Modal
+          isOpen={showFlashcardsModal}
+          onClose={() => setShowFlashcardsModal(false)}
+          title={
+            flashcardsError
+              ? "Flashcard Error"
+              : isGeneratingFlashcards
+              ? "Generating Flashcards..."
+              : flashcards && flashcards.length > 0
+              ? "Generated Flashcards"
+              : "Flashcards"
+          }
+        >
+          <div className="bg-transparent rounded-xl p-4">
+            {isGeneratingFlashcards && (
+              <div className="text-center py-4">
+                <SpinnerIcon className="w-8 h-8 text-orange-500 mx-auto mb-2" />
+                <p className="text-slate-600 dark:text-slate-300">
+                  Please wait, AI is creating flashcards...
+                </p>
+              </div>
+            )}
+
+            {flashcardsError && (
+              <p className="text-red-500 dark:text-red-400 p-2 text-sm">
+                {flashcardsError}
+              </p>
+            )}
+
+            {!isGeneratingFlashcards && flashcards && flashcards.length > 0 && (
+              <div className="max-h-[70vh] overflow-y-auto p-2 space-y-4">
+                {flashcards.map((card, index) => {
+                  const isFlipped = flippedCards[index];
+                  return (
+                    <div key={index} className="flip-container w-full h-48">
+                      <div className={`flip-inner ${isFlipped ? "flipped" : ""}`}>
+
+                        {/* Front Face: Given a simple, opaque background */}
+                        <div className="flip-front rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 p-4 flex flex-col justify-between">
+                          <div className="flex-1 min-h-0">
+                            <p className="font-semibold text-orange-600 dark:text-orange-400 mb-1 text-xs uppercase tracking-wider">Front:</p>
+                            <p className="text-slate-800 dark:text-slate-200 text-sm sm:text-base leading-relaxed overflow-y-auto h-full pr-2">{card.front}</p>
+                          </div>
+                          <button
+                            onClick={() => toggleFlip(index)}
+                            className="mt-2 self-start text-xs bg-orange-500 hover:bg-orange-600 text-white py-1.5 px-3 rounded-md shadow-sm transition-colors"
+                          >
+                            Flip to Back
+                          </button>
+                        </div>
+
+                        {/* Back Face: Given a simple, opaque background */}
+                        <div className="flip-back rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 p-4 flex flex-col justify-between">
+                          <div className="flex-1 min-h-0">
+                            <p className="font-semibold text-orange-600 dark:text-orange-400 mb-1 text-xs uppercase tracking-wider">Back:</p>
+                            <p className="text-slate-800 dark:text-slate-200 text-sm sm:text-base leading-relaxed overflow-y-auto h-full pr-2">{card.back}</p>
+                          </div>
+                          <button
+                            onClick={() => toggleFlip(index)}
+                            className="mt-2 self-start text-xs bg-orange-500 hover:bg-orange-600 text-white py-1.5 px-3 rounded-md shadow-sm transition-colors"
+                          >
+                            Flip to Front
+                          </button>
+                        </div>
+
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            
+            {!isGeneratingFlashcards &&
+              !flashcardsError &&
+              (!flashcards || flashcards.length === 0) && (
+                <p className="text-slate-500 dark:text-slate-400 p-2">
+                  No flashcards to display.
                 </p>
               )}
+          </div>
+        </Modal>
 
-              {!isGeneratingFlashcards && flashcards && flashcards.length > 0 && (
-                <div className="max-h-[70vh] overflow-y-auto p-2 space-y-4">
-                  {flashcards.map((card, index) => {
-                    const isFlipped = flippedCards[index];
-                    return (
-                      <div key={index} className="flip-container w-full h-48">
-                        <div className={`flip-inner ${isFlipped ? "flipped" : ""}`}>
-
-                          {/* Front Face: Given a simple, opaque background */}
-                          <div className="flip-front rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 p-4 flex flex-col justify-between">
-                            <div className="flex-1 min-h-0">
-                              <p className="font-semibold text-orange-600 dark:text-orange-400 mb-1 text-xs uppercase tracking-wider">Front:</p>
-                              <p className="text-slate-800 dark:text-slate-200 text-sm sm:text-base leading-relaxed overflow-y-auto h-full pr-2">{card.front}</p>
-                            </div>
-                            <button
-                              onClick={() => toggleFlip(index)}
-                              className="mt-2 self-start text-xs bg-orange-500 hover:bg-orange-600 text-white py-1.5 px-3 rounded-md shadow-sm transition-colors"
-                            >
-                              Flip to Back
-                            </button>
-                          </div>
-
-                          {/* Back Face: Given a simple, opaque background */}
-                          <div className="flip-back rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 p-4 flex flex-col justify-between">
-                            <div className="flex-1 min-h-0">
-                              <p className="font-semibold text-orange-600 dark:text-orange-400 mb-1 text-xs uppercase tracking-wider">Back:</p>
-                              <p className="text-slate-800 dark:text-slate-200 text-sm sm:text-base leading-relaxed overflow-y-auto h-full pr-2">{card.back}</p>
-                            </div>
-                            <button
-                              onClick={() => toggleFlip(index)}
-                              className="mt-2 self-start text-xs bg-orange-500 hover:bg-orange-600 text-white py-1.5 px-3 rounded-md shadow-sm transition-colors"
-                            >
-                              Flip to Front
-                            </button>
-                          </div>
-
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-              
-              {!isGeneratingFlashcards &&
-                !flashcardsError &&
-                (!flashcards || flashcards.length === 0) && (
-                  <p className="text-slate-500 dark:text-slate-400 p-2">
-                    No flashcards to display.
-                  </p>
-                )}
+        <Modal
+          isOpen={showStudyNotesModal}
+          onClose={() => setShowStudyNotesModal(false)}
+          title={studyNotesError ? "Study Notes Error" : isGeneratingStudyNotes ? "Generating Study Notes..." : studyNotes ? "Generated Study Notes" : "Study Notes"}
+        >
+          {isGeneratingStudyNotes && (
+            <div className="text-center py-4">
+              <SpinnerIcon className="w-8 h-8 text-orange-500 mx-auto mb-2" />
+              <p className="text-slate-600 dark:text-slate-300">Please wait, AI is creating study notes...</p>
             </div>
-          </Modal>
+          )}
+          {studyNotesError && (
+            <p className="text-red-500 dark:text-red-400 p-2 text-sm">{studyNotesError}</p>
+          )}
+          {!isGeneratingStudyNotes && studyNotes && (
+            <>
+              <div ref={markdownRef} className="max-h-[60vh] overflow-y-auto p-1 text-sm prose dark:prose-invert prose-headings:text-slate-800 dark:prose-headings:text-slate-100 prose-p:text-slate-700 dark:prose-p:text-slate-300 prose-ul:text-slate-700 dark:prose-ul:text-slate-300 prose-li:text-slate-700 dark:prose-li:text-slate-300 prose-strong:text-slate-800 dark:prose-strong:text-slate-200">
+                <ReactMarkdown>{studyNotes}</ReactMarkdown>
+              </div>
+              <div className="flex justify-end mt-4 pt-4 border-t border-slate-300 dark:border-slate-700">
+                  <button
+                  onClick={handleExportNotesAsPDF}
+                  className="bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium px-4 py-2 rounded-md shadow-sm transition-colors"
+                  >
+                  Export Notes as PDF
+                  </button>
+              </div>
+            </>
+          )}
+          {!isGeneratingStudyNotes && !studyNotesError && !studyNotes && (
+             <p className="text-slate-500 dark:text-slate-400 p-2">No study notes to display.</p>
+          )}
+        </Modal>
 
-          <Modal
-            isOpen={showStudyNotesModal}
-            onClose={() => setShowStudyNotesModal(false)}
-            title={studyNotesError ? "Study Notes Error" : isGeneratingStudyNotes ? "Generating Study Notes..." : studyNotes ? "Generated Study Notes" : "Study Notes"}
-          >
-            {isGeneratingStudyNotes && (
-              <div className="text-center py-4">
-                <SpinnerIcon className="w-8 h-8 text-orange-500 mx-auto mb-2" />
-                <p className="text-slate-600 dark:text-slate-300">Please wait, AI is creating study notes...</p>
-              </div>
-            )}
-            {studyNotesError && (
-              <p className="text-red-500 dark:text-red-400 p-2 text-sm">{studyNotesError}</p>
-            )}
-            {!isGeneratingStudyNotes && studyNotes && (
-              <>
-                <div ref={markdownRef} className="max-h-[60vh] overflow-y-auto p-1 text-sm prose dark:prose-invert prose-headings:text-slate-800 dark:prose-headings:text-slate-100 prose-p:text-slate-700 dark:prose-p:text-slate-300 prose-ul:text-slate-700 dark:prose-ul:text-slate-300 prose-li:text-slate-700 dark:prose-li:text-slate-300 prose-strong:text-slate-800 dark:prose-strong:text-slate-200">
-                  <ReactMarkdown>{studyNotes}</ReactMarkdown>
+        <Modal
+          isOpen={showQnAModal}
+          onClose={() => setShowQnAModal(false)}
+          title={qnaError ? "Q&A Generation Error" : isGeneratingQnA ? "Generating Q&A..." : qnaPairs && qnaPairs.length > 0 ? "Generated Questions & Answers" : "Questions & Answers"}
+        >
+          {isGeneratingQnA && (
+            <div className="text-center py-4">
+              <SpinnerIcon className="w-8 h-8 text-orange-500 mx-auto mb-2" />
+              <p className="text-slate-600 dark:text-slate-300">Please wait, AI is generating questions and answers...</p>
+            </div>
+          )}
+          {qnaError && (
+            <p className="text-red-500 dark:text-red-400 p-2 text-sm">{qnaError}</p>
+          )}
+          {!isGeneratingQnA && qnaPairs && qnaPairs.length > 0 && (
+            <div className="max-h-[70vh] overflow-y-auto p-1 space-y-4 text-sm">
+              {qnaPairs.map((pair, index) => (
+                <div key={index} className="p-3 bg-slate-100/50 dark:bg-slate-700/50 rounded-md shadow-sm">
+                  <p className="font-semibold text-orange-600 dark:text-orange-400 mb-1">Question {index + 1}:</p>
+                  <p className="text-slate-800 dark:text-slate-200 mb-2">{pair.question}</p>
+                  <p className="font-semibold text-sky-600 dark:text-sky-400 mb-1">Answer:</p>
+                  <p className="text-slate-700 dark:text-slate-300 whitespace-pre-wrap font-sans">{pair.answer}</p>
                 </div>
-                <div className="flex justify-end mt-4 pt-4 border-t border-slate-300 dark:border-slate-700">
-                    <button
-                    onClick={handleExportNotesAsPDF}
-                    className="bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium px-4 py-2 rounded-md shadow-sm transition-colors"
-                    >
-                    Export Notes as PDF
-                    </button>
-                </div>
-              </>
-            )}
-            {!isGeneratingStudyNotes && !studyNotesError && !studyNotes && (
-               <p className="text-slate-500 dark:text-slate-400 p-2">No study notes to display.</p>
-            )}
-          </Modal>
-
-          <Modal
-            isOpen={showQnAModal}
-            onClose={() => setShowQnAModal(false)}
-            title={qnaError ? "Q&A Generation Error" : isGeneratingQnA ? "Generating Q&A..." : qnaPairs && qnaPairs.length > 0 ? "Generated Questions & Answers" : "Questions & Answers"}
-          >
-            {isGeneratingQnA && (
-              <div className="text-center py-4">
-                <SpinnerIcon className="w-8 h-8 text-orange-500 mx-auto mb-2" />
-                <p className="text-slate-600 dark:text-slate-300">Please wait, AI is generating questions and answers...</p>
-              </div>
-            )}
-            {qnaError && (
-              <p className="text-red-500 dark:text-red-400 p-2 text-sm">{qnaError}</p>
-            )}
-            {!isGeneratingQnA && qnaPairs && qnaPairs.length > 0 && (
-              <div className="max-h-[70vh] overflow-y-auto p-1 space-y-4 text-sm">
-                {qnaPairs.map((pair, index) => (
-                  <div key={index} className="p-3 bg-slate-100/50 dark:bg-slate-700/50 rounded-md shadow-sm">
-                    <p className="font-semibold text-orange-600 dark:text-orange-400 mb-1">Question {index + 1}:</p>
-                    <p className="text-slate-800 dark:text-slate-200 mb-2">{pair.question}</p>
-                    <p className="font-semibold text-sky-600 dark:text-sky-400 mb-1">Answer:</p>
-                    <p className="text-slate-700 dark:text-slate-300 whitespace-pre-wrap font-sans">{pair.answer}</p>
-                  </div>
-                ))}
-              </div>
-            )}
-            {!isGeneratingQnA && !qnaError && (!qnaPairs || qnaPairs.length === 0) && (
-               <p className="text-slate-500 dark:text-slate-400 p-2">No questions and answers to display.</p>
-            )}
-          </Modal>
+              ))}
+            </div>
+          )}
+          {!isGeneratingQnA && !qnaError && (!qnaPairs || qnaPairs.length === 0) && (
+             <p className="text-slate-500 dark:text-slate-400 p-2">No questions and answers to display.</p>
+          )}
+        </Modal>
       <footer className="w-full max-w-5xl mx-auto mt-8 pt-6 border-t border-slate-300/70 dark:border-slate-700/70 text-center">
         <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center justify-center">
           <BookOpenHeroIcon className="w-4 h-4 mr-1.5 opacity-70" />

@@ -54,3 +54,51 @@ class BookPublic(BaseModel): # Data returned to client
 # Schema for updating a book's category
 class BookCategoryUpdate(BaseModel):
     category_id: Optional[str] = Field(default=None, description="The new category ID for the book. Null to make it uncategorized.")
+
+# ... (all existing code from BookCategoryUpdate)
+
+# --- New Schemas for Book Topics ---
+
+class BookTopicBase(BaseModel):
+    """Base model for a book topic, extracted from ToC."""
+    book_id: PyObjectId = Field(...)
+    topic_title: str = Field(..., min_length=1)
+    page_start: int = Field(..., ge=0)
+    page_end: Optional[int] = Field(default=None, ge=0)
+    
+    class Config:
+        arbitrary_types_allowed = True
+        json_encoders = {ObjectId: str}
+
+class BookTopicCreate(BookTopicBase):
+    """Schema used when first creating the topic in the service."""
+    content: str = Field(..., min_length=1)
+
+class BookTopicInDB(BookTopicCreate):
+    """Full database model for a book topic."""
+    id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+    class Config:
+        populate_by_name = True
+        arbitrary_types_allowed = True
+        json_encoders = {
+            ObjectId: str,
+            datetime: lambda dt: dt.isoformat()
+        }
+
+class BookTopicPublic(BaseModel):
+    """Schema for topic data returned to the client (excludes full content)."""
+    id: str
+    book_id: str
+    topic_title: str
+    page_start: int
+
+    @classmethod
+    def from_db_model(cls, db_topic: BookTopicInDB):
+        return cls(
+            id=str(db_topic.id),
+            book_id=str(db_topic.book_id),
+            topic_title=db_topic.topic_title,
+            page_start=db_topic.page_start
+        )
