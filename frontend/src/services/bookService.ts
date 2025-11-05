@@ -1,4 +1,4 @@
-// learn-ease-fyp/frontend/src/services/bookService.ts
+// frontend/src/services/bookService.ts
 
 // Define the Book interface here
 export interface Book {
@@ -52,7 +52,21 @@ export interface GlossaryEntry {
   source: 'context' | 'general';
 }
 
-const API_BASE_URL = 'http://localhost:8000';
+// --- (NEW) Topic Types ---
+export interface BookTopic {
+  id: string;
+  book_id: string;
+  topic_title: string;
+  page_start: number;
+}
+// --- End Topic Types ---
+
+export interface ChatResponse {
+  answer: string;
+  sources: string[];
+}
+
+const API_BASE_URL = 'http://localhost:8000'; // Make sure this is correct
 
 function getAuthToken(): string | null {
   if (typeof window !== 'undefined') {
@@ -313,10 +327,12 @@ export async function deleteBook(bookId: string): Promise<void> {
     },
   });
 
+  // Note: A 204 No Content response is a *successful* deletion
+  if (response.status === 204) {
+    return; 
+  }
+  
   if (!response.ok) {
-    if (response.status === 204) {
-      return; 
-    }
     await handleApiError(response, `Failed to delete book (ID: ${bookId}).`);
   }
 }
@@ -341,47 +357,50 @@ export const fetchGlossaryForPage = async (bookId: string, pageNumber: number): 
   return response.json();
 };
 
-export const fetchBookTopics = async (bookId: string): Promise<string[]> => {
+// --- (MODIFIED) Replaced old topic functions with new ones ---
+
+/**
+ * Fetches the list of pre-processed topics for a book.
+ */
+export const fetchBookTopics = async (bookId: string): Promise<BookTopic[]> => {
   const token = getAuthToken();
   if (!token) throw new Error("Authentication token not found.");
 
-  const response = await fetch(`${API_BASE_URL}/books/${bookId}/topics`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-
-  if (!response.ok) {
-    await handleApiError(response, "Failed to fetch book topics.");
-  }
-  return response.json();
-};
-
-export const fetchTopicContent = async (
-  bookId: string,
-  topicTitles: string[],
-  targetTitle: string
-): Promise<{ content: string }> => {
-  const token = getAuthToken();
-  if (!token) throw new Error("Authentication token not found.");
-
-  const response = await fetch(`${API_BASE_URL}/books/${bookId}/topic-content`, {
-    method: 'POST',
+  // This path is relative because it's an internal API route
+  const response = await fetch(`/api/books/${bookId}/topics`, {
+    method: "GET",
     headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
+      "Authorization": `Bearer ${token}`,
     },
-    body: JSON.stringify({
-      topic_titles: topicTitles,
-      target_title: targetTitle,
-    }),
   });
 
   if (!response.ok) {
-    await handleApiError(response, "Failed to fetch topic content.");
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.detail || "Failed to fetch book topics.");
   }
-  return response.json();
+  return await response.json();
 };
 
-export interface ChatResponse {
-  answer: string;
-  sources: string[];
-}
+/**
+ * Generates study notes from a specific Topic ID.
+ */
+export const generateStudyNotesFromTopic = async (topicId: string): Promise<StudyNotesApiResponse> => {
+  const token = getAuthToken();
+  if (!token) throw new Error("Authentication token not found.");
+
+  // This path is relative because it's an internal API route
+  const response = await fetch(`/api/ai/generate-study-notes/topic`, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ topic_id: topicId }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.detail || "Failed to generate study notes from topic.");
+  }
+  return await response.json();
+};

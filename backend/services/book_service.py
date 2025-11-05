@@ -1,30 +1,36 @@
-#backend/services/book_service.py
+# backend/services/book_service.py
+
 import os
 import uuid
 import shutil
-import fitz 
+import fitz  # PyMuPDF
 from fastapi import UploadFile, HTTPException, status
 from motor.motor_asyncio import AsyncIOMotorDatabase
-from typing import List, Optional
+from typing import List, Optional, Tuple
 from datetime import datetime
 from bson import ObjectId
-from models.book_schemas import BookCreateInternal, BookInDB, BookPublic, PyObjectId
-from models.user_schemas import UserInDB 
+from models.book_schemas import (
+    BookCreateInternal, BookInDB, BookPublic, PyObjectId,
+    BookTopicCreate, BookTopicInDB, BookTopicPublic  # <<< IMPORT NEW SCHEMAS
+)
+from models.user_schemas import UserInDB
 from models.ai_schemas import GlossaryTerm
 from core.config import LOCAL_BOOK_UPLOAD_DIR, LOCAL_EXTRACTED_TEXT_DIR
 from . import category_service
 from . import ai_service
-from . import vector_service 
+from . import vector_service
 import re
 import asyncio
-from concurrent.futures import ProcessPoolExecutor # <<< 1. IMPORT THIS
+from concurrent.futures import ProcessPoolExecutor
 
 # Ensure upload directories exist when the service module is loaded
 os.makedirs(LOCAL_BOOK_UPLOAD_DIR, exist_ok=True)
 os.makedirs(LOCAL_EXTRACTED_TEXT_DIR, exist_ok=True)
 
+# --- COLLECTION NAMES ---
 BOOKS_COLLECTION = "books"
 GLOSSARY_TERMS_COLLECTION = "glossary_terms"
+BOOK_TOPICS_COLLECTION = "book_topics"  # <<< ADD NEW COLLECTION NAME
 
 async def _save_glossary_terms_for_page(
     db: AsyncIOMotorDatabase,
@@ -56,6 +62,91 @@ def run_vector_creation_in_process(book_id: str, book_text: str) -> bool:
     return asyncio.run(vector_service.create_vector_store_for_book(book_id, book_text))
 
 
+async def _extract_and_save_topics(
+    db: AsyncIOMotorDatabase,
+    book_id: PyObjectId,
+    pdf_path: str
+):
+    """
+    (NEW FUNCTION)
+    Extracts topics using the PDF's Table of Contents (ToC) and saves
+    each topic's title, page range, and full text content to the DB.
+    """
+    print(f"INFO: Starting ToC extraction for book_id: {book_id}")
+    doc = None
+    try:
+        doc = fitz.open(pdf_path)
+        toc = doc.get_toc()  # Returns list of [level, title, page_num]
+        
+        if not toc:
+            print(f"WARN: No ToC found for book_id: {book_id}. Skipping topic extraction.")
+            return
+
+        topics_to_create: List[BookTopicCreate] = []
+
+        for i, (level, title, page_start) in enumerate(toc):
+            # Clean title
+            title = title.strip()
+            if not title:
+                continue
+
+            # Determine the end page for the topic
+            page_end = doc.page_count
+            if i + 1 < len(toc):
+                # End page is the page *before* the next topic starts
+                page_end = toc[i+1][2] - 1
+            
+            # Ensure page numbers are valid
+            page_start_idx = max(0, page_start - 1) # fitz is 1-based, doc pages are 0-based
+            page_end_idx = min(doc.page_count - 1, page_end - 1)
+
+            if page_start_idx > page_end_idx:
+                continue # Skip if page range is invalid
+
+            # Extract all text content for this topic's page range
+            topic_content_parts = []
+            for page_num in range(page_start_idx, page_end_idx + 1):
+                page = doc.load_page(page_num)
+                topic_content_parts.append(page.get_text())
+            
+            topic_content = "\n\n".join(topic_content_parts).strip()
+
+            if not topic_content:
+                print(f"WARN: No content found for topic '{title}' (pages {page_start}-{page_end}). Skipping.")
+                continue
+
+            # Prepare the topic document for the database
+            topic_data = BookTopicCreate(
+                book_id=book_id,
+                topic_title=title,
+                page_start=page_start,
+                page_end=page_end,
+                content=topic_content
+            )
+            topics_to_create.append(topic_data)
+
+        # Batch insert all topics into the database
+        if topics_to_create:
+            documents = [
+                BookTopicInDB(**t.model_dump()).model_dump(by_alias=True)
+                for t in topics_to_create
+            ]
+            for doc_data in documents:
+                 if "_id" not in doc_data:
+                    doc_data["_id"] = ObjectId()
+
+            await db[BOOK_TOPICS_COLLECTION].insert_many(documents)
+            print(f"INFO: Successfully saved {len(topics_to_create)} topics for book_id: {book_id}")
+        else:
+            print(f"INFO: No valid topics with content found for book_id: {book_id}")
+
+    except Exception as e:
+        print(f"ERROR: Topic extraction failed for book_id: {book_id}. Error: {str(e)}")
+    finally:
+        if doc:
+            doc.close()
+
+
 async def process_book_in_background(
     db: AsyncIOMotorDatabase,
     book_id: PyObjectId,
@@ -70,10 +161,15 @@ async def process_book_in_background(
     chatbot_text_parts = []
     
     MIN_WORDS_PER_PAGE = 75
-    GLOSSARY_PAGE_LIMIT = 20 
+    GLOSSARY_PAGE_LIMIT = 20
     glossary_pages_saved = 0
 
     try:
+        # --- (NEW) EXTRACT AND SAVE TOPICS FIRST ---
+        # We do this here while the 'fitz' doc is open.
+        await _extract_and_save_topics(db, book_id, pdf_path)
+        # --- END OF NEW TOPIC EXTRACTION ---
+
         doc = fitz.open(pdf_path)
         
         for page_num in range(len(doc)):
@@ -104,13 +200,10 @@ async def process_book_in_background(
         with open(text_save_path, "w", encoding="utf-8") as text_f:
             text_f.write(full_chatbot_text)
         
-        # <<< 3. MODIFIED VECTOR STORE CREATION STEP >>>
         if full_chatbot_text.strip():
             print(f"INFO: Offloading CPU-bound vector store creation to a separate process for book_id: {book_id}")
             loop = asyncio.get_running_loop()
             
-            # This is the key change: we run the blocking function in a separate process pool
-            # so it doesn't freeze the main server's event loop.
             with ProcessPoolExecutor() as pool:
                 vector_creation_success = await loop.run_in_executor(
                     pool, run_vector_creation_in_process, str(book_id), full_chatbot_text
@@ -134,6 +227,7 @@ async def process_book_in_background(
             {"_id": book_id},
             {"$set": {"status": "failed"}}
         )
+
 
 async def process_and_save_book(
     db: AsyncIOMotorDatabase,
@@ -231,7 +325,7 @@ async def update_book_category(
     return None
 
 async def get_user_books(db: AsyncIOMotorDatabase, user_id: PyObjectId) -> List[BookPublic]:
-    books_cursor = db["books"].find({"user_id": user_id}).sort("upload_date", -1)
+    books_cursor = db[BOOKS_COLLECTION].find({"user_id": user_id}).sort("upload_date", -1)
     db_books = await books_cursor.to_list(length=None)
     return [BookPublic.from_db_model(BookInDB(**book_doc)) for book_doc in db_books]
 
@@ -244,7 +338,7 @@ async def get_book_by_id_for_user(
         book_oid = PyObjectId(book_id_str)
     except Exception:
         return None
-    book_doc = await db["books"].find_one({"_id": book_oid, "user_id": user_id})
+    book_doc = await db[BOOKS_COLLECTION].find_one({"_id": book_oid, "user_id": user_id})
     if book_doc:
         return BookInDB(**book_doc)
     return None
@@ -282,6 +376,15 @@ async def delete_book_for_user(
     book_to_delete = await get_book_by_id_for_user(db, book_id_str, user_id)
     if not book_to_delete:
         return False
+    
+    # --- (NEW) Delete associated topics ---
+    try:
+        await db[BOOK_TOPICS_COLLECTION].delete_many({"book_id": book_to_delete.id})
+        print(f"INFO: Deleted topics for book_id: {book_id_str}")
+    except Exception as e:
+        print(f"WARN: Failed to delete topics for book {book_id_str}: {e}")
+    # --- End of new code ---
+
     # ... (code to delete local files)
     if book_to_delete.file_path_local and os.path.exists(book_to_delete.file_path_local):
         try:
@@ -324,77 +427,49 @@ async def get_glossary_for_page(
     
     return []
 
-def get_content_for_topic(full_text: str, topic_titles: List[str], target_title: str) -> Optional[str]:
-    """
-    Finds the text content for a specific topic title within the full text.
-    This function does NOT use any LLM calls.
-    """
-    # Handle the case where the whole document is the only topic
-    if len(topic_titles) == 1 and topic_titles[0] == "Full Document":
-        return full_text
-
-    try:
-        target_index = topic_titles.index(target_title)
-    except ValueError:
-        return None # Target title not found in the list of topics
-
-    start_index = full_text.find(target_title)
-    if start_index == -1:
-        return None # Title exists in list but not found in text (should be rare)
-
-    # Find the start of the next topic to define the end of the current one
-    end_index = len(full_text)
-    if target_index + 1 < len(topic_titles):
-        next_title = topic_titles[target_index + 1]
-        # Search for the next title starting from after the current one's position
-        next_title_index = full_text.find(next_title, start_index + len(target_title))
-        if next_title_index != -1:
-            end_index = next_title_index
-            
-    return full_text[start_index:end_index].strip()
-
-# In backend/services/book_service.py, replace the whole function with this:
-
-async def extract_topics_from_pdf(
+# (This is the NEW, FAST function)
+async def get_topics_for_book(
     db: AsyncIOMotorDatabase,
     book_id_str: str,
     user_id: PyObjectId
-) -> List[str]:
+) -> List[BookTopicPublic]:
     """
-    Extracts main topic headings (e.g., "1.1", "1.2") from the first 50 pages
-    of a book's PDF by looking for a Table of Contents.
+    Retrieves the list of topics (title and ID, no content) for a specific book
+    that the user owns.
     """
-    pdf_path = await get_book_pdf_filepath(db, book_id_str, user_id)
-    if not pdf_path:
-        raise FileNotFoundError("PDF file not found for the specified book.")
-
-    topics = []
-    # Regex to find lines starting with "digit.digit" but not "digit.digit.digit"
-    topic_pattern = re.compile(r"^\s*\d+\.\d+\s+[A-Za-z].*$", re.MULTILINE)
-
-    doc = None
-    try:
-        doc = fitz.open(pdf_path)
-        
-        # Increased limit to ensure we scan the full ToC
-        pages_to_scan = min(len(doc), 50)
-        
-        for page_num in range(pages_to_scan):
-            page = doc.load_page(page_num)
-            text = page.get_text()
-            
-            matches = topic_pattern.findall(text)
-            for match in matches:
-                # Clean up the matched string
-                cleaned_match = " ".join(match.strip().split())
-                if cleaned_match not in topics:
-                    topics.append(cleaned_match)
-        
-        return sorted(topics)
-        
-    except Exception as e:
-        print(f"ERROR: Could not extract topics from PDF for book {book_id_str}. Error: {e}")
-        return []
-    finally:
-        if doc:
-            doc.close()
+    # 1. Verify user has access to the book
+    book = await get_book_by_id_for_user(db, book_id_str, user_id)
+    if not book:
+        # This check is crucial for security
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Book not found or access denied.")
+    
+    # --- (THIS IS THE FIX) ---
+    # Define a projection to fetch only the fields we need
+    projection = {
+        "_id": 1,
+        "book_id": 1,
+        "topic_title": 1,
+        "page_start": 1
+        # We are *omitting* the massive "content" field
+    }
+    # --- (END OF FIX) ---
+    
+    # 2. Fetch topics using the projection
+    topics_cursor = db[BOOK_TOPICS_COLLECTION].find(
+        {"book_id": book.id},
+        projection=projection  # <-- Pass the projection here
+    ).sort("page_start", 1) # Sort by page number
+    
+    db_topics = await topics_cursor.to_list(length=None)
+    
+    # 3. Convert to public, lightweight models
+    # We can now map directly, as the fields match BookTopicPublic
+    return [
+        BookTopicPublic(
+            id=str(topic_doc["_id"]),
+            book_id=str(topic_doc["book_id"]),
+            topic_title=topic_doc["topic_title"],
+            page_start=topic_doc["page_start"]
+        )
+        for topic_doc in db_topics
+    ]

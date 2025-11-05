@@ -4,7 +4,8 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter, notFound } from "next/navigation";
 import Link from "next/link";
-import { fetchBookTopics, fetchTopicContent } from "@/services/bookService";
+// Import BookTopic and fetchBookTopics
+import { fetchBookTopics, BookTopic } from "@/services/bookService";
 import {
   generateQuizService,
   evaluateQuizService,
@@ -14,7 +15,6 @@ import {
 } from "@/services/quizService";
 
 // --- Icons ---
-// MODIFIED: Spinner now uses the orange brand color.
 const SpinnerIcon = () => (
   <svg className="animate-spin h-8 w-8 text-orange-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
@@ -35,8 +35,9 @@ export default function QuizPage() {
   const [quizPhase, setQuizPhase] = useState<"loading_topics" | "topic_selection" | "generating" | "in_progress" | "evaluating" | "results">("loading_topics");
   const [error, setError] = useState<string | null>(null);
   
-  const [topicTitles, setTopicTitles] = useState<string[]>([]);
+  const [topics, setTopics] = useState<BookTopic[]>([]);
   const [selectedTopicTitle, setSelectedTopicTitle] = useState<string | null>(null);
+  
   const [generatedQuiz, setGeneratedQuiz] = useState<GeneratedQuiz | null>(null);
   const [userAnswers, setUserAnswers] = useState<string[]>([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -46,24 +47,36 @@ export default function QuizPage() {
     if (!bookId) return;
     const loadTopics = async () => {
       try {
-        const titles = await fetchBookTopics(bookId);
-        setTopicTitles(titles);
+        const fetchedTopics = await fetchBookTopics(bookId);
+
+        // --- (THIS IS THE FIX) ---
+        // This regex checks if the trimmed title starts with a digit.
+        const mainTopicRegex = /^\d/; 
+
+        const mainTopics = fetchedTopics.filter(topic => {
+          const trimmedTitle = topic.topic_title.trim();
+          // Only keep topics that start with a number.
+          return mainTopicRegex.test(trimmedTitle);
+        });
+        // --- END OF FIX ---
+
+        setTopics(mainTopics); // Set the filtered list
         setQuizPhase("topic_selection");
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load book content.");
+        setError(err instanceof Error ? err.message : "Failed to load book topics.");
         setQuizPhase("topic_selection");
       }
     };
     loadTopics();
   }, [bookId]);
 
-  const handleTopicSelect = async (title: string) => {
-    setSelectedTopicTitle(title);
+  const handleTopicSelect = async (topicId: string, topicTitle: string) => {
+    setSelectedTopicTitle(topicTitle);
     setQuizPhase("generating");
     setError(null);
     try {
-      const { content } = await fetchTopicContent(bookId, topicTitles, title);
-      const quiz = await generateQuizService(content);
+      const quiz = await generateQuizService(topicId); // Pass topicId directly
+      
       setGeneratedQuiz(quiz);
       setUserAnswers(new Array(quiz.questions.length).fill(""));
       setCurrentQuestionIndex(0);
@@ -113,26 +126,30 @@ export default function QuizPage() {
   const renderContent = () => {
     switch (quizPhase) {
       case "loading_topics":
-        return <div className="text-center"><SpinnerIcon /> <p className="mt-4">Analyzing book structure...</p></div>;
+        return <div className="text-center"><SpinnerIcon /> <p className="mt-4">Loading quiz topics...</p></div>;
       
       case "topic_selection":
         return (
           <div>
             <h2 className="text-2xl font-bold mb-4">Select a Topic to Start Quiz</h2>
-            {/* MODIFIED: Themed error colors */}
             {error && <p className="text-red-500 bg-red-500/10 p-3 rounded-md mb-4">{error}</p>}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {topicTitles.map((title, index) => (
-                <button
-                  key={index}
-                  onClick={() => handleTopicSelect(title)}
-                  // MODIFIED: Themed background, but kept brand-specific orange text
-                  className="p-6 bg-muted hover:bg-accent rounded-lg shadow-lg text-left transition-all hover:scale-105"
-                >
-                  <h3 className="font-semibold text-lg text-orange-400">{title}</h3>
-                </button>
-              ))}
-            </div>
+            
+            {topics.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {topics.map((topic) => (
+                  <button
+                    key={topic.id}
+                    onClick={() => handleTopicSelect(topic.id, topic.topic_title)}
+                    className="p-6 bg-muted hover:bg-accent rounded-lg shadow-lg text-left transition-all hover:scale-105"
+                  >
+                    <h3 className="font-semibold text-lg text-orange-400">{topic.topic_title}</h3>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="text-muted-foreground">No quiz topics were found for this book.</p>
+            )}
+
           </div>
         );
 
@@ -144,7 +161,6 @@ export default function QuizPage() {
         const currentQuestion = generatedQuiz.questions[currentQuestionIndex];
         return (
           <div className="w-full max-w-2xl mx-auto">
-            {/* MODIFIED: Themed muted text color */}
             <p className="text-sm text-muted-foreground">Question {currentQuestionIndex + 1} of {generatedQuiz.questions.length}</p>
             <h3 className="text-2xl font-semibold my-4">{currentQuestion.question_text}</h3>
             <textarea
@@ -155,7 +171,6 @@ export default function QuizPage() {
                 setUserAnswers(newAnswers);
               }}
               placeholder="Type your short answer here..."
-              // MODIFIED: Themed input, but kept orange focus ring for branding
               className="w-full p-3 bg-background border border-input rounded-md focus:ring-2 focus:ring-orange-500 focus:outline-none transition"
               rows={4}
             />
@@ -163,7 +178,6 @@ export default function QuizPage() {
               <button
                 onClick={() => setCurrentQuestionIndex(prev => Math.max(0, prev - 1))}
                 disabled={currentQuestionIndex === 0}
-                // MODIFIED: Themed secondary button
                 className="px-4 py-2 bg-secondary text-secondary-foreground rounded-md disabled:opacity-50"
               >
                 Previous
@@ -171,13 +185,11 @@ export default function QuizPage() {
               {currentQuestionIndex < generatedQuiz.questions.length - 1 ? (
                 <button
                   onClick={() => setCurrentQuestionIndex(prev => prev + 1)}
-                  // NOTE: Kept orange brand color for primary button
                   className="px-6 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-md font-semibold"
                 >
                   Next
                 </button>
               ) : (
-                // SUGGESTION: Changed green to orange for consistency. Change back to bg-green-600 if you prefer.
                 <button onClick={handleSubmitQuiz} className="px-6 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-md font-semibold">
                   Submit Quiz
                 </button>
@@ -199,7 +211,6 @@ export default function QuizPage() {
             <p className="text-center text-muted-foreground mb-6">Topic: {selectedTopicTitle}</p>
             <div className="text-center bg-muted p-6 rounded-lg mb-8">
               <p className="text-lg text-muted-foreground">Your Score</p>
-              {/* NOTE: Kept orange brand color for the score */}
               <p className="text-6xl font-bold text-orange-400 my-2">{scorePercentage}%</p>
               <p className="text-xl font-semibold">{evaluationResult.total_grade}</p>
             </div>
@@ -208,20 +219,17 @@ export default function QuizPage() {
               {evaluationResult.results.map((res, index) => (
                 <div key={index} className="bg-muted p-4 rounded-md">
                   <p className="font-semibold text-lg">{index + 1}. {res.question_text}</p>
-                  {/* MODIFIED: Themed backgrounds for correct/incorrect answers */}
                   <p className={`mt-2 p-2 rounded-md text-sm ${res.similarity_score > 0.6 ? 'bg-green-500/20 text-green-700' : 'bg-red-500/20 text-red-700'}`}>
                     <span className="font-bold">Your Answer: </span>{res.user_answer || <span className="italic">No answer provided</span>}
                   </p>
                   <p className="mt-2 p-2 rounded-md text-sm bg-sky-500/20 text-sky-700">
                     <span className="font-bold">Correct Answer: </span>{res.correct_answer}
                   </p>
-                  {/* NOTE: Kept orange brand color for similarity score */}
                   <p className="text-right mt-2 text-sm font-mono text-orange-400">Similarity Score: {(res.similarity_score * 100).toFixed(2)}%</p>
                 </div>
               ))}
             </div>
             <div className="mt-8 text-center">
-              {/* NOTE: Kept orange brand color for primary button */}
               <button onClick={handleRestart} className="px-6 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-md font-semibold">
                 Take Another Quiz
               </button>
@@ -235,16 +243,12 @@ export default function QuizPage() {
   };
 
   return (
-    // --- THE MAIN FIX ---
-    // MODIFIED: Swapped hardcoded slate/white for theme-aware background/foreground colors.
     <main className="min-h-screen bg-background text-foreground p-6">
       <div className="max-w-6xl mx-auto">
-        {/* NOTE: Kept orange brand color for the link */}
         <Link href={`/books/${bookId}`} className="inline-flex items-center text-orange-400 hover:text-orange-300 mb-6">
           <ChevronLeftIcon className="w-5 h-5 mr-2" />
           Back to Book
         </Link>
-        {/* MODIFIED: Used card colors for the main content container */}
         <div className="bg-card text-card-foreground rounded-lg shadow-2xl p-8">
           {renderContent()}
         </div>

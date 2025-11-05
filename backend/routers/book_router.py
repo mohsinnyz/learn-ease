@@ -1,12 +1,14 @@
-#learn-ease-fyp\backend\routers\book_router.py
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status, Path, Form, BackgroundTasks # <<< 1. IMPORT
+# backend/routers/book_router.py
+
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status, Path, Form, BackgroundTasks
 from fastapi.responses import FileResponse
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from typing import List, Annotated, Optional
 from pydantic import BaseModel
 import os
-from typing import List, Dict # <-- Make sure Dict is included here
-from models.book_schemas import BookPublic, BookCategoryUpdate
+from typing import List, Dict
+# <<< MODIFIED IMPORT: Added BookTopicPublic >>>
+from models.book_schemas import BookPublic, BookCategoryUpdate, BookTopicPublic
 from models.user_schemas import UserInDB
 from services import book_service, ai_service
 from core.db import get_database
@@ -19,9 +21,9 @@ router = APIRouter(
     dependencies=[Depends(get_current_user)]
 )
 
-@router.post("/upload", response_model=BookPublic, status_code=status.HTTP_202_ACCEPTED) # <<< 4. STATUS CODE
+@router.post("/upload", response_model=BookPublic, status_code=status.HTTP_202_ACCEPTED)
 async def api_upload_book(
-    background_tasks: BackgroundTasks, # <<< 2. INJECT DEPENDENCY
+    background_tasks: BackgroundTasks, 
     current_user: Annotated[UserInDB, Depends(get_current_user)],
     db: Annotated[AsyncIOMotorDatabase, Depends(get_database)],
     file: UploadFile = File(..., description="The PDF book file to upload"),
@@ -34,8 +36,6 @@ async def api_upload_book(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid file type. Only PDF files are allowed.")
     
     try:
-        # This service function now only does the fast part: saves the file and
-        # creates the initial DB record with status="processing".
         book_db_obj = await book_service.process_and_save_book(
             db=db, 
             file=file, 
@@ -44,8 +44,6 @@ async def api_upload_book(
             category_id_str=category_id
         )
 
-        # <<< 3. ADD THE BACKGROUND TASK >>>
-        # Schedule the heavy processing to run after the response is sent.
         background_tasks.add_task(
             book_service.process_book_in_background,
             db=db,
@@ -54,7 +52,6 @@ async def api_upload_book(
             text_save_path=book_db_obj.extracted_text_path_local
         )
 
-        # Immediately return the initial book object with status="processing"
         return BookPublic.from_db_model(book_db_obj)
     
     except HTTPException as e:
@@ -63,7 +60,6 @@ async def api_upload_book(
         print(f"Unhandled error in /upload endpoint: {str(e)}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="An unexpected error occurred during book upload.")
 
-# ... (the rest of your router file remains exactly the same) ...
 @router.put("/{book_id}/category", response_model=BookPublic)
 async def api_update_book_category(
     book_id: Annotated[str, Path(description="The ID of the book to update")],
@@ -189,123 +185,62 @@ async def api_get_glossary_for_page(
     """
     Retrieves the glossary terms for a specific page of a book.
     """
-    # 1. First, verify the user has access to this book
     book_db = await book_service.get_book_by_id_for_user(
         db=db, book_id_str=book_id, user_id=current_user.id
     )
     if not book_db:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Book not found or access denied.")
 
-    # 2. If access is verified, fetch the glossary terms
     terms = await book_service.get_glossary_for_page(
         db=db, book_id=book_db.id, page_number=page_number
     )
     return terms
 
-# Add this endpoint inside backend/routers/book_router.py
 
-@router.get(
-    "/{book_id}/text",
-    response_model=Dict[str, str], # Returns a simple {"text": "..."} object
-    summary="Get the full extracted text of a book"
-)
-async def http_get_book_text(
-    book_id: str,
-    db: AsyncIOMotorDatabase = Depends(get_database),
-    current_user: UserInDB = Depends(get_current_user),
-):
-    """
-    Retrieves the full, pre-extracted text content of a book.
-    This is used by the frontend to parse topics for quiz generation.
-    """
-    if not current_user.id:
-        raise HTTPException(status_code=403, detail="User not authenticated")
-
-    text_content = await book_service.get_book_extracted_text(db, book_id, current_user.id)
-    
-    if text_content is None:
-        raise HTTPException(status_code=404, detail="Book not found or text content not available.")
-        
-    return {"text": text_content}
-
-# Define a Pydantic model for the new request body
-class TopicContentRequest(BaseModel):
-    topic_titles: List[str]
-    target_title: str
+# --- (REMOVED) ---
+# The old `http_get_book_text` (`GET /{book_id}/text`) endpoint was here.
+# It has been removed as it's no longer needed by the new topic system.
 
 
-@router.post(
-    "/{book_id}/topic-content",
-    response_model=Dict[str, str],
-    summary="Get content for a single topic without an LLM call"
-)
-async def http_get_topic_content(
-    book_id: str,
-    request: TopicContentRequest,
-    db: AsyncIOMotorDatabase = Depends(get_database),
-    current_user: UserInDB = Depends(get_current_user),
-):
-    """
-    Retrieves the text content for a single, user-selected topic.
-    This is token-free.
-    """
-    full_text = await book_service.get_book_extracted_text(db, book_id, current_user.id)
-    if not full_text:
-        raise HTTPException(status_code=404, detail="Book text content not found.")
-
-    # This calls the non-AI helper function in book_service
-    content = book_service.get_content_for_topic(full_text, request.topic_titles, request.target_title)
-    
-    if content is None:
-        raise HTTPException(status_code=404, detail="Could not find content for the specified topic.")
-        
-    return {"content": content}
+# --- (REMOVED) ---
+# The old `TopicContentRequest` and `http_get_topic_content` 
+# (`POST /{book_id}/topic-content`) endpoint was here.
+# It has been removed and replaced by the /ai/generate-study-notes/topic endpoint.
 
 
-# In backend/routers/book_router.py
-
-# ... (other imports remain the same)
-
-# FIND THIS EXISTING ENDPOINT:
+# --- (MODIFIED) ---
+# This endpoint now fetches pre-processed topics from the database.
 @router.get(
     "/{book_id}/topics",
-    response_model=List[str],
-    summary="Get parsed topic titles for a book" # Summary is more accurate now
+    response_model=List[BookTopicPublic], # <<< CHANGED response model
+    summary="Get saved topic titles for a book"
 )
-async def http_get_book_topic_titles(
+async def http_get_book_topics( # <<< RENAMED function
     book_id: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
     current_user: UserInDB = Depends(get_current_user),
 ):
     """
-    Retrieves a list of main topic titles from the book's Table of Contents
-    by directly parsing the PDF.
+    Retrieves a list of main topic titles (and their IDs) 
+    from the database that were extracted from the book's ToC.
     """
-    # --- OLD LOGIC TO BE REPLACED ---
-    # full_text = await book_service.get_book_extracted_text(db, book_id, current_user.id)
-    # if not full_text:
-    #     raise HTTPException(status_code=404, detail="Book text content not found.")
-    # titles = await ai_service.generate_topic_titles_from_text(full_text)
-    # return titles
-
-    # +++ NEW, EFFICIENT LOGIC +++
     try:
         if not current_user.id:
-             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User not authenticated")
+                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User not authenticated")
 
-        titles = await book_service.extract_topics_from_pdf(
+        # <<< REPLACED all logic with a single service call >>>
+        topics = await book_service.get_topics_for_book(
             db=db, book_id_str=book_id, user_id=current_user.id
         )
-        if not titles:
-            # You can decide what to do here. Maybe return a helpful message
-            # or just an empty list. For now, an empty list is fine.
-            print(f"WARN: No topics found for book {book_id}. The PDF may not have a standard ToC.")
+        
+        if not topics:
+            print(f"WARN: No topics found in DB for book {book_id}.")
 
-        return titles
-    except FileNotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+        return topics
+        
+    except HTTPException as he:
+        # This will catch the 404 from get_topics_for_book if the book isn't found
+        raise he
     except Exception as e:
         print(f"ERROR: Failed to get topics for book {book_id}: {e}")
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to extract topics from the book.")
-
-# ... (the rest of the file)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to retrieve topics from the database.")
