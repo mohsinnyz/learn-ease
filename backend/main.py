@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 from core.db import connect_to_mongo, close_mongo_connection, get_database 
 from motor.motor_asyncio import AsyncIOMotorDatabase
-from routers import auth_router, book_router, ai_router, category_router, user_router
+from routers import auth_router, book_router, ai_router, category_router, user_router, progress_router
 
 load_dotenv()
 
@@ -38,6 +38,7 @@ app.include_router(book_router.router)
 app.include_router(ai_router.router)
 app.include_router(category_router.router)
 app.include_router(user_router.router)
+app.include_router(progress_router.router)
 
 @app.get("/")
 async def root():
