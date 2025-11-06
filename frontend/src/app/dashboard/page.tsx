@@ -1,11 +1,17 @@
-// learn-ease-fyp\frontend\src\app\dashboard\page.tsx
-
 "use client";
 import { useEffect, useState, FormEvent, ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Book, fetchUserBooks, uploadBook, updateBookCategory, deleteBook } from "@/services/bookService";
 import { Category, fetchUserCategories, createCategory } from "@/services/categoryService";
 import Link from "next/link";
+
+// --- [NEW] ---
+// 1. Import new progress service and types
+import {
+  fetchGlobalProgress,
+  GlobalProgressResponse,
+} from "@/services/progressService";
+// --- [END NEW] ---
 
 // --- Icons ---
 const UploadIcon = () => ( <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 mr-2"><path d="M9.25 13.25a.75.75 0 001.5 0V4.636l2.955 3.129a.75.75 0 001.09-1.03l-4.25-4.5a.75.75 0 00-1.09 0l-4.25 4.5a.75.75 0 101.09 1.03L9.25 4.636v8.614z" /><path d="M3.5 12.75a.75.75 0 00-1.5 0v2.5A2.75 2.75 0 004.75 18h10.5A2.75 2.75 0 0018 15.25v-2.5a.75.75 0 00-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5z" /></svg> );
@@ -27,6 +33,14 @@ const TrashIcon = (props: React.SVGProps<SVGSVGElement>) => (
     <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12.56 0c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
   </svg>
 );
+// --- [NEW] ---
+// 2. Add a new icon for the progress button
+const ChartBarIcon = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
+  </svg>
+);
+// --- [END NEW] ---
 
 // --- Standardized Dot Patterns ---
 const lightModeDotPatternUrl = "url(\"data:image/svg+xml,%3Csvg width='15' height='15' viewBox='0 0 15 15' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='15' height='15' fill='none'/%3E%3Ccircle cx='7.5' cy='7.5' r='0.8' fill='%23A0AEC0' fill-opacity='0.3'/%3E%3C/svg%3E\")";
@@ -72,43 +86,73 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, children, title }) => {
 };
 
 export default function DashboardPage() {
-  const router = useRouter();
+  const router = useRouter();
   const [isClient, setIsClient] = useState(false);
-  const [books, setBooks] = useState<Book[]>([]);
-  const [isLoadingBooks, setIsLoadingBooks] = useState(true);
-  const [errorBooks, setErrorBooks] = useState<string | null>(null);
-  const [showUploadModal, setShowUploadModal] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploadError, setUploadError] = useState<string | null>(null);
-  const [uploadSuccess, setUploadSuccess] = useState<string | null>(null);
-  const [uploadTargetCategoryId, setUploadTargetCategoryId] = useState<string | null>(null);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [isLoadingCategories, setIsLoadingCategories] = useState(true);
-  const [errorCategories, setErrorCategories] = useState<string | null>(null);
-  const [showCreateCategoryModal, setShowCreateCategoryModal] = useState(false);
-  const [newCategoryName, setNewCategoryName] = useState("");
-  const [isCreatingCategory, setIsCreatingCategory] = useState(false);
-  const [createCategoryError, setCreateCategoryError] = useState<string | null>(null);
-  const [activeFilter, setActiveFilter] = useState<string | 'all' | 'uncategorized'>('all');
-  const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
-  const [bookToDelete, setBookToDelete] = useState<{ id: string; title: string } | null>(null);
-  const [isDeletingBook, setIsDeletingBook] = useState(false);
-  const [deleteBookError, setDeleteBookError] = useState<string | null>(null);
-  const [deleteBookSuccess, setDeleteBookSuccess] = useState<string | null>(null);
+  const [books, setBooks] = useState<Book[]>([]);
+  const [isLoadingBooks, setIsLoadingBooks] = useState(true);
+  const [errorBooks, setErrorBooks] = useState<string | null>(null);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploadSuccess, setUploadSuccess] = useState<string | null>(null);
+  const [uploadTargetCategoryId, setUploadTargetCategoryId] = useState<string | null>(null);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [isLoadingCategories, setIsLoadingCategories] = useState(true);
+  const [errorCategories, setErrorCategories] = useState<string | null>(null);
+  const [showCreateCategoryModal, setShowCreateCategoryModal] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [isCreatingCategory, setIsCreatingCategory] = useState(false);
+  const [createCategoryError, setCreateCategoryError] = useState<string | null>(null);
+  const [activeFilter, setActiveFilter] = useState<string | 'all' | 'uncategorized'>('all');
+  const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
+  const [bookToDelete, setBookToDelete] = useState<{ id: string; title: string } | null>(null);
+  const [isDeletingBook, setIsDeletingBook] = useState(false);
+  const [deleteBookError, setDeleteBookError] = useState<string | null>(null);
+  const [deleteBookSuccess, setDeleteBookSuccess] = useState<string | null>(null);
+
+  // --- [NEW] ---
+  // 3. Add state for global progress
+  const [globalProgress, setGlobalProgress] = useState<GlobalProgressResponse | null>(null);
+  const [isLoadingProgress, setIsLoadingProgress] = useState(true);
+  const [errorProgress, setErrorProgress] = useState<string | null>(null);
+  // --- [END NEW] ---
 
   useEffect(() => { setIsClient(true);const token = localStorage.getItem("authToken");if (!token) {router.push("/login");} else {loadInitialData();}}, [router]);
-  const loadInitialData = async () => { setIsLoadingBooks(true);setIsLoadingCategories(true);await Promise.all([loadBooks(), loadCategories()]);};
-  const loadBooks = async () => { setErrorBooks(null);try {const d = await fetchUserBooks(); setBooks(d.sort((a,b)=>new Date(b.upload_date).getTime()-new Date(a.upload_date).getTime()));} catch(e){setErrorBooks(e instanceof Error?e.message:"Err loading books");setBooks([]);}finally{setIsLoadingBooks(false);}};
-  const loadCategories = async () => { setErrorCategories(null);try {const d = await fetchUserCategories(); setCategories(d.sort((a,b)=>a.name.localeCompare(b.name)));} catch(e){setErrorCategories(e instanceof Error?e.message:"Err loading categories");setCategories([]);}finally{setIsLoadingCategories(false);}};
-  const handleLogout = () => { if (isClient) localStorage.removeItem("authToken");router.push("/login");};
-  const handleFileSelect = (event: ChangeEvent<HTMLInputElement>) => { if(event.target.files&&event.target.files[0]){setSelectedFile(event.target.files[0]);setUploadError(null);setUploadSuccess(null);}else{setSelectedFile(null);}};
-  const handleUploadSubmit = async (event: FormEvent<HTMLFormElement>) => { event.preventDefault();if(!selectedFile){setUploadError("Please select a PDF file to upload.");return;}if(selectedFile.type!=="application/pdf"){setUploadError("Invalid file type. Only PDF files are allowed.");return;}setIsUploading(true);setUploadError(null);setUploadSuccess(null);try{const nB=await uploadBook(selectedFile,selectedFile.name,uploadTargetCategoryId);setBooks(pB=>[nB,...pB].sort((a,b)=>new Date(b.upload_date).getTime()-new Date(a.upload_date).getTime()));setUploadSuccess(`"${nB.title||selectedFile.name}" uploaded successfully!`);setSelectedFile(null);if(document.getElementById("bookFile"))(document.getElementById("bookFile")as HTMLInputElement).value="";setUploadTargetCategoryId(null);setTimeout(()=>{setShowUploadModal(false);setUploadSuccess(null);},2500);}catch(e){setUploadError(e instanceof Error?e.message:"Failed to upload book.");}finally{setIsUploading(false);}};
-  const handleCreateCategorySubmit = async (event: FormEvent<HTMLFormElement>) => { event.preventDefault();if(!newCategoryName.trim()){setCreateCategoryError("Category name cannot be empty.");return;}setIsCreatingCategory(true);setCreateCategoryError(null);try{const nC=await createCategory({name:newCategoryName});setCategories(p=>[...p,nC].sort((a,b)=>a.name.localeCompare(b.name)));setNewCategoryName("");setShowCreateCategoryModal(false);}catch(e){setCreateCategoryError(e instanceof Error?e.message:"Failed to create category.");}finally{setIsCreatingCategory(false);}};
-  const handleBookCategoryChange = async (bookId: string, newCategoryId: string | null) => { try{const uB=await updateBookCategory(bookId,newCategoryId);setBooks(pB=>pB.map(b=>b.id===bookId?{...b,category_id:uB.category_id}:b));}catch(e){alert(`Error updating category: ${e instanceof Error?e.message:"Unknown error"}`);}};
-  const getCategoryNameById = (categoryId: string | null | undefined): string => { if(!categoryId)return"Uncategorized";const c=categories.find(cat=>cat.id===categoryId);return c?c.name:"Unknown Category";};
-  const handleAttemptDeleteBook = (bookId: string, bookTitle: string) => { setBookToDelete({id:bookId,title:bookTitle});setDeleteBookError(null);setDeleteBookSuccess(null);setShowDeleteConfirmModal(true);};
-  const handleConfirmDeleteBook = async () => { if(!bookToDelete)return;setIsDeletingBook(true);setDeleteBookError(null);setDeleteBookSuccess(null);try{await deleteBook(bookToDelete.id);setBooks(pB=>pB.filter(b=>b.id!==bookToDelete.id));setDeleteBookSuccess(`Book "${bookToDelete.title}" deleted successfully.`);setShowDeleteConfirmModal(false);setBookToDelete(null);setTimeout(()=>setDeleteBookSuccess(null),3000);}catch(e){setDeleteBookError(e instanceof Error?e.message:"Failed to delete book.");}finally{setIsDeletingBook(false);}};
+  
+  // --- [NEW] ---
+  // 4. Create a function to load progress
+  const loadProgress = async () => {
+    setErrorProgress(null);
+    try {
+      const data = await fetchGlobalProgress();
+      setGlobalProgress(data);
+    } catch (e) {
+      setErrorProgress(e instanceof Error ? e.message : "Error loading progress");
+    } finally {
+      setIsLoadingProgress(false);
+    }
+  };
+
+  // 5. Update loadInitialData to include loadProgress
+  const loadInitialData = async () => { 
+    setIsLoadingBooks(true);
+    setIsLoadingCategories(true);
+    setIsLoadingProgress(true); // Set progress loading
+    await Promise.all([loadBooks(), loadCategories(), loadProgress()]); // Add loadProgress
+  };
+  // --- [END NEW] ---
+
+  const loadBooks = async () => { setErrorBooks(null);try {const d = await fetchUserBooks(); setBooks(d.sort((a,b)=>new Date(b.upload_date).getTime()-new Date(a.upload_date).getTime()));} catch(e){setErrorBooks(e instanceof Error?e.message:"Err loading books");setBooks([]);}finally{setIsLoadingBooks(false);}};
+  const loadCategories = async () => { setErrorCategories(null);try {const d = await fetchUserCategories(); setCategories(d.sort((a,b)=>a.name.localeCompare(b.name)));} catch(e){setErrorCategories(e instanceof Error?e.message:"Err loading categories");setCategories([]);}finally{setIsLoadingCategories(false);}};
+  const handleLogout = () => { if (isClient) localStorage.removeItem("authToken");router.push("/login");};
+  const handleFileSelect = (event: ChangeEvent<HTMLInputElement>) => { if(event.target.files&&event.target.files[0]){setSelectedFile(event.target.files[0]);setUploadError(null);setUploadSuccess(null);}else{setSelectedFile(null);}};
+  const handleUploadSubmit = async (event: FormEvent<HTMLFormElement>) => { event.preventDefault();if(!selectedFile){setUploadError("Please select a PDF file to upload.");return;}if(selectedFile.type!=="application/pdf"){setUploadError("Invalid file type. Only PDF files are allowed.");return;}setIsUploading(true);setUploadError(null);setUploadSuccess(null);try{const nB=await uploadBook(selectedFile,selectedFile.name,uploadTargetCategoryId);setBooks(pB=>[nB,...pB].sort((a,b)=>new Date(b.upload_date).getTime()-new Date(a.upload_date).getTime()));setUploadSuccess(`"${nB.title||selectedFile.name}" uploaded successfully!`);setSelectedFile(null);if(document.getElementById("bookFile"))(document.getElementById("bookFile")as HTMLInputElement).value="";setUploadTargetCategoryId(null);setTimeout(()=>{setShowUploadModal(false);setUploadSuccess(null);},2500);}catch(e){setUploadError(e instanceof Error?e.message:"Failed to upload book.");}finally{setIsUploading(false);}};
+  const handleCreateCategorySubmit = async (event: FormEvent<HTMLFormElement>) => { event.preventDefault();if(!newCategoryName.trim()){setCreateCategoryError("Category name cannot be empty.");return;}setIsCreatingCategory(true);setCreateCategoryError(null);try{const nC=await createCategory({name:newCategoryName});setCategories(p=>[...p,nC].sort((a,b)=>a.name.localeCompare(b.name)));setNewCategoryName("");setShowCreateCategoryModal(false);}catch(e){setCreateCategoryError(e instanceof Error?e.message:"Failed to create category.");}finally{setIsCreatingCategory(false);}};
+  const handleBookCategoryChange = async (bookId: string, newCategoryId: string | null) => { try{const uB=await updateBookCategory(bookId,newCategoryId);setBooks(pB=>pB.map(b=>b.id===bookId?{...b,category_id:uB.category_id}:b));}catch(e){alert(`Error updating category: ${e instanceof Error?e.message:"Unknown error"}`);}};
+  const getCategoryNameById = (categoryId: string | null | undefined): string => { if(!categoryId)return"Uncategorized";const c=categories.find(cat=>cat.id===categoryId);return c?c.name:"Unknown Category";};
+  const handleAttemptDeleteBook = (bookId: string, bookTitle: string) => { setBookToDelete({id:bookId,title:bookTitle});setDeleteBookError(null);setDeleteBookSuccess(null);setShowDeleteConfirmModal(true);};
+  const handleConfirmDeleteBook = async () => { if(!bookToDelete)return;setIsDeletingBook(true);setDeleteBookError(null);setDeleteBookSuccess(null);try{await deleteBook(bookToDelete.id);setBooks(pB=>pB.filter(b=>b.id!==bookToDelete.id));setDeleteBookSuccess(`Book "${bookToDelete.title}" deleted successfully.`);setShowDeleteConfirmModal(false);setBookToDelete(null);setTimeout(()=>setDeleteBookSuccess(null),3000);}catch(e){setDeleteBookError(e instanceof Error?e.message:"Failed to delete book.");}finally{setIsDeletingBook(false);}};
 
     const GlobalStyles = () => (
       <style jsx global>{`
@@ -140,7 +184,7 @@ export default function DashboardPage() {
       }
       .learn-ease-card-hover:hover {
         box-shadow: 0 6px 20px -3px rgba(249, 115, 22, 0.35), /* Orange part */
-                    0 4px 30px 0px rgba(239, 68, 68, 0.25);  /* Red part */
+                      0 4px 30px 0px rgba(239, 68, 68, 0.25);  /* Red part */
         transform: translateY(-2px);
       }
       input, select { background-clip: padding-box !important; }
@@ -152,32 +196,35 @@ export default function DashboardPage() {
       html.dark select:-webkit-autofill, html.dark select:-webkit-autofill:hover, html.dark select:-webkit-autofill:focus, html.dark select:-webkit-autofill:active {
         -webkit-box-shadow: 0 0 0 1000px var(--input-bg-dark) inset !important; -webkit-text-fill-color: var(--input-text-dark) !important; caret-color: var(--input-caret-dark) !important;
       }
-    `}</style>
-  );
+      `}</style>
+    );
 
-  if (!isClient || isLoadingBooks || isLoadingCategories) { 
-    return (
-      <div 
+  // --- [NEW] ---
+  // 6. Update the main loading check to include progress
+  if (!isClient || isLoadingBooks || isLoadingCategories || isLoadingProgress) { 
+  // --- [END NEW] ---
+    return (
+      <div 
         className="flex min-h-screen flex-col items-center justify-center bg-slate-100 dark:bg-slate-900 transition-colors duration-500" 
         style={{ backgroundImage: `var(--dot-pattern-url, ${lightModeDotPatternUrl})` }}
       >
         <GlobalStyles /> 
-        <div className="flex flex-col items-center">
-            <SpinnerIcon className="h-12 w-12 text-orange-500" />
-            <p className="text-lg text-slate-600 dark:text-slate-300 mt-4">Loading Dashboard...</p>
-        </div>
-      </div>
-    );
-  }
-  
-  const filteredBooks = books.filter(book => {
-    if (activeFilter === 'all') return true;
-    if (activeFilter === 'uncategorized') return !book.category_id;
-    return book.category_id === activeFilter;
-  });
+        <div className="flex flex-col items-center">
+            <SpinnerIcon className="h-12 w-12 text-orange-500" />
+            <p className="text-lg text-slate-600 dark:text-slate-300 mt-4">Loading Dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+ 
+  const filteredBooks = books.filter(book => {
+    if (activeFilter === 'all') return true;
+    if (activeFilter === 'uncategorized') return !book.category_id;
+    return book.category_id === activeFilter;
+  });
 
-  return (
-    <div 
+  return (
+    <div 
       className="min-h-screen text-slate-900 dark:text-slate-100 p-4 sm:p-6 lg:p-8 bg-slate-100 dark:bg-slate-900 transition-colors duration-500" 
       style={{ backgroundImage: `var(--dot-pattern-url, ${lightModeDotPatternUrl})` }}
     >
@@ -220,6 +267,48 @@ export default function DashboardPage() {
       </header>
 
       <main className="space-y-8">
+
+        {/* --- [NEW] ---
+          7. Add the "Quick Insights" card section
+        */}
+        <section className="learn-ease-card p-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4">
+            <h2 className="text-3xl font-semibold text-slate-800 dark:text-slate-100 mb-2 sm:mb-0">
+              My Global Progress
+            </h2>
+            <Link href="/progress" className="flex items-center px-4 py-2.5 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg shadow-lg hover:shadow-xl hover:from-blue-600 hover:to-indigo-700 focus:outline-none focus:ring-2 ring-offset-2 dark:ring-offset-slate-900 ring-indigo-500 transition-all duration-150 ease-in-out text-sm font-medium transform hover:scale-105 active:scale-95">
+              View Full Report
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 ml-2"><path fillRule="evenodd" d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z" clipRule="evenodd" /></svg>
+            </Link>
+          </div>
+          
+          {isLoadingProgress && (
+            <div className="text-center py-10"><SpinnerIcon className="h-8 w-8 text-orange-500 mx-auto" /> <p className="mt-2 text-slate-500 dark:text-slate-400">Loading progress...</p></div>
+          )}
+          {errorProgress && (
+            <div className="text-center py-10 text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30 p-4 rounded-lg"><strong>Error loading progress:</strong> {errorProgress}</div>
+          )}
+          {globalProgress && !isLoadingProgress && !errorProgress && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="learn-ease-card p-4 bg-white/50 dark:bg-slate-800/50">
+                <h4 className="text-sm font-medium text-slate-500 dark:text-slate-400">Total Quizzes Taken</h4>
+                <p className="mt-1 text-3xl font-semibold text-slate-900 dark:text-slate-100">{globalProgress.stats.total_quizzes}</p>
+              </div>
+              <div className="learn-ease-card p-4 bg-white/50 dark:bg-slate-800/50">
+                <h4 className="text-sm font-medium text-slate-500 dark:text-slate-400">Overall Average Score</h4>
+                <p className="mt-1 text-3xl font-semibold text-slate-900 dark:text-slate-100">{globalProgress.stats.average_score}%</p>
+              </div>
+              <div className="learn-ease-card p-4 bg-white/50 dark:bg-slate-800/50">
+                <h4 className="text-sm font-medium text-slate-500 dark:text-slate-400">Weakest Subject</h4>
+                <p className="mt-1 text-3xl font-semibold text-slate-900 dark:text-slate-100 truncate" title={globalProgress.stats.weakest_subject || 'N/A'}>
+                  {globalProgress.stats.weakest_subject || 'N/A'}
+                </p>
+              </div>
+            </div>
+          )}
+        </section>
+        {/* --- [END NEW] --- */}
+
         {(!isLoadingCategories || categories.length > 0 || activeFilter !== 'all') && ( 
           <section className="learn-ease-card learn-ease-card-hover p-6"> {/* Filter card already pulled up by header mb change */}
             <h3 className="text-2xl font-semibold text-slate-800 dark:text-slate-100 mb-5">Filter by Category</h3> {/* Increased text size and bottom margin */}
@@ -231,7 +320,7 @@ export default function DashboardPage() {
             </div>
           </section>
         )}
-        
+       
         {errorCategories && !isLoadingCategories && ( <div className="my-4 p-4 text-sm text-red-700 bg-red-100 dark:bg-red-900/50 dark:text-red-300 rounded-lg border border-red-300 dark:border-red-700"><strong>Category Error:</strong> {errorCategories}</div> )}
 
         <section className="learn-ease-card learn-ease-card-hover p-6">
@@ -284,18 +373,35 @@ export default function DashboardPage() {
                             {categories.map(cat => (<option key={cat.id} value={cat.id}>{cat.name}</option>))} 
                           </select>
                         </div>
+
+                        {/* --- [NEW] ---
+                          8. Add the "View Progress" button to the book card
+                        */}
                         <div className="flex items-center space-x-2">
-                            <Link href={`/books/${book.id}`} className="flex-grow text-center text-sm px-4 py-2.5 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-md hover:from-orange-600 hover:to-red-600 focus:outline-none focus:ring-2 ring-offset-2 dark:ring-offset-slate-800 ring-red-500 transition-all duration-150 ease-in-out font-medium transform hover:scale-105 active:scale-95">
-                                View Book
-                            </Link>
-                            <button 
-                                onClick={() => handleAttemptDeleteBook(book.id, book.title)} 
-                                title="Delete Book"
-                                className="p-2.5 bg-red-100/50 dark:bg-red-800/30 text-red-600 dark:text-red-400 rounded-md hover:bg-red-200/70 dark:hover:bg-red-700/50 hover:text-red-700 dark:hover:text-red-300 focus:outline-none focus:ring-2 ring-offset-2 dark:ring-offset-slate-800 ring-red-500 transition-all duration-150 ease-in-out transform hover:scale-105 active:scale-95"
-                            >
-                                <TrashIcon className="w-4 h-4" />
-                            </button>
+                          <Link href={`/books/${book.id}`} className="flex-1 text-center text-sm px-4 py-2.5 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-md hover:from-orange-600 hover:to-red-600 focus:outline-none focus:ring-2 ring-offset-2 dark:ring-offset-slate-800 ring-red-500 transition-all duration-150 ease-in-out font-medium transform hover:scale-105 active:scale-95">
+                            View Book
+                          </Link>
+                          
+                          {/* This is the new button */}
+                          <Link 
+                            href={`/progress/${book.id}`} 
+                            title="View Progress"
+                            className="flex-1 flex items-center justify-center text-center text-sm px-4 py-2.5 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 ring-offset-2 dark:ring-offset-slate-800 ring-indigo-500 transition-all duration-150 ease-in-out font-medium transform hover:scale-105 active:scale-95"
+                          >
+                            <ChartBarIcon className="w-4 h-4 mr-1.5" />
+                            Progress
+                          </Link>
+
+                          <button 
+                            onClick={() => handleAttemptDeleteBook(book.id, book.title)} 
+                            title="Delete Book"
+                            className="p-2.5 bg-red-100/50 dark:bg-red-800/30 text-red-600 dark:text-red-400 rounded-md hover:bg-red-200/7V0 dark:hover:bg-red-700/50 hover:text-red-700 dark:hover:text-red-300 focus:outline-none focus:ring-2 ring-offset-2 dark:ring-offset-slate-800 ring-red-500 transition-all duration-150 ease-in-out transform hover:scale-105 active:scale-95"
+                          >
+                            <TrashIcon className="w-4 h-4" />
+                          </button>
                         </div>
+                        {/* --- [END NEW] --- */}
+
                       </div>
                     </div>
                   ))}
