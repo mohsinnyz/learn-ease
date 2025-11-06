@@ -34,6 +34,18 @@ GLOSSARY_TERMS_COLLECTION = "glossary_terms"
 BOOK_TOPICS_COLLECTION = "book_topics"
 QUIZ_RESULTS_COLLECTION = "quiz_results"     
 
+TOPIC_START_REGEX = re.compile(r"^\s*(\d+)(\.\d+)?\.?\s+([A-Za-z0-9].+)")
+# This regex cleans junk off the end of a line (e.g., "... 10")
+CLEAN_REGEX = re.compile(r"(.+?)\s*(\.{3,}|\s{2,})\s*\d+\s*$")
+
+JUNK_TOPIC_KEYWORDS = {
+    "summary",
+    "bibliography",
+    "reading list",
+    "suggestions for further reading"
+    "references"
+}
+
 async def _save_glossary_terms_for_page(
     db: AsyncIOMotorDatabase,
     book_id: PyObjectId,
@@ -63,78 +75,87 @@ def run_vector_creation_in_process(book_id: str, book_text: str) -> bool:
     # Since the target function is async, we run it inside a new event loop for this process.
     return asyncio.run(vector_service.create_vector_store_for_book(book_id, book_text))
 
-
 async def _extract_and_save_topics(
     db: AsyncIOMotorDatabase,
     book_id: PyObjectId,
     pdf_path: str
 ):
     """
-    (NEW FUNCTION)
-    Extracts topics using the PDF's Table of Contents (ToC) and saves
-    each topic's title, page range, and full text content to the DB.
+    (IMPROVED FUNCTION)
+    Extracts topics using a hybrid approach (Metadata-first, Regex-fallback)
+    and saves each topic's precise content to the DB.
+    
+    (NOW FILTERS JUNK TOPICS)
     """
-    print(f"INFO: Starting ToC extraction for book_id: {book_id}")
+    print(f"INFO: Starting topic extraction for book_id: {book_id}")
     doc = None
     try:
         doc = fitz.open(pdf_path)
-        toc = doc.get_toc()  # Returns list of [level, title, page_num]
         
-        if not toc:
-            print(f"WARN: No ToC found for book_id: {book_id}. Skipping topic extraction.")
+        # --- 1. Get the Table of Contents (Hybrid Approach) ---
+        
+        topics = _get_toc_from_metadata(doc)
+        
+        if not topics:
+            print(f"INFO: No metadata ToC found. Falling back to regex parsing for book_id: {book_id}")
+            topics = _get_toc_from_regex(doc)
+
+        if not topics:
+            print(f"WARN: No topics could be extracted for book_id: {book_id}. Skipping.")
             return
 
+        # (Your debug print statement)
+        print(f"\n--- Topics Found (Pre-Filter) for {book_id} ---")
+        for i, topic in enumerate(topics):
+            print(f"  {i+1}. {topic['title']} (Page: {topic['page_start']})")
+        print("----------------------------------------\n")
+
+        print(f"INFO: Found {len(topics)} potential topics. Now extracting content and filtering...")
+
+        # --- 2. Process Topics and Extract Precise Content ---
+        
         topics_to_create: List[BookTopicCreate] = []
-
-        for i, (level, title, page_start) in enumerate(toc):
-            # Clean title
-            title = title.strip()
-            if not title:
+        
+        for i, current_topic in enumerate(topics):
+            next_topic = topics[i + 1] if i + 1 < len(topics) else None
+            
+            content_slice, page_start, page_end = _extract_text_between_anchors(
+                doc,
+                current_topic["title"],
+                next_topic["title"] if next_topic else None,
+                current_topic["page_start"]
+            )
+            
+            if not content_slice:
+                print(f"WARN: No content found for topic '{current_topic['title']}'. Skipping.")
                 continue
 
-            # Determine the end page for the topic
-            page_end = doc.page_count
-            if i + 1 < len(toc):
-                # End page is the page *before* the next topic starts
-                page_end = toc[i+1][2] - 1
-            
-            # Ensure page numbers are valid
-            page_start_idx = max(0, page_start - 1) # fitz is 1-based, doc pages are 0-based
-            page_end_idx = min(doc.page_count - 1, page_end - 1)
+            # --- (NEW) JUNK TOPIC FILTER ---
+            # Check if any junk keyword is in the title.
+            title_lower = current_topic["title"].lower()
+            if any(keyword in title_lower for keyword in JUNK_TOPIC_KEYWORDS):
+                print(f"INFO: Ignoring junk topic: {current_topic['title']}")
+                continue # Skip this topic and do not add it to the list
+            # --- (END NEW FILTER) ---
 
-            if page_start_idx > page_end_idx:
-                continue # Skip if page range is invalid
-
-            # Extract all text content for this topic's page range
-            topic_content_parts = []
-            for page_num in range(page_start_idx, page_end_idx + 1):
-                page = doc.load_page(page_num)
-                topic_content_parts.append(page.get_text())
-            
-            topic_content = "\n\n".join(topic_content_parts).strip()
-
-            if not topic_content:
-                print(f"WARN: No content found for topic '{title}' (pages {page_start}-{page_end}). Skipping.")
-                continue
-
-            # Prepare the topic document for the database
+            # If the topic is not junk, add it for creation.
             topic_data = BookTopicCreate(
                 book_id=book_id,
-                topic_title=title,
+                topic_title=current_topic["title"],
                 page_start=page_start,
                 page_end=page_end,
-                content=topic_content
+                content=content_slice
             )
             topics_to_create.append(topic_data)
 
-        # Batch insert all topics into the database
+        # --- 3. Batch insert all topics into the database ---
         if topics_to_create:
             documents = [
                 BookTopicInDB(**t.model_dump()).model_dump(by_alias=True)
                 for t in topics_to_create
             ]
             for doc_data in documents:
-                 if "_id" not in doc_data:
+                if "_id" not in doc_data:
                     doc_data["_id"] = ObjectId()
 
             await db[BOOK_TOPICS_COLLECTION].insert_many(documents)
@@ -143,11 +164,148 @@ async def _extract_and_save_topics(
             print(f"INFO: No valid topics with content found for book_id: {book_id}")
 
     except Exception as e:
-        print(f"ERROR: Topic extraction failed for book_id: {book_id}. Error: {str(e)}")
+        print(f"ERROR: Topic extraction failed for book_id: {book_id}. Error: {type(e).__name__} - {str(e)}")
     finally:
         if doc:
             doc.close()
 
+# --- Helper 1: Get ToC from PDF Metadata (IMPROVED) ---
+
+def _get_toc_from_metadata(doc: fitz.Document) -> List[dict]:
+    """
+    Tries to get the ToC from the PDF's built-in metadata.
+    Filters to only include topics that match the "1." or "1.1" pattern.
+    """
+    raw_toc = doc.get_toc()
+    if not raw_toc:
+        return []
+
+    topics = []
+    for level, title, page_start in raw_toc:
+        # 1. Filter by level (main topic or one sub-level)
+        if level not in [1, 2]:
+            continue
+        
+        cleaned_title = title.strip()
+        if not cleaned_title:
+            continue
+
+        # 2. Filter by number pattern (e.g., "1. Topic" or "1 Topic")
+        # This filters out "Contents", "List of Figures", etc.
+        match = TOPIC_START_REGEX.match(cleaned_title)
+        
+        if match:
+            topics.append({"title": cleaned_title, "page_start": page_start})
+            
+    return topics
+
+# --- Helper 2: Get ToC using Regex Fallback (IMPROVED) ---
+
+def _get_toc_from_regex(doc: fitz.Document) -> List[dict]:
+    """
+    Manually scans the first 20 pages of the PDF, looking for
+    lines that match our topic regex (e.g., "1. Topic" or "1.1. Subtopic").
+    """
+    topics = []
+    found_toc_page = False
+    
+    # Only scan the first 20 pages (common for ToC)
+    for page_num in range(min(doc.page_count, 20)):
+        page = doc.load_page(page_num)
+        text = page.get_text()
+        
+        # Look for the start of the ToC
+        if not found_toc_page and ("contents" in text.lower() or "table of contents" in text.lower()):
+            found_toc_page = True
+
+        if not found_toc_page:
+            continue # Keep searching
+
+        for line in text.split('\n'):
+            line = line.strip()
+            # This regex check handles both "1. Title" and "1 Title"
+            match = TOPIC_START_REGEX.match(line)
+            
+            if match:
+                main_num = match.group(1)
+                sub_num = match.group(2) or "" # Will be ".1" or empty string
+                title_text = match.group(3)
+
+                # Clean off dots and page numbers from the title
+                clean_match = CLEAN_REGEX.match(title_text)
+                if clean_match:
+                    title_text = clean_match.group(1).strip()
+                
+                # We rebuild the title to ensure clean formatting
+                # e.g., "1 Introduction", "1.1 Basics"
+                full_title = f"{main_num}{sub_num} {title_text}"
+                topics.append({"title": full_title, "page_start": page_num + 1})
+
+        # If we found the ToC and now we see "Chapter 1", we're probably done
+        if found_toc_page and ("chapter 1" in text.lower() or "introduction" in text.lower()):
+            break
+            
+    return topics
+
+# --- Helper 3: The "Slicing Trick" (IMPROVED) ---
+
+def _extract_text_between_anchors(
+    doc: fitz.Document, 
+    start_anchor: str, 
+    end_anchor: Optional[str], 
+    start_page: int
+) -> tuple[str, int, int]:
+    """
+    Precisely extracts text content between two topic titles (anchors).
+    """
+    
+    # 1. Determine Page Range
+    page_start_idx = max(0, start_page - 1) # Page numbers are 1-based
+    page_end_idx = doc.page_count - 1 # Default to end of book
+    
+    if end_anchor:
+        # Search for the end anchor *starting from the start page*
+        for p_num in range(page_start_idx, doc.page_count):
+            page_text = doc.load_page(p_num).get_text("text", sort=True) # Sort text for better anchor finding
+            if end_anchor in page_text:
+                page_end_idx = p_num
+                break
+    
+    # 2. Extract All Text in that Page Range
+    full_text_slice = []
+    for p_num in range(page_start_idx, page_end_idx + 1):
+        full_text_slice.append(doc.load_page(p_num).get_text("text", sort=True))
+    full_text = "\n".join(full_text_slice)
+
+    # 3. Find Anchors and Slice
+    start_index = full_text.find(start_anchor)
+    end_index = -1
+    
+    if end_anchor:
+        # Find the end anchor *after* the start anchor
+        end_index = full_text.find(end_anchor, start_index if start_index != -1 else 0) 
+
+    if start_index == -1:
+        # Fallback: Could not find exact anchor.
+        # Try to find a "fuzzier" version (just the text, not the number)
+        fuzzy_anchor = re.sub(r"^\s*(\d+(\.\d+)?)\.?\s*", "", start_anchor).strip()
+        if fuzzy_anchor:
+            start_index = full_text.find(fuzzy_anchor)
+    
+    if start_index == -1:
+        # Still can't find it. Give up on this topic.
+        return "", page_start_idx + 1, page_end_idx + 1
+
+    # 4. Get final content
+    topic_content = ""
+    if end_index != -1 and end_index > start_index:
+        # Slice from start anchor to end anchor
+        topic_content = full_text[start_index : end_index].strip()
+    else:
+        # If no end anchor, take everything from the start anchor to the end
+        topic_content = full_text[start_index :].strip()
+        
+    return topic_content, page_start_idx + 1, page_end_idx + 1
 
 async def process_book_in_background(
     db: AsyncIOMotorDatabase,
