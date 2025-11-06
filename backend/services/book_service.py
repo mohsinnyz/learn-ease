@@ -15,7 +15,7 @@ from models.book_schemas import (
 )
 from models.user_schemas import UserInDB
 from models.ai_schemas import GlossaryTerm
-from core.config import LOCAL_BOOK_UPLOAD_DIR, LOCAL_EXTRACTED_TEXT_DIR
+from core.config import LOCAL_BOOK_UPLOAD_DIR, LOCAL_EXTRACTED_TEXT_DIR, LOCAL_VECTOR_STORE_DIR
 from . import category_service
 from . import ai_service
 from . import vector_service
@@ -26,11 +26,13 @@ from concurrent.futures import ProcessPoolExecutor
 # Ensure upload directories exist when the service module is loaded
 os.makedirs(LOCAL_BOOK_UPLOAD_DIR, exist_ok=True)
 os.makedirs(LOCAL_EXTRACTED_TEXT_DIR, exist_ok=True)
+os.makedirs(LOCAL_VECTOR_STORE_DIR, exist_ok=True)
 
 # --- COLLECTION NAMES ---
 BOOKS_COLLECTION = "books"
 GLOSSARY_TERMS_COLLECTION = "glossary_terms"
-BOOK_TOPICS_COLLECTION = "book_topics"  # <<< ADD NEW COLLECTION NAME
+BOOK_TOPICS_COLLECTION = "book_topics"
+QUIZ_RESULTS_COLLECTION = "quiz_results"     
 
 async def _save_glossary_terms_for_page(
     db: AsyncIOMotorDatabase,
@@ -377,37 +379,72 @@ async def delete_book_for_user(
     if not book_to_delete:
         return False
     
-    # --- (NEW) Delete associated topics ---
+    # Get the book's ObjectId for querying other collections
+    book_obj_id = book_to_delete.id
+
+    # --- 1. Delete associated MongoDB data ---
+
+    # Delete associated topics
     try:
-        await db[BOOK_TOPICS_COLLECTION].delete_many({"book_id": book_to_delete.id})
+        await db[BOOK_TOPICS_COLLECTION].delete_many({"book_id": book_obj_id})
         print(f"INFO: Deleted topics for book_id: {book_id_str}")
     except Exception as e:
         print(f"WARN: Failed to delete topics for book {book_id_str}: {e}")
+
+    # --- (NEW) Delete associated quiz results ---
+    try:
+        await db[QUIZ_RESULTS_COLLECTION].delete_many({"book_id": book_obj_id})
+        print(f"INFO: Deleted quiz results for book_id: {book_id_str}")
+    except Exception as e:
+        print(f"WARN: Failed to delete quiz results for book {book_id_str}: {e}")
     # --- End of new code ---
 
-    # ... (code to delete local files)
+    # --- (NEW) Delete associated glossary entries ---
+    try:
+        await db[GLOSSARY_TERMS_COLLECTION].delete_many({"book_id": book_obj_id})
+        print(f"INFO: Deleted glossary for book_id: {book_id_str}")
+    except Exception as e:
+        print(f"WARN: Failed to delete glossary for book {book_id_str}: {e}")
+    # --- End of new code ---
+
+    # --- 2. Delete associated local files ---
+
+    # Delete the PDF file
     if book_to_delete.file_path_local and os.path.exists(book_to_delete.file_path_local):
         try:
             os.remove(book_to_delete.file_path_local)
         except OSError as e:
             print(f"Error removing PDF file {book_to_delete.file_path_local}: {e}")
+            
+    # Delete the extracted text file
     if book_to_delete.extracted_text_path_local and os.path.exists(book_to_delete.extracted_text_path_local):
         try:
             os.remove(book_to_delete.extracted_text_path_local)
         except OSError as e:
             print(f"Error removing text file {book_to_delete.extracted_text_path_local}: {e}")
             
-    # Also delete the vector store
-    vector_store_path = os.path.join("user-book-files/vector-stores", f"{book_id_str}.faiss")
+    # Delete the vector store directory
+    # --- (FIXED) Delete the vector store directory ---
+    # We now use your absolute path from core.config
+    vector_store_path = os.path.join(LOCAL_VECTOR_STORE_DIR, f"{book_id_str}.faiss")
+    
     if os.path.exists(vector_store_path):
         try:
             shutil.rmtree(vector_store_path) # Use rmtree for directories
+            print(f"INFO: Deleted vector store at {vector_store_path}")
         except OSError as e:
             print(f"Error removing vector store directory {vector_store_path}: {e}")
+    else:
+        # This will help debug if the path is still wrong
+        print(f"WARN: Vector store path not found (skipping delete): {vector_store_path}")
+    # --- (End Fix) ---
 
+    # --- 3. Finally, delete the book itself ---
+    
     delete_result = await db[BOOKS_COLLECTION].delete_one(
-        {"_id": book_to_delete.id, "user_id": user_id}
+        {"_id": book_obj_id, "user_id": user_id}
     )
+    
     return delete_result.deleted_count == 1
 
 async def get_glossary_for_page(

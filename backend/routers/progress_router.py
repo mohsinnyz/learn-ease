@@ -11,26 +11,8 @@ from core.security import get_current_user # (This is a placeholder path)
 router = APIRouter(
     prefix="/progress",
     tags=["Progress & Stats"],
-    # TODO: Add your security dependency once imported
-    # dependencies=[Depends(get_current_user)]
+    dependencies=[Depends(get_current_user)]
 )
-
-# Placeholder for your auth dependency
-# Remove this function and import your real one when ready
-async def get_current_user() -> UserPublic:
-    print("WARNING: Using placeholder 'get_current_user'. Please replace with your real auth dependency.")
-    
-    # This placeholder now correctly matches your UserPublic schema
-    return UserPublic(
-        id="68343f28487e7b2c0656a078", # Example valid ObjectId string
-        firstname="Test",
-        lastname="User",
-        email="test@example.com",
-        age=21,
-        university_name="COMSATS",
-        image=None,
-        verified=True # This field was missing and causing the error
-    )
 
 
 @router.get("/global", response_model=GlobalProgressResponse)
