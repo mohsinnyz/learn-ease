@@ -789,76 +789,62 @@ async def generate_study_notes_from_text(text_to_generate_from: str) -> str:
 
     # <<< (NEW, ADVANCED PROMPT) >>>
     prompt = f"""
-You are an expert academic instructor and curriculum designer. 
-Your task is to generate **high-quality, deeply structured, and pedagogically optimized study notes** from the provided academic text.
+You are an expert academic instructor.  
+Generate **comprehensive, well-structured, deeply detailed study notes** from the input text.
 
-## ✅ Core Requirements
-- Conduct a deep analysis of the input text to identify **all concepts**, **definitions**, **arguments**, **examples**, **numerical details**, and **supporting points**.
-- Rewrite the entire content in **your own clear academic wording**. Avoid copying sentences.
-- Output must be **comprehensive**, **long-form**, and **logically organized**.
+## OUTPUT FORMAT (MANDATORY)
 
-## ✅ Structure & Formatting Rules (VERY IMPORTANT)
-Use this exact structure:
+### 1. Title  
+- Create a clear academic title.
 
-### 1. Title
-- Generate a clear and meaningful title for the notes.
+### 2. Overview  
+Write 4–6 sentences covering:
+- What the text explains  
+- Why it matters  
+- Main themes  
 
-### 2. Overview
-Provide a short 4–6 sentence summary describing:
-- What the text is about
-- Why it is important
-- What major themes it covers
+### 3. Key Concepts  
+- Bullet list of all major terms, ideas, and concepts.
 
-### 3. Key Concepts (Bullet List)
-List all important concepts, terms, and ideas extracted from the source.
+### 4. Detailed Notes (Main Body)  
+Use this exact hierarchy:
 
-### 4. Detailed Notes (Main Body)
-For the main notes, follow this strict hierarchy:
+## H2 — Main Topic  
+- Full in-depth explanation in your own words.  
+- Key points:  
+  - Bullet 1  
+  - Bullet 2  
+  - Bullet 3  
+- Include examples if present.
 
-## Main Heading (H2)
-- A comprehensive explanation of the concept.
-- Key points:
-  - Bullet point 1
-  - Bullet point 2
-  - Bullet point 3
-- Examples (if relevant)
+### H3 — Subtopic  
+- Clear explanation.  
+- Supporting bullet points.
 
-### Subheading (H3)
-- A detailed explanation of the sub-concept.
-- Bullet points for supporting details
+#### H4 — (Optional)  
+- Short clarifications or definitions when needed.
 
-### Sub-Subheading (H4) — optional when content is dense
-- Short definition or detail
+Repeat for **all major ideas** in the text.  
+Notes must be **thorough, logically ordered, rewritten academically, and cover 100% of the content**.
 
-Repeat this structure for **every major topic** in the input.
+### 5. Conclusion  
+Write 5–7 bullet points summarizing:
+- Core ideas to remember  
+- Exam-relevant takeaways  
+- Key conceptual relationships  
 
-### 5. Visual Learning Aids
-Include at least:
-- ✅ comparison tables (if relevant)
-- ✅ step-by-step processes
-- ✅ diagrams described in text (ASCII or conceptual)
-
-### 6. Conclusion
-Summarize the text in **5–7 strong points** focusing on:
-- What the student must remember
-- Concepts that are most exam-relevant
-- Connections between concepts
-
-## ✅ Writing Style Rules
-- Academic but simple.
-- No fluff, filler, or generic sentences.
-- Use precise wording.
-- Ensure high coverage: **include every single important detail** from the source text.
-- Ensure notes are longer, clearer, and better structured than the original.
-
-## ✅ Final Output
-- Return **one complete markdown block**.
-- No external commentary.
+## WRITING STYLE
+- Use academic but simple language.  
+- No fluff.  
+- No repeated sentences.  
+- Do not copy text; rewrite everything clearly.  
+- Output all content in **one markdown block**.
 
 ---
-### Text to process:
----
+
+### TEXT TO PROCESS:
 {text_to_generate_from}
+
 ---
 """
     # <<< (END OF NEW PROMPT) >>>
