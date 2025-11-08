@@ -1,6 +1,5 @@
-# learn-ease-fyp/backend/models/ai_schemas.py
 from pydantic import BaseModel, Field
-from typing import List
+from typing import List, Optional, Literal # <-- Make sure Optional and Literal are imported
 
 class TextForSummarization(BaseModel):
     text_to_summarize: str = Field(..., min_length=10, description="Text selected by the user to be summarized.")
@@ -94,3 +93,66 @@ class ChatResponse(BaseModel):
     """Schema for the AI Mentor's response."""
     answer: str = Field(..., description="The AI-generated answer based on the book's content.")
     sources: List[str] = Field(..., description="A list of source text chunks used to generate the answer.")
+
+# =========================================================================
+# --- NEW SCHEMAS FOR AI STUDY RECOMMENDATIONS (Module 7) ---
+# =========================================================================
+
+RecommendationPriority = Literal["High", "Medium"]
+
+# This defines the "toolbox" of all your app features
+RecommendedAction = Literal[
+    "AI_MENTOR", 
+    "TAKE_QUIZ", 
+    "VIEW_SUMMARY", 
+    "STUDY_FLASHCARDS", 
+    "REVIEW_NOTES", 
+    "CHECK_GLOSSARY", 
+    "VIEW_QA_PAIRS"
+]
+
+class AIStudyRecommendation(BaseModel):
+    """
+    A single structured recommendation from the LLM.
+    """
+    priority: RecommendationPriority
+    topic_name: str
+    score: float = Field(..., description="The average score (0-100)")
+    action: RecommendedAction = Field(..., description="The app feature to use")
+    recommendation_text: str = Field(..., description="The human-readable text for the user")
+
+class AIRecommendationResponse(BaseModel):
+    """
+    The full response from the recommendation endpoint, including
+    praise for the user's strong topics.
+    """
+    recommendations: List[AIStudyRecommendation]
+    strength_message: Optional[str] = Field(None, description="An encouraging message about the user's strongest topic")
+
+    # (Add this to the end of backend/models/ai_schemas.py)
+
+# =========================================================================
+# --- NEW SCHEMAS FOR AI GLOBAL RECOMMENDATIONS (Dashboard) ---
+# =========================================================================
+
+GlobalRecommendationAction = Literal[
+    "REVIEW_WEAKEST_SUBJECT",
+    "PRACTICE_NEW_SUBJECT",
+    "VIEW_GLOBAL_PROGRESS",
+    "TAKE_ANY_QUIZ"
+]
+
+class AIGlobalStudyRecommendation(BaseModel):
+    """
+    A single high-level recommendation for the global dashboard.
+    """
+    priority: RecommendationPriority # Re-use this from book recommendations
+    action: GlobalRecommendationAction
+    title: str = Field(..., description="A short, bold title for the recommendation")
+    recommendation_text: str = Field(..., description="The human-readable text for the user")
+
+class AIGlobalRecommendationResponse(BaseModel):
+    """
+    The full response for the global recommendation endpoint.
+    """
+    recommendations: List[AIGlobalStudyRecommendation]

@@ -4,16 +4,19 @@ import { useRouter } from "next/navigation";
 import { Book, fetchUserBooks, uploadBook, updateBookCategory, deleteBook } from "@/services/bookService";
 import { Category, fetchUserCategories, createCategory } from "@/services/categoryService";
 import Link from "next/link";
-
-// --- [NEW] ---
-// 1. Import new progress service and types
 import {
   fetchGlobalProgress,
   GlobalProgressResponse,
 } from "@/services/progressService";
+
+// --- [NEW] ---
+// 1. Import the new GlobalRecommendationPanel
+import GlobalRecommendationPanel from "@/components/GlobalRecommendationPanel";
 // --- [END NEW] ---
 
 // --- Icons ---
+// (All your icons: UploadIcon, PlusIcon, LogoutIcon, SettingsIcon, etc. remain here)
+// ...
 const UploadIcon = () => ( <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 mr-2"><path d="M9.25 13.25a.75.75 0 001.5 0V4.636l2.955 3.129a.75.75 0 001.09-1.03l-4.25-4.5a.75.75 0 00-1.09 0l-4.25 4.5a.75.75 0 101.09 1.03L9.25 4.636v8.614z" /><path d="M3.5 12.75a.75.75 0 00-1.5 0v2.5A2.75 2.75 0 004.75 18h10.5A2.75 2.75 0 0018 15.25v-2.5a.75.75 0 00-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5z" /></svg> );
 const PlusIcon = () => ( <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 mr-1.5"><path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" /></svg> );
 const LogoutIcon = () => ( <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 mr-1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m-3 0l-3-3m0 0l3-3m-3 3H12" /></svg>);
@@ -33,20 +36,19 @@ const TrashIcon = (props: React.SVGProps<SVGSVGElement>) => (
     <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12.56 0c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
   </svg>
 );
-// --- [NEW] ---
-// 2. Add a new icon for the progress button
 const ChartBarIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}>
     <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
   </svg>
 );
-// --- [END NEW] ---
+// --- [END ICONS] ---
 
 // --- Standardized Dot Patterns ---
 const lightModeDotPatternUrl = "url(\"data:image/svg+xml,%3Csvg width='15' height='15' viewBox='0 0 15 15' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='15' height='15' fill='none'/%3E%3Ccircle cx='7.5' cy='7.5' r='0.8' fill='%23A0AEC0' fill-opacity='0.3'/%3E%3C/svg%3E\")";
 const darkModeDotPatternUrl = "url(\"data:image/svg+xml,%3Csvg width='15' height='15' viewBox='0 0 15 15' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='15' height='15' fill='none'/%3E%3Ccircle cx='7.5' cy='7.5' r='0.8' fill='%23CBD5E0' fill-opacity='0.15'/%3E%3C/svg%3E\")";
 
 // --- Modal component ---
+// ... (Modal component code remains unchanged)
 interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -71,16 +73,16 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, children, title }) => {
           </button>
         </div>
         {children}
+        <style jsx global>{`
+          @keyframes modalShow { 
+            0% { transform: scale(0.95) translateY(20px); opacity: 0; }
+            100% { transform: scale(1) translateY(0); opacity: 1; } 
+          }
+          .animate-modalShow { 
+            animation: modalShow 0.35s cubic-bezier(0.25, 0.8, 0.25, 1) forwards; 
+          }
+        `}</style>
       </div>
-      <style jsx global>{`
-        @keyframes modalShow { 
-          0% { transform: scale(0.95) translateY(20px); opacity: 0; }
-          100% { transform: scale(1) translateY(0); opacity: 1; } 
-        }
-        .animate-modalShow { 
-          animation: modalShow 0.35s cubic-bezier(0.25, 0.8, 0.25, 1) forwards; 
-        }
-      `}</style>
     </div>
   );
 };
@@ -110,18 +112,12 @@ export default function DashboardPage() {
   const [isDeletingBook, setIsDeletingBook] = useState(false);
   const [deleteBookError, setDeleteBookError] = useState<string | null>(null);
   const [deleteBookSuccess, setDeleteBookSuccess] = useState<string | null>(null);
-
-  // --- [NEW] ---
-  // 3. Add state for global progress
   const [globalProgress, setGlobalProgress] = useState<GlobalProgressResponse | null>(null);
   const [isLoadingProgress, setIsLoadingProgress] = useState(true);
   const [errorProgress, setErrorProgress] = useState<string | null>(null);
-  // --- [END NEW] ---
 
   useEffect(() => { setIsClient(true);const token = localStorage.getItem("authToken");if (!token) {router.push("/login");} else {loadInitialData();}}, [router]);
   
-  // --- [NEW] ---
-  // 4. Create a function to load progress
   const loadProgress = async () => {
     setErrorProgress(null);
     try {
@@ -134,15 +130,14 @@ export default function DashboardPage() {
     }
   };
 
-  // 5. Update loadInitialData to include loadProgress
   const loadInitialData = async () => { 
     setIsLoadingBooks(true);
     setIsLoadingCategories(true);
-    setIsLoadingProgress(true); // Set progress loading
-    await Promise.all([loadBooks(), loadCategories(), loadProgress()]); // Add loadProgress
+    setIsLoadingProgress(true); 
+    await Promise.all([loadBooks(), loadCategories(), loadProgress()]); 
   };
-  // --- [END NEW] ---
 
+  // ... (All your other handler functions: loadBooks, loadCategories, handleLogout, handleFileSelect, etc. remain unchanged)
   const loadBooks = async () => { setErrorBooks(null);try {const d = await fetchUserBooks(); setBooks(d.sort((a,b)=>new Date(b.upload_date).getTime()-new Date(a.upload_date).getTime()));} catch(e){setErrorBooks(e instanceof Error?e.message:"Err loading books");setBooks([]);}finally{setIsLoadingBooks(false);}};
   const loadCategories = async () => { setErrorCategories(null);try {const d = await fetchUserCategories(); setCategories(d.sort((a,b)=>a.name.localeCompare(b.name)));} catch(e){setErrorCategories(e instanceof Error?e.message:"Err loading categories");setCategories([]);}finally{setIsLoadingCategories(false);}};
   const handleLogout = () => { if (isClient) localStorage.removeItem("authToken");router.push("/login");};
@@ -154,55 +149,53 @@ export default function DashboardPage() {
   const handleAttemptDeleteBook = (bookId: string, bookTitle: string) => { setBookToDelete({id:bookId,title:bookTitle});setDeleteBookError(null);setDeleteBookSuccess(null);setShowDeleteConfirmModal(true);};
   const handleConfirmDeleteBook = async () => { if(!bookToDelete)return;setIsDeletingBook(true);setDeleteBookError(null);setDeleteBookSuccess(null);try{await deleteBook(bookToDelete.id);setBooks(pB=>pB.filter(b=>b.id!==bookToDelete.id));setDeleteBookSuccess(`Book "${bookToDelete.title}" deleted successfully.`);setShowDeleteConfirmModal(false);setBookToDelete(null);setTimeout(()=>setDeleteBookSuccess(null),3000);}catch(e){setDeleteBookError(e instanceof Error?e.message:"Failed to delete book.");}finally{setIsDeletingBook(false);}};
 
-    const GlobalStyles = () => (
-      <style jsx global>{`
-        :root { 
-          --dot-pattern-url: ${lightModeDotPatternUrl}; 
-          --input-bg-light: rgba(255, 255, 255, 0.7); 
-          --input-text-light: #0f172a; 
-          --input-placeholder-light: #94a3b8; 
-          --input-caret-light: #0f172a;
-          --input-bg-dark: rgba(51, 65, 85, 0.8); 
-          --input-text-dark: #ffffff; 
-          --input-placeholder-dark: #64748b; 
-          --input-caret-dark: #ffffff;
-        }
-        html.dark { --dot-pattern-url: ${darkModeDotPatternUrl}; }
 
-      .learn-ease-card {
-        background-color: rgba(255, 255, 255, 0.85); /* Light mode default */
-        backdrop-filter: blur(6px); 
-        border-radius: 0.75rem; 
-        box-shadow: 0 10px 15px -3px rgba(0,0,0,0.07), 0 4px 6px -2px rgba(0,0,0,0.05);
-        transition: box-shadow 0.3s ease-out, transform 0.3s ease-out;
-        border-width: 1px;
-        border-color: rgba(203, 213, 225, 0.5); /* Light mode border slate-300/50 */
+  const GlobalStyles = () => (
+    <style jsx global>{`
+      :root { 
+        --dot-pattern-url: ${lightModeDotPatternUrl}; 
+        --input-bg-light: rgba(255, 255, 255, 0.7); 
+        --input-text-light: #0f172a; 
+        --input-placeholder-light: #94a3b8; 
+        --input-caret-light: #0f172a;
+        --input-bg-dark: rgba(51, 65, 85, 0.8); 
+        --input-text-dark: #ffffff; 
+        --input-placeholder-dark: #64748b; 
+        --input-caret-dark: #ffffff;
       }
-      html.dark .learn-ease-card { /* <--- FOCUS ON THIS RULE */
-        background-color: rgba(30, 41, 59, 0.85); /* Dark mode: slate-800 with 85% opacity */
-        border-color: rgba(51, 65, 85, 0.8); /* Dark mode border: slate-700 with 80% opacity */
-      }
-      .learn-ease-card-hover:hover {
-        box-shadow: 0 6px 20px -3px rgba(249, 115, 22, 0.35), /* Orange part */
-                      0 4px 30px 0px rgba(239, 68, 68, 0.25);  /* Red part */
-        transform: translateY(-2px);
-      }
-      input, select { background-clip: padding-box !important; }
-      input:-webkit-autofill, input:-webkit-autofill:hover, input:-webkit-autofill:focus, input:-webkit-autofill:active,
-      select:-webkit-autofill, select:-webkit-autofill:hover, select:-webkit-autofill:focus, select:-webkit-autofill:active {
-        -webkit-box-shadow: 0 0 0 1000px var(--input-bg-light) inset !important; -webkit-text-fill-color: var(--input-text-light) !important; caret-color: var(--input-caret-light) !important;
-      }
-      html.dark input:-webkit-autofill, html.dark input:-webkit-autofill:hover, html.dark input:-webkit-autofill:focus, html.dark input:-webkit-autofill:active,
-      html.dark select:-webkit-autofill, html.dark select:-webkit-autofill:hover, html.dark select:-webkit-autofill:focus, html.dark select:-webkit-autofill:active {
-        -webkit-box-shadow: 0 0 0 1000px var(--input-bg-dark) inset !important; -webkit-text-fill-color: var(--input-text-dark) !important; caret-color: var(--input-caret-dark) !important;
-      }
-      `}</style>
-    );
+      html.dark { --dot-pattern-url: ${darkModeDotPatternUrl}; }
 
-  // --- [NEW] ---
-  // 6. Update the main loading check to include progress
+    .learn-ease-card {
+      background-color: rgba(255, 255, 255, 0.85); /* Light mode default */
+      backdrop-filter: blur(6px); 
+      border-radius: 0.75rem; 
+      box-shadow: 0 10px 15px -3px rgba(0,0,0,0.07), 0 4px 6px -2px rgba(0,0,0,0.05);
+      transition: box-shadow 0.3s ease-out, transform 0.3s ease-out;
+      border-width: 1px;
+      border-color: rgba(203, 213, 225, 0.5); /* Light mode border slate-300/50 */
+    }
+    html.dark .learn-ease-card { /* <--- FOCUS ON THIS RULE */
+      background-color: rgba(30, 41, 59, 0.85); /* Dark mode: slate-800 with 85% opacity */
+      border-color: rgba(51, 65, 85, 0.8); /* Dark mode border: slate-700 with 80% opacity */
+    }
+    .learn-ease-card-hover:hover {
+      box-shadow: 0 6px 20px -3px rgba(249, 115, 22, 0.35), /* Orange part */
+                    0 4px 30px 0px rgba(239, 68, 68, 0.25);  /* Red part */
+      transform: translateY(-2px);
+    }
+    input, select { background-clip: padding-box !important; }
+    input:-webkit-autofill, input:-webkit-autofill:hover, input:-webkit-autofill:focus, input:-webkit-autofill:active,
+    select:-webkit-autofill, select:-webkit-autofill:hover, select:-webkit-autofill:focus, select:-webkit-autofill:active {
+      -webkit-box-shadow: 0 0 0 1000px var(--input-bg-light) inset !important; -webkit-text-fill-color: var(--input-text-light) !important; caret-color: var(--input-caret-light) !important;
+    }
+    html.dark input:-webkit-autofill, html.dark input:-webkit-autofill:hover, html.dark input:-webkit-autofill:focus, html.dark input:-webkit-autofill:active,
+    html.dark select:-webkit-autofill, html.dark select:-webkit-autofill:hover, html.dark select:-webkit-autofill:focus, html.dark select:-webkit-autofill:active {
+      -webkit-box-shadow: 0 0 0 1000px var(--input-bg-dark) inset !important; -webkit-text-fill-color: var(--input-text-dark) !important; caret-color: var(--input-caret-dark) !important;
+    }
+    `}</style>
+  );
+
   if (!isClient || isLoadingBooks || isLoadingCategories || isLoadingProgress) { 
-  // --- [END NEW] ---
     return (
       <div 
         className="flex min-h-screen flex-col items-center justify-center bg-slate-100 dark:bg-slate-900 transition-colors duration-500" 
@@ -230,7 +223,7 @@ export default function DashboardPage() {
     >
       <GlobalStyles />
 
-      <header className="pb-6 border-b border-slate-300/70 dark:border-slate-700/70 flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6"> {/* Reduced mb-10 to mb-6 */}
+      <header className="pb-6 border-b border-slate-300/70 dark:border-slate-700/70 flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
         <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight mb-4 sm:mb-0 whitespace-nowrap text-left self-start sm:self-auto"> 
           <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-500 via-red-500 to-red-600">
             Learn-Ease
@@ -269,58 +262,61 @@ export default function DashboardPage() {
       <main className="space-y-8">
 
         {/* --- [NEW] ---
-          7. Add the "Quick Insights" card section
+          2. Create the new 2-column grid layout
         */}
-        <section className="learn-ease-card p-6">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4">
-            <h2 className="text-3xl font-semibold text-slate-800 dark:text-slate-100 mb-2 sm:mb-0">
-              My Global Progress
-            </h2>
-            <Link href="/progress" className="flex items-center px-4 py-2.5 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg shadow-lg hover:shadow-xl hover:from-blue-600 hover:to-indigo-700 focus:outline-none focus:ring-2 ring-offset-2 dark:ring-offset-slate-900 ring-indigo-500 transition-all duration-150 ease-in-out text-sm font-medium transform hover:scale-105 active:scale-95">
-              View Full Report
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 ml-2"><path fillRule="evenodd" d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z" clipRule="evenodd" /></svg>
-            </Link>
-          </div>
+        <section className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           
-          {isLoadingProgress && (
-            <div className="text-center py-10"><SpinnerIcon className="h-8 w-8 text-orange-500 mx-auto" /> <p className="mt-2 text-slate-500 dark:text-slate-400">Loading progress...</p></div>
-          )}
-          {errorProgress && (
-            <div className="text-center py-10 text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30 p-4 rounded-lg"><strong>Error loading progress:</strong> {errorProgress}</div>
-          )}
-          {globalProgress && !isLoadingProgress && !errorProgress && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="learn-ease-card p-4 bg-white/50 dark:bg-slate-800/50">
-                <h4 className="text-sm font-medium text-slate-500 dark:text-slate-400">Total Quizzes Taken</h4>
-                <p className="mt-1 text-3xl font-semibold text-slate-900 dark:text-slate-100">{globalProgress.stats.total_quizzes}</p>
-              </div>
-              <div className="learn-ease-card p-4 bg-white/50 dark:bg-slate-800/50">
-                <h4 className="text-sm font-medium text-slate-500 dark:text-slate-400">Overall Average Score</h4>
-                <p className="mt-1 text-3xl font-semibold text-slate-900 dark:text-slate-100">{globalProgress.stats.average_score}%</p>
-              </div>
-              <div className="learn-ease-card p-4 bg-white/50 dark:bg-slate-800/50">
-                <h4 className="text-sm font-medium text-slate-500 dark:text-slate-400">Weakest Subject</h4>
-                <p className="mt-1 text-3xl font-semibold text-slate-900 dark:text-slate-100 truncate" title={globalProgress.stats.weakest_subject || 'N/A'}>
-                  {globalProgress.stats.weakest_subject || 'N/A'}
-                </p>
-              </div>
+          {/* --- Column 1: Global Progress (Restyled) --- */}
+          <section className="learn-ease-card p-6 h-full flex flex-col">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 pb-4 border-b border-slate-300 dark:border-slate-700">
+              <h2 className="text-3xl font-semibold text-slate-800 dark:text-slate-100 mb-2 sm:mb-0">
+                My Global Progress
+              </h2>
+              <Link href="/progress" className="flex items-center px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg shadow-lg hover:shadow-xl hover:from-blue-600 hover:to-indigo-700 focus:outline-none focus:ring-2 ring-offset-2 dark:ring-offset-slate-900 ring-indigo-500 transition-all duration-150 ease-in-out text-sm font-medium transform hover:scale-105 active:scale-95">
+                View Full Report
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 ml-2"><path fillRule="evenodd" d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z" clipRule="evenodd" /></svg>
+              </Link>
             </div>
-          )}
+            
+            {isLoadingProgress && (
+              <div className="text-center py-10 flex-grow flex items-center justify-center"><SpinnerIcon className="h-8 w-8 text-orange-500 mx-auto" /> <p className="mt-2 text-slate-500 dark:text-slate-400">Loading progress...</p></div>
+            )}
+            {errorProgress && (
+              <div className="text-center py-10 text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30 p-4 rounded-lg flex-grow flex items-center justify-center"><strong>Error loading progress:</strong> {errorProgress}</div>
+            )}
+            {globalProgress && !isLoadingProgress && !errorProgress && (
+              // --- 3. This is the restyled vertical layout ---
+              <div className="flex flex-col space-y-4 flex-grow">
+                <div className="learn-ease-card p-4 bg-white/50 dark:bg-slate-800/50">
+                  <h4 className="text-sm font-medium text-slate-500 dark:text-slate-400">Total Quizzes Taken</h4>
+                  <p className="mt-1 text-3xl font-semibold text-slate-900 dark:text-slate-100">{globalProgress.stats.total_quizzes}</p>
+                </div>
+                <div className="learn-ease-card p-4 bg-white/50 dark:bg-slate-800/50">
+                  <h4 className="text-sm font-medium text-slate-500 dark:text-slate-400">Overall Average Score</h4>
+                  <p className="mt-1 text-3xl font-semibold text-slate-900 dark:text-slate-100">{globalProgress.stats.average_score}%</p>
+                </div>
+                <div className="learn-ease-card p-4 bg-white/50 dark:bg-slate-800/50 flex-grow">
+                  <h4 className="text-sm font-medium text-slate-500 dark:text-slate-400">Weakest Subject</h4>
+                  <p className="mt-1 text-3xl font-semibold text-slate-900 dark:text-slate-100 truncate" title={globalProgress.stats.weakest_subject || 'N/A'}>
+                    {globalProgress.stats.weakest_subject || 'N/A'}
+                  </p>
+                </div>
+              </div>
+            )}
+          </section>
+
+          {/* --- Column 2: Global Recommendations --- */}
+          <GlobalRecommendationPanel /> 
+          {/* --- 4. That's it! The new panel is added --- */}
+
         </section>
         {/* --- [END NEW] --- */}
 
-        {(!isLoadingCategories || categories.length > 0 || activeFilter !== 'all') && ( 
-          <section className="learn-ease-card learn-ease-card-hover p-6"> {/* Filter card already pulled up by header mb change */}
-            <h3 className="text-2xl font-semibold text-slate-800 dark:text-slate-100 mb-5">Filter by Category</h3> {/* Increased text size and bottom margin */}
-            <div className="flex flex-wrap gap-3 items-center">
-              {/* Increased padding, font size, and added text-left to filter buttons */}
-              <button onClick={() => setActiveFilter('all')} className={`text-left px-6 py-2.5 text-base rounded-full font-medium transition-all duration-200 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 ring-offset-2 dark:ring-offset-slate-800 ${ activeFilter === 'all' ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-md ring-orange-400' : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-600 ring-slate-300 dark:ring-slate-600' }`}>All Books</button>
-              <button onClick={() => setActiveFilter('uncategorized')} className={`text-left px-6 py-2.5 text-base rounded-full font-medium transition-all duration-200 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 ring-offset-2 dark:ring-offset-slate-800 ${ activeFilter === 'uncategorized' ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-md ring-orange-400' : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-600 ring-slate-300 dark:ring-slate-600' }`}>Uncategorized</button>
-              {categories.map(cat => ( <button key={cat.id} onClick={() => setActiveFilter(cat.id)} className={`text-left px-6 py-2.5 text-base rounded-full font-medium transition-all duration-200 ease-in-out transform hover:scale-105 truncate max-w-[200px] sm:max-w-[240px] focus:outline-none focus:ring-2 ring-offset-2 dark:ring-offset-slate-800 ${ activeFilter === cat.id ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-md ring-orange-400' : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-600 ring-slate-300 dark:ring-slate-600' }`} title={cat.name}>{cat.name}</button>))}
-            </div>
-          </section>
-        )}
-       
+
+        {/* --- [DELETED] ---
+          5. The old "Filter by Category" card (lines 316-324) is REMOVED from here.
+        */}
+        
         {errorCategories && !isLoadingCategories && ( <div className="my-4 p-4 text-sm text-red-700 bg-red-100 dark:bg-red-900/50 dark:text-red-300 rounded-lg border border-red-300 dark:border-red-700"><strong>Category Error:</strong> {errorCategories}</div> )}
 
         <section className="learn-ease-card learn-ease-card-hover p-6">
@@ -330,6 +326,22 @@ export default function DashboardPage() {
             </h2>
             <span className="text-sm text-slate-500 dark:text-slate-400 self-end sm:self-center bg-slate-100 dark:bg-slate-700 px-3 py-1 rounded-full">{filteredBooks.length} book(s)</span>
           </div>
+
+          {/* --- [NEW] ---
+            6. The "Filter by Category" block is PASTED here, inside the "All Your Books" card.
+          */}
+          {(!isLoadingCategories || categories.length > 0 || activeFilter !== 'all') && ( 
+            <div className="mb-6 pb-6 border-b border-slate-300 dark:border-slate-700">
+              <h3 className="text-xl font-semibold text-slate-700 dark:text-slate-200 mb-4">Filter by Category</h3>
+              <div className="flex flex-wrap gap-3 items-center">
+                <button onClick={() => setActiveFilter('all')} className={`text-left px-5 py-2 text-sm rounded-full font-medium transition-all duration-200 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 ring-offset-2 dark:ring-offset-slate-800 ${ activeFilter === 'all' ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-md ring-orange-400' : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-600 ring-slate-300 dark:ring-slate-600' }`}>All Books</button>
+                <button onClick={() => setActiveFilter('uncategorized')} className={`text-left px-5 py-2 text-sm rounded-full font-medium transition-all duration-200 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 ring-offset-2 dark:ring-offset-slate-800 ${ activeFilter === 'uncategorized' ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-md ring-orange-400' : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-600 ring-slate-300 dark:ring-slate-600' }`}>Uncategorized</button>
+                {categories.map(cat => ( <button key={cat.id} onClick={() => setActiveFilter(cat.id)} className={`text-left px-5 py-2 text-sm rounded-full font-medium transition-all duration-200 ease-in-out transform hover:scale-105 truncate max-w-[200px] sm:max-w-[240px] focus:outline-none focus:ring-2 ring-offset-2 dark:ring-offset-slate-800 ${ activeFilter === cat.id ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-md ring-orange-400' : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-600 ring-slate-300 dark:ring-slate-600' }`} title={cat.name}>{cat.name}</button>))}
+              </div>
+            </div>
+          )}
+          {/* --- [END NEW] --- */}
+
           {deleteBookSuccess && <div className="mb-4 p-3 text-sm text-green-600 bg-green-100 dark:bg-green-900/50 dark:text-green-300 rounded-lg border border-green-300 dark:border-green-700">{deleteBookSuccess}</div>}
 
           {isLoadingBooks && ( <div className="text-center py-16"><SpinnerIcon className="h-10 w-10 text-orange-500 mx-auto" /> <p className="mt-3 text-slate-500 dark:text-slate-400">Loading your books...</p></div> )}
@@ -343,7 +355,6 @@ export default function DashboardPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                   {filteredBooks.map((book) => (
                     <div key={book.id} className="learn-ease-card learn-ease-card-hover flex flex-col overflow-hidden group">
-                      {/* Enhanced Book Card Top Section */}
                       <div className="p-5 flex-grow flex items-start space-x-4">
                         <div className="flex-shrink-0 mt-1">
                           <BookOpenHeroIcon className="w-10 h-10 text-orange-500 dark:text-orange-400 opacity-80 group-hover:opacity-100 transition-opacity" />
@@ -359,8 +370,6 @@ export default function DashboardPage() {
                           )}
                         </div>
                       </div>
-
-                      {/* Action Footer */}
                       <div className="p-4 bg-slate-100/70 dark:bg-slate-700/70 border-t border-slate-200/80 dark:border-slate-600/80 flex flex-col space-y-2.5">
                         <div className="flex items-center space-x-2 text-xs text-slate-600 dark:text-slate-300">
                           <span className="whitespace-nowrap">Category:</span>
@@ -373,16 +382,10 @@ export default function DashboardPage() {
                             {categories.map(cat => (<option key={cat.id} value={cat.id}>{cat.name}</option>))} 
                           </select>
                         </div>
-
-                        {/* --- [NEW] ---
-                          8. Add the "View Progress" button to the book card
-                        */}
                         <div className="flex items-center space-x-2">
                           <Link href={`/books/${book.id}`} className="flex-1 text-center text-sm px-4 py-2.5 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-md hover:from-orange-600 hover:to-red-600 focus:outline-none focus:ring-2 ring-offset-2 dark:ring-offset-slate-800 ring-red-500 transition-all duration-150 ease-in-out font-medium transform hover:scale-105 active:scale-95">
                             View Book
                           </Link>
-                          
-                          {/* This is the new button */}
                           <Link 
                             href={`/progress/${book.id}`} 
                             title="View Progress"
@@ -391,7 +394,6 @@ export default function DashboardPage() {
                             <ChartBarIcon className="w-4 h-4 mr-1.5" />
                             Progress
                           </Link>
-
                           <button 
                             onClick={() => handleAttemptDeleteBook(book.id, book.title)} 
                             title="Delete Book"
@@ -400,8 +402,6 @@ export default function DashboardPage() {
                             <TrashIcon className="w-4 h-4" />
                           </button>
                         </div>
-                        {/* --- [END NEW] --- */}
-
                       </div>
                     </div>
                   ))}
@@ -413,6 +413,7 @@ export default function DashboardPage() {
       </main>
 
       {/* Modals */}
+      {/* ... (All your Modals: Upload, Create Category, Delete Confirm) ... */}
       <Modal isOpen={showUploadModal} onClose={() => setShowUploadModal(false)} title="Upload Your Textbook"> 
         <form onSubmit={handleUploadSubmit} className="space-y-5">
           <div><label htmlFor="bookFile" className="sr-only">Select PDF file:</label><input id="bookFile" type="file" accept=".pdf" onChange={handleFileSelect} className="block w-full text-sm text-slate-900 dark:text-slate-200 bg-slate-100 dark:bg-slate-700/80 rounded-lg border border-slate-300 dark:border-slate-600 cursor-pointer focus:outline-none focus:ring-2 focus:ring-orange-500 file:mr-4 file:py-2.5 file:px-5 file:rounded-l-lg file:border-0 file:text-sm file:font-semibold file:bg-orange-100 dark:file:bg-slate-600 file:text-orange-700 dark:file:text-orange-300 hover:file:bg-orange-200 dark:hover:file:bg-slate-500" />{selectedFile && <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">Selected: {selectedFile.name} ({(selectedFile.size / 1024).toFixed(2)} KB)</p>}</div>

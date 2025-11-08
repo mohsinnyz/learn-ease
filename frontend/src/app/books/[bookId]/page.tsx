@@ -19,6 +19,7 @@ import jsPDF from "jspdf";
 import useSWR from 'swr'; 
 
 
+
 import {
   Book,
   fetchBookDetails,
@@ -42,6 +43,7 @@ import {
 // --- (NEW) Import our new components ---
 import { BookMentorChat } from "@/components/BookMentorChat";
 import { StudyNotesPanel } from "@/components/StudyNotesPanel"; // <<< NEW
+
 
 // --- PDF.js Worker Configuration ---
 if (typeof window !== "undefined") {

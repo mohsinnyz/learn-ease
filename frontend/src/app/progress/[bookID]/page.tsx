@@ -12,6 +12,7 @@ import { fetchBookDetails, Book } from "@/services/bookService"; // Assuming thi
 // --- Import our new components ---
 import TopicCompletionList from "@/components/TopicCompletionList";
 import ProgressTopicBarChart from "@/components/ProgressTopicBarChart";
+import RecommendationPanel from "@/components/RecommendationPanel"; // <-- 1. IMPORT THE NEW PANEL
 
 // --- Icons (copied from your dashboard) ---
 const SpinnerIcon = ({
@@ -42,7 +43,7 @@ const SpinnerIcon = ({
 );
 
 const GlobalStyles = () => (
-  // We include your card styles here to ensure they apply
+  // ... (Your GlobalStyles component)
   <style jsx global>{`
     .learn-ease-card {
       background-color: rgba(255, 255, 255, 0.85);
@@ -123,6 +124,10 @@ export default function PerBookProgressPage() {
     // Data is loaded, render the dashboard
     return (
       <div className="space-y-8">
+        
+        {/* --- 2. ADD THE PANEL COMPONENT HERE --- */}
+        <RecommendationPanel bookId={bookId} />
+
         {/*
           The components themselves will handle their own data fetching,
           loading, and error states using the bookId.
