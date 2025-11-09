@@ -1,7 +1,7 @@
+#learn-ease-fyp\backend\routers\user_router.py
 from fastapi import APIRouter, Depends, HTTPException, status
 from typing import Annotated 
 from motor.motor_asyncio import AsyncIOMotorDatabase
-
 from models.user_schemas import UserPublic, UserUpdate, UserInDB, UserPasswordChange # UserInDB for current_user type
 from services import user_service
 from core.db import get_database
