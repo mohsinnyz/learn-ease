@@ -4,7 +4,6 @@ from typing import Optional
 from models.user_schemas import UserCreate, UserInDB, UserPublic, UserUpdate, PyObjectId, UserPasswordChange 
 from core.security import get_password_hash, verify_password
 from fastapi import HTTPException, status
-# from pydantic import HttpUrl # Not directly used in this file, but might be in schemas
 
 USERS_COLLECTION = "users" 
 
