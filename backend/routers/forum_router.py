@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Body
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from typing import Annotated, List, Literal
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 # --- Import your core dependencies ---
 from core.db import get_database
@@ -18,13 +18,11 @@ from services import forum_service
 router = APIRouter(
     prefix="/forum",
     tags=["Forum"],
-    dependencies=[Depends(get_current_user)] # Secures all routes in this router
+    dependencies=[Depends(get_current_user)] 
 )
 
-# --- A simple model for the vote body ---
 class VoteRequest(BaseModel):
     vote_type: Literal["upvote", "downvote", "none"]
-
 
 # --- Use Case 21: Forum Threads ---
 
@@ -39,28 +37,30 @@ async def create_new_thread(
     user: Annotated[UserInDB, Depends(get_current_user)]
 ):
     """
-    Create a new forum thread (question). (FR 21.1, 21.2)
+    Create a new public forum thread OR a new private group thread. (FR 21.1)
     """
     return await forum_service.create_thread(db, thread_data, user.id)
 
 @router.get("/threads", response_model=List[ForumThreadPublic])
-async def get_all_threads(
+async def get_all_public_threads(
     db: Annotated[AsyncIOMotorDatabase, Depends(get_database)]
 ):
     """
-    Get a list of all forum threads.
+    Get a list of all *public* forum threads (group_id is null).
     """
-    return await forum_service.get_all_threads(db)
+    return await forum_service.get_public_threads(db)
 
 @router.get("/threads/{thread_id}", response_model=ForumThreadPublic)
 async def get_single_thread(
     thread_id: PyObjectId,
-    db: Annotated[AsyncIOMotorDatabase, Depends(get_database)]
+    db: Annotated[AsyncIOMotorDatabase, Depends(get_database)],
+    user: Annotated[UserInDB, Depends(get_current_user)] # (MODIFIED) Pass user
 ):
     """
-    Get a single thread by its ID.
+    Get a single thread by its ID (public or private).
+    Checks group membership if private.
     """
-    return await forum_service.get_thread_by_id(db, thread_id)
+    return await forum_service.get_single_thread(db, thread_id, user.id)
 
 @router.post("/threads/{thread_id}/vote", response_model=dict)
 async def vote_on_thread(
@@ -70,7 +70,8 @@ async def vote_on_thread(
     user: Annotated[UserInDB, Depends(get_current_user)]
 ):
     """
-    Vote on a thread (upvote, downvote, or remove vote). (FR 21.3)
+    Vote on a thread. (FR 21.3)
+    Checks group membership if private.
     """
     return await forum_service.vote_on_thread(db, thread_id, user.id, vote.vote_type)
 
@@ -84,14 +85,14 @@ async def vote_on_thread(
 )
 async def create_new_post(
     thread_id: PyObjectId,
-    post_data: ForumPostCreate, # Note: post_data also contains thread_id
+    post_data: ForumPostCreate,
     db: Annotated[AsyncIOMotorDatabase, Depends(get_database)],
     user: Annotated[UserInDB, Depends(get_current_user)]
 ):
     """
     Create a new post (reply) on a specific thread. (FR 22.1)
+    Checks group membership if private.
     """
-    # Ensure the thread_id from the URL matches the one in the payload
     if post_data.thread_id != thread_id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -102,12 +103,14 @@ async def create_new_post(
 @router.get("/threads/{thread_id}/posts", response_model=List[ForumPostPublic])
 async def get_posts_for_thread(
     thread_id: PyObjectId,
-    db: Annotated[AsyncIOMotorDatabase, Depends(get_database)]
+    db: Annotated[AsyncIOMotorDatabase, Depends(get_database)],
+    user: Annotated[UserInDB, Depends(get_current_user)] # (MODIFIED) Pass user
 ):
     """
     Get all posts for a single thread.
+    Checks group membership if private.
     """
-    return await forum_service.get_posts_for_thread(db, thread_id)
+    return await forum_service.get_posts_for_thread(db, thread_id, user.id)
 
 @router.put("/posts/{post_id}", response_model=ForumPostPublic)
 async def edit_post(
@@ -132,7 +135,6 @@ async def delete_post(
     """
     success = await forum_service.delete_post(db, post_id, user.id)
     if not success:
-        # This will be handled by the service's HTTPExceptions
         raise HTTPException(status_code=500, detail="Post deletion failed")
     return None
 
@@ -144,6 +146,23 @@ async def vote_on_post(
     user: Annotated[UserInDB, Depends(get_current_user)]
 ):
     """
-    Vote on a post (upvote, downvote, or remove vote). (FR 22.3)
+    Vote on a post. (FR 22.3)
+    Checks group membership if private.
     """
     return await forum_service.vote_on_post(db, post_id, user.id, vote.vote_type)
+
+# --- (NEW) Endpoint for Group-Specific Threads ---
+# This mirrors the public /threads endpoint but is on the groups router.
+# We need to add it to the study_groups_router.py
+
+# @router.get("/groups/{group_id}/threads", response_model=List[ForumThreadPublic])
+# async def get_group_threads(
+#     group_id: PyObjectId,
+#     db: Annotated[AsyncIOMotorDatabase, Depends(get_database)],
+#     user: Annotated[UserInDB, Depends(get_current_user)]
+# ):
+#     """
+#     Get all threads for a specific group.
+#     Checks group membership.
+#     """
+#     return await forum_service.get_threads_for_group(db, group_id, user.id)
