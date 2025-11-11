@@ -42,8 +42,9 @@ JUNK_TOPIC_KEYWORDS = {
     "summary",
     "bibliography",
     "reading list",
-    "suggestions for further reading"
-    "references"
+    "suggestions for further reading",
+    "references",
+    "further reading"
 }
 
 async def _save_glossary_terms_for_page(
