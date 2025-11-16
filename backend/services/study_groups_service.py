@@ -9,8 +9,10 @@ from models.user_schemas import UserInDB, PyObjectId
 from models.study_groups_schemas import (
     StudyGroupCreate, StudyGroupInDB, StudyGroupPublic, GroupMemberPublic
 )
-# Import user_service to get user details for populating member lists
+from models.forum_schemas import ForumThreadCreate
+# Import services
 from . import user_service
+from . import forum_service
 
 # --- Collection Constant ---
 STUDY_GROUPS_COLLECTION = "study_groups"
@@ -36,32 +38,66 @@ async def _populate_group_public(db: AsyncIOMotorDatabase, group_in_db: StudyGro
         description=group_in_db.description,
         admin_id=str(group_in_db.admin_id),
         member_count=len(group_in_db.members),
-        created_at=group_in_db.created_at
+        created_at=group_in_db.created_at,
+        forum_thread_id=str(group_in_db.forum_thread_id)
     )
 
 # --- Public Service Functions ---
 
 async def create_group(db: AsyncIOMotorDatabase, group_create: StudyGroupCreate, user: UserInDB) -> StudyGroupPublic:
     """
-    Creates a new study group and sets the creator as admin.
+    Creates a new study group using your new flow.
+    1. Creates the main chat thread.
+    2. Creates the group, linking the thread.
     (FR 19.1)
     """
-    group_data = group_create.model_dump()
+    
+    # --- Step 1: Create the Forum Thread ---
+    # This thread is the "chat room" for the group.
+    thread_create_data = ForumThreadCreate(
+        title=f"Chat: {group_create.name}",
+        content=f"Welcome to the {group_create.name} study group!",
+        is_group=True # This marks it as a group chat
+    )
+    
+    try:
+        # We call the forum_service to create the thread, passing the user's ID
+        # (This uses .dict() as defined in your working forum_service)
+        created_thread = await forum_service.create_thread(db, thread_create_data, user.id)
+        main_thread_id = PyObjectId(created_thread.id) # Get the new thread's ID
+    except Exception as e:
+        # If thread creation fails, we can't create the group.
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to create the group's chat thread: {e}"
+        )
+
+    # --- Step 2: Create the Study Group ---
+    group_data = group_create.dict(exclude_unset=True) # Pydantic v1 style
     group_data["admin_id"] = user.id
-    # The creator is automatically the first member
-    group_data["members"] = [user.id] 
+    group_data["members"] = [user.id] # Creator is the first member
+    group_data["forum_thread_id"] = main_thread_id # Add the link
     
     group_in_db = StudyGroupInDB(**group_data)
     
     result = await db[STUDY_GROUPS_COLLECTION].insert_one(
-        group_in_db.model_dump(by_alias=True)
+        group_in_db.dict(by_alias=True) # Pydantic v1 style
     )
     
     created_group_doc = await db[STUDY_GROUPS_COLLECTION].find_one({"_id": result.inserted_id})
     if not created_group_doc:
+        # If this fails, we should ideally delete the thread we just made (orphaned)
+        await db[forum_service.FORUM_THREADS_COLLECTION].delete_one({"_id": main_thread_id})
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Could not create group")
         
     created_group = StudyGroupInDB(**created_group_doc)
+    
+    # --- Step 3: (Optional but good) Link the group_id back to the thread ---
+    await db[forum_service.FORUM_THREADS_COLLECTION].update_one(
+        {"_id": main_thread_id},
+        {"$set": {"group_id": created_group.id}}
+    )
+
     return await _populate_group_public(db, created_group)
 
 async def get_user_groups(db: AsyncIOMotorDatabase, user_id: PyObjectId) -> List[StudyGroupPublic]:
@@ -88,11 +124,10 @@ async def join_group(db: AsyncIOMotorDatabase, group_id: PyObjectId, user_id: Py
     if not group:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Group not found")
     
-    # Check if user is already a member (using $addToSet is idempotent)
     if user_id in group.members:
-        return await _populate_group_public(db, group) # Just return the group
+        return await _populate_group_public(db, group) # User is already a member
 
-    result = await db[STUDY_GROUPS_COLLECTION].update_one(
+    await db[STUDY_GROUPS_COLLECTION].update_one(
         {"_id": group_id},
         {"$addToSet": {"members": user_id}} # $addToSet prevents duplicates
     )
@@ -108,7 +143,6 @@ async def leave_group(db: AsyncIOMotorDatabase, group_id: PyObjectId, user_id: P
     if not group:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Group not found")
 
-    # Check if admin is trying to leave
     if user_id == group.admin_id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, 
@@ -131,11 +165,9 @@ async def kick_member(db: AsyncIOMotorDatabase, group_id: PyObjectId, user_to_ki
     if not group:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Group not found")
     
-    # Check for admin permission
     if admin_user.id != group.admin_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only the group admin can kick members")
         
-    # Admin cannot kick themselves
     if user_to_kick_id == admin_user.id:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Admin cannot kick themselves")
         
@@ -145,10 +177,10 @@ async def kick_member(db: AsyncIOMotorDatabase, group_id: PyObjectId, user_to_ki
     )
     
     if result.matched_count == 0:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Group not found during update")
+        raise HTTPException(status_code=404, detail="Group not found during update")
         
     if result.modified_count == 0:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User was not a member of this group")
+        raise HTTPException(status_code=404, detail="User was not a member of this group")
 
     return True
 
@@ -160,15 +192,12 @@ async def transfer_ownership(db: AsyncIOMotorDatabase, group_id: PyObjectId, new
     if not group:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Group not found")
     
-    # Check for admin permission
     if admin_user.id != group.admin_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only the group admin can transfer ownership")
         
-    # Check if new admin is a member
     if new_admin_id not in group.members:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="New admin must be a member of the group")
         
-    # Update the admin_id
     await db[STUDY_GROUPS_COLLECTION].update_one(
         {"_id": group_id},
         {"$set": {"admin_id": new_admin_id}}

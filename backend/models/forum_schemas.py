@@ -29,7 +29,6 @@ class PyObjectId(ObjectId):
 class ForumPostCreate(BaseModel):
     thread_id: PyObjectId
     content: str = Field(..., min_length=1)
-    reply_to_post_id: Optional[PyObjectId] = None
 
 # (FIXED) This is the full model for the database.
 class ForumPostInDB(ForumPostCreate): # Inherits from Create
@@ -52,7 +51,7 @@ class ForumThreadCreate(BaseModel):
     content: str = Field(..., min_length=10)
     book_id: Optional[PyObjectId] = None 
     tags: Optional[List[str]] = []
-    group_id: Optional[PyObjectId] = None
+    is_group: bool = Field(default=False)
 
 # (FIXED) This is the full model for the database.
 class ForumThreadInDB(ForumThreadCreate): # Inherits from Create
@@ -83,7 +82,6 @@ class ForumPostPublic(BaseModel):
     created_at: datetime
     upvote_count: int
     downvote_count: int
-    reply_to_post_id: Optional[str] = None
     
     class Config:
         from_attributes = True
@@ -99,7 +97,8 @@ class ForumThreadPublic(BaseModel):
     upvote_count: int
     downvote_count: int
     reply_count: int = 0 # This will be calculated in the service
-    group_id: Optional[str] = None
+    is_group: bool
+    
     
     class Config:
         from_attributes = True

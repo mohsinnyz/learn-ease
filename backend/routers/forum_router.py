@@ -46,9 +46,9 @@ async def get_all_public_threads(
     db: Annotated[AsyncIOMotorDatabase, Depends(get_database)]
 ):
     """
-    Get a list of all *public* forum threads (group_id is null).
+    Get a list of all *public* forum threads (is_group is False).
     """
-    return await forum_service.get_public_threads(db)
+    return await forum_service.get_all_threads(db)
 
 @router.get("/threads/{thread_id}", response_model=ForumThreadPublic)
 async def get_single_thread(
@@ -60,7 +60,7 @@ async def get_single_thread(
     Get a single thread by its ID (public or private).
     Checks group membership if private.
     """
-    return await forum_service.get_single_thread(db, thread_id, user.id)
+    return await forum_service.get_thread_by_id(db, thread_id, user.id)
 
 @router.post("/threads/{thread_id}/vote", response_model=dict)
 async def vote_on_thread(
@@ -150,19 +150,3 @@ async def vote_on_post(
     Checks group membership if private.
     """
     return await forum_service.vote_on_post(db, post_id, user.id, vote.vote_type)
-
-# --- (NEW) Endpoint for Group-Specific Threads ---
-# This mirrors the public /threads endpoint but is on the groups router.
-# We need to add it to the study_groups_router.py
-
-# @router.get("/groups/{group_id}/threads", response_model=List[ForumThreadPublic])
-# async def get_group_threads(
-#     group_id: PyObjectId,
-#     db: Annotated[AsyncIOMotorDatabase, Depends(get_database)],
-#     user: Annotated[UserInDB, Depends(get_current_user)]
-# ):
-#     """
-#     Get all threads for a specific group.
-#     Checks group membership.
-#     """
-#     return await forum_service.get_threads_for_group(db, group_id, user.id)

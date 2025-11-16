@@ -1,24 +1,25 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Body
 from motor.motor_asyncio import AsyncIOMotorDatabase
-from typing import Annotated, List
+from typing import Annotated, List, Optional
 from pydantic import BaseModel, Field
 
 # --- Import your core dependencies ---
 from core.db import get_database
 from core.security import get_current_user
 from models.user_schemas import UserInDB, PyObjectId
-from models.forum_schemas import ForumThreadPublic
 
-# --- Import our new group models and service ---
+# --- Import our new group models and services ---
 from models.study_groups_schemas import (
     StudyGroupCreate, StudyGroupPublic
 )
-from services import study_groups_service, forum_service
+from models.forum_schemas import ForumThreadPublic # For the group threads endpoint
+from services import study_groups_service
+from services import forum_service # For the group threads endpoint
 
 router = APIRouter(
     prefix="/groups",
     tags=["Study Groups"],
-    dependencies=[Depends(get_current_user)] # Secure all routes in this router
+    dependencies=[Depends(get_current_user)] # Secure all routes
 )
 
 # --- Pydantic model for the transfer ownership payload ---
@@ -110,9 +111,7 @@ async def leave_a_group(
         raise HTTPException(status_code=500, detail="Failed to leave group")
     return None
 
-# --- (NEW) Endpoint for Group-Specific Threads ---
-# This mirrors the public /threads endpoint but is on the groups router.
-# We need to add it to the study_groups_router.py
+# --- Group Chat Endpoint (FR 19.4) ---
 
 @router.get("/{group_id}/threads", response_model=List[ForumThreadPublic])
 async def get_group_threads(
@@ -124,4 +123,5 @@ async def get_group_threads(
     Get all threads for a specific group.
     Checks group membership. (FR 19.4)
     """
+    # This now calls the correct, secure function
     return await forum_service.get_threads_for_group(db, group_id, user.id)
