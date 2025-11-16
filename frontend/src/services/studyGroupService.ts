@@ -32,6 +32,13 @@ async function handleApiError(response: Response, defaultErrorMessage: string): 
   throw new Error(processedErrorMessage);
 }
 
+export interface GroupMemberPublic {
+  id: string;
+  firstname: string;
+  lastname: string;
+  image?: string | null;
+}
+
 // --- Interfaces for Study Group Module ---
 export interface StudyGroupPublic {
   id: string;
@@ -70,4 +77,122 @@ export async function fetchMyGroups(): Promise<StudyGroupPublic[]> {
   return response.json() as Promise<StudyGroupPublic[]>;
 }
 
-// We can add createGroup, joinGroup, etc. later as needed
+export async function createGroup(groupData: StudyGroupCreate): Promise<StudyGroupPublic> {
+  const token = getAuthToken();
+  if (!token) throw new Error("Authentication token not found.");
+
+  const response = await fetch(`${API_BASE_URL}/groups/`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(groupData),
+  });
+
+  if (!response.ok) {
+    await handleApiError(response, 'Failed to create group.');
+  }
+  return response.json() as Promise<StudyGroupPublic>;
+}
+
+export async function getGroupMembers(groupId: string): Promise<GroupMemberPublic[]> {
+  const token = getAuthToken();
+  if (!token) throw new Error("Authentication token not found.");
+
+  const response = await fetch(`${API_BASE_URL}/groups/${groupId}/members`, {
+    method: 'GET',
+    headers: { 'Authorization': `Bearer ${token}` },
+  });
+
+  if (!response.ok) {
+    await handleApiError(response, 'Failed to fetch group members.');
+  }
+  return response.json() as Promise<GroupMemberPublic[]>;
+}
+
+/**
+ * Invites a user to a group by their email (Admin only).
+ * Calls POST /groups/{group_id}/invite
+ * (FR 19.2)
+ */
+export async function inviteMember(groupId: string, email: string): Promise<any> {
+  const token = getAuthToken();
+  if (!token) throw new Error("Authentication token not found.");
+
+  const response = await fetch(`${API_BASE_URL}/groups/${groupId}/invite`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ email: email }),
+  });
+
+  if (!response.ok) {
+    await handleApiError(response, 'Failed to invite member.');
+  }
+  return response.json();
+}
+
+/**
+ * Kicks a user from a group (Admin only).
+ * Calls DELETE /groups/{group_id}/kick/{user_id}
+ * (FR 19.3)
+ */
+export async function kickMember(groupId: string, userIdToKick: string): Promise<void> {
+  const token = getAuthToken();
+  if (!token) throw new Error("Authentication token not found.");
+
+  const response = await fetch(`${API_BASE_URL}/groups/${groupId}/kick/${userIdToKick}`, {
+    method: 'DELETE',
+    headers: { 'Authorization': `Bearer ${token}` },
+  });
+
+  if (response.status === 204) {
+    return; // Success
+  }
+  if (!response.ok) {
+    await handleApiError(response, 'Failed to kick member.');
+  }
+}
+
+/**
+ * Transfers admin ownership to another member (Admin only).
+ * Calls POST /groups/{group_id}/transfer
+ */
+export async function transferOwnership(groupId: string, newAdminId: string): Promise<StudyGroupPublic> {
+  const token = getAuthToken();
+  if (!token) throw new Error("Authentication token not found.");
+
+  const response = await fetch(`${API_BASE_URL}/groups/${groupId}/transfer`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ new_admin_id: newAdminId }),
+  });
+
+  if (!response.ok) {
+    await handleApiError(response, 'Failed to transfer ownership.');
+  }
+  return response.json() as Promise<StudyGroupPublic>;
+}
+
+export async function leaveGroup(groupId: string): Promise<void> {
+  const token = getAuthToken();
+  if (!token) throw new Error("Authentication token not found.");
+
+  const response = await fetch(`${API_BASE_URL}/groups/${groupId}/leave`, {
+    method: 'DELETE',
+    headers: { 'Authorization': `Bearer ${token}` },
+  });
+
+  if (response.status === 204) {
+    return; // Success
+  }
+  
+  // If it fails (e.g., admin tries to leave), this will throw the error
+  await handleApiError(response, 'Failed to leave group.');
+}

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Body
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from typing import Annotated, List, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, EmailStr
 
 # --- Import your core dependencies ---
 from core.db import get_database
@@ -10,7 +10,7 @@ from models.user_schemas import UserInDB, PyObjectId
 
 # --- Import our new group models and services ---
 from models.study_groups_schemas import (
-    StudyGroupCreate, StudyGroupPublic
+    StudyGroupCreate, StudyGroupInDB, StudyGroupPublic, GroupMemberPublic
 )
 from models.forum_schemas import ForumThreadPublic # For the group threads endpoint
 from services import study_groups_service
@@ -25,6 +25,10 @@ router = APIRouter(
 # --- Pydantic model for the transfer ownership payload ---
 class TransferAdminRequest(BaseModel):
     new_admin_id: PyObjectId
+
+class InviteMemberRequest(BaseModel):
+    email: EmailStr # Use EmailStr for validation
+# --- (END ADD) ---
 
 # --- Use Case 19: Create & Manage Groups ---
 
@@ -125,3 +129,40 @@ async def get_group_threads(
     """
     # This now calls the correct, secure function
     return await forum_service.get_threads_for_group(db, group_id, user.id)
+
+# ... (after your create_new_group route) ...
+
+@router.post("/{group_id}/invite", status_code=status.HTTP_200_OK)
+async def invite_member_to_group(
+    group_id: PyObjectId,
+    request_body: InviteMemberRequest,
+    db: Annotated[AsyncIOMotorDatabase, Depends(get_database)],
+    user: Annotated[UserInDB, Depends(get_current_user)]
+):
+    """
+    Invite a new member to a group by their email (Admin only). (FR 19.2)
+    """
+    success = await study_groups_service.invite_member(
+        db, group_id, request_body.email, user
+    )
+    if not success:
+        # Service layer raises HTTPExceptions
+        raise HTTPException(status_code=500, detail="Failed to invite member")
+    
+    return {"message": "User invited successfully"}
+
+# ... (after your kick_group_member route) ...
+
+@router.get("/{group_id}/members", response_model=List[GroupMemberPublic])
+async def get_group_members_list(
+    group_id: PyObjectId,
+    db: Annotated[AsyncIOMotorDatabase, Depends(get_database)],
+    user: Annotated[UserInDB, Depends(get_current_user)]
+):
+    """
+    Get the list of all members in a group. (Must be a member)
+    (FR 19.3)
+    """
+    return await study_groups_service.get_group_members(db, group_id, user.id)
+
+# ... (rest of your file) ...

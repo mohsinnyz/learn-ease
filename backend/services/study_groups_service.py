@@ -205,3 +205,71 @@ async def transfer_ownership(db: AsyncIOMotorDatabase, group_id: PyObjectId, new
     
     updated_group_doc = await db[STUDY_GROUPS_COLLECTION].find_one({"_id": group_id})
     return await _populate_group_public(db, StudyGroupInDB(**updated_group_doc))
+
+# ... (all your existing imports and functions like transfer_ownership) ...
+
+# --- (NEW FUNCTION 1: Invite Member) ---
+async def invite_member(db: AsyncIOMotorDatabase, group_id: PyObjectId, email_to_invite: str, admin_user: UserInDB):
+    """
+    Invites a user to a group by their email (Admin only).
+    (FR 19.2)
+    """
+    group = await _get_group_by_id_internal(db, group_id)
+    if not group:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Group not found")
+    
+    # Check for admin permission
+    if admin_user.id != group.admin_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only the group admin can invite members")
+        
+    # Find the user to invite
+    user_to_invite = await user_service.get_user_by_email(db, email_to_invite)
+    if not user_to_invite:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"User with email '{email_to_invite}' not found")
+        
+    # Check if user is already a member
+    if user_to_invite.id in group.members:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="User is already a member of this group")
+        
+    # Add the user to the members list
+    result = await db[STUDY_GROUPS_COLLECTION].update_one(
+        {"_id": group_id},
+        {"$addToSet": {"members": user_to_invite.id}} # $addToSet prevents duplicates
+    )
+    
+    if result.modified_count == 0:
+        # This shouldn't happen if the user wasn't a member, but good to check
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to add user to the group")
+    
+    return True # Return success
+
+# --- (NEW FUNCTION 2: Get Member List) ---
+async def get_group_members(db: AsyncIOMotorDatabase, group_id: PyObjectId, user_id: PyObjectId) -> List[GroupMemberPublic]:
+    """
+    Gets the list of all members in a group.
+    Only a member of the group can view the list.
+    (FR 19.3)
+    """
+    group = await _get_group_by_id_internal(db, group_id)
+    if not group:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Group not found")
+        
+    # Check for membership permission (any member can see the list)
+    if user_id not in group.members:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You are not a member of this group")
+        
+    # Fetch all user documents from the 'members' list
+    member_ids = group.members
+    members_cursor = db[user_service.USERS_COLLECTION].find({"_id": {"$in": member_ids}})
+    
+    member_list: List[GroupMemberPublic] = []
+    async for member_doc in members_cursor:
+        member_in_db = UserInDB(**member_doc)
+        member_list.append(GroupMemberPublic(
+            id=str(member_in_db.id),
+            firstname=member_in_db.firstname,
+            lastname=member_in_db.lastname,
+            image=member_in_db.image
+        ))
+        
+    return member_list
