@@ -8,7 +8,6 @@ class ConnectionManager:
 
     async def connect(self, user_id: str, websocket: WebSocket):
         """A new user has connected."""
-        await websocket.accept()
         self.active_connections[user_id] = websocket
         print(f"INFO: WebSocket connected for user: {user_id}")
 

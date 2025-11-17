@@ -1,24 +1,16 @@
 "use client";
 
-// We import the (real) GroupChat component
+// --- (NEW) Import the real components ---
 import GroupChat from './GroupChat';
+import DirectMessageChat from './DirectMessageChat';
+// --- (END NEW) ---
 
-// --- (Placeholder for Stage 3) ---
-const DirectMessageChat = ({ dmId }: { dmId: string }) => (
-  <div className="p-4 flex-1 flex flex-col items-center justify-center">
-    <h2 className="text-xl font-bold text-slate-700 dark:text-slate-300">
-      Private Chat
-    </h2>
-    <p className="text-slate-500 dark:text-slate-400">
-      (Real-time DM UI will go here in Stage 3)
-    </p>
-  </div>
-);
-// --- End Placeholder ---
+// --- (DELETED) The placeholder 'DirectMessageChat' component is now gone ---
 
 interface ChatWindowProps {
   conversationId: string;
   type: 'group' | 'dm';
+  name: string;
 }
 
 const ChatWindow = ({ conversationId, type }: ChatWindowProps) => {
@@ -26,14 +18,15 @@ const ChatWindow = ({ conversationId, type }: ChatWindowProps) => {
   
   if (type === 'group') {
     // It renders the REAL GroupChat component
-    // We pass the forum_thread_id as the key
     return <GroupChat key={conversationId} threadId={conversationId} />;
   }
   
   if (type === 'dm') {
-    return <DirectMessageChat key={conversationId} dmId={conversationId} />;
+    // --- (NEW) It now renders the REAL DirectMessageChat component ---
+    return <DirectMessageChat key={conversationId} conversationId={conversationId} />;
   }
 
+  // Fallback in case type is invalid
   return (
     <div className="p-4 text-center text-red-500">
       Error: Unknown conversation type.
