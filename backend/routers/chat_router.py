@@ -3,6 +3,7 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 from typing import Annotated, List
 import json
 from pydantic import BaseModel
+from fastapi.encoders import jsonable_encoder
 
 # --- Import core dependencies ---
 from core.db import get_database
@@ -78,9 +79,6 @@ async def websocket_endpoint(
 ):
     await websocket.accept()
 
-    # --- (THIS IS THE FIX) ---
-    # We can't use Depends(), and app.state is empty.
-    # We must call your get_database() function directly.
     try:
         db: AsyncIOMotorDatabase = await get_database()
     except Exception as e:
@@ -91,7 +89,6 @@ async def websocket_endpoint(
 
     # Authenticate user
     try:
-        # Now this call works, because 'db' is a valid object
         user = await get_current_user_from_token(db, token) 
     except HTTPException:
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
@@ -128,11 +125,12 @@ async def websocket_endpoint(
 
                 ws_message = WebSocketMessage(
                     type="new_message",
-                    payload=message_public.dict(), # <-- This is the buggy line
+                    payload=message_public.dict(),
                 )
 
-                await manager.broadcast_json(ws_message.dict(), user_id=recipient_id)
-                await manager.broadcast_json(ws_message.dict(), user_id=user_id_str)
+                json_safe_message = jsonable_encoder(ws_message) 
+                await manager.broadcast_json(json_safe_message, user_id=recipient_id)
+                await manager.broadcast_json(json_safe_message, user_id=user_id_str)
 
     except WebSocketDisconnect:
         manager.disconnect(user_id_str)
