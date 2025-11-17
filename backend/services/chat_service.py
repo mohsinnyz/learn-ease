@@ -92,7 +92,19 @@ async def get_conversation_messages(db: AsyncIOMotorDatabase, conversation_id: P
     messages = []
     async for msg_doc in messages_cursor:
         msg = MessageInDB(**msg_doc)
-        messages.append(MessagePublic(**msg.dict(), id=str(msg.id)))
+
+        # --- (THIS IS THE FIX) ---
+        # Manually construct the public model. This avoids the
+        # "multiple values for id" error and correctly converts types.
+        messages.append(
+            MessagePublic(
+                id=str(msg.id),
+                conversation_id=str(msg.conversation_id),
+                sender_id=str(msg.sender_id),
+                content=msg.content,
+                created_at=msg.created_at
+            )
+        )
         
     return messages
 

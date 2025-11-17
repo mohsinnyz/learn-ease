@@ -12,13 +12,33 @@ function formatTime(dateString: string): string {
 }
 
 interface MessageBubbleProps {
-  post: ForumPostPublic;
+  post: { // A generic "post"
+    id: string;
+    content: string;
+    created_at: string;
+    author: {
+      id: string;
+      firstname?: string; // Make optional
+      lastname?: string; // Make optional
+    };
+  };
   currentUser: UserPublic | null;
   isGroup: boolean; 
+  replyContext: any | null; // Keep this generic for now
+  onReply: (post: any) => void;
 }
 
-const MessageBubble = ({ post, currentUser, isGroup }: MessageBubbleProps) => {
+const MessageBubble = ({ post, currentUser, isGroup, onReply }: MessageBubbleProps) => {
   const isMine = currentUser?.id === post.author.id;
+  // ... (rest of the component) ...
+  
+  // --- This is the updated part ---
+  {!isMine && isGroup && (
+    <p className="text-xs font-semibold text-orange-600 dark:text-orange-400 mb-1">
+      {/* Check if firstname exists before showing */}
+      {post.author.firstname ? `${post.author.firstname} ${post.author.lastname}` : '[Unknown User]'}
+    </p>
+  )}
 
   // --- Dynamic Styling ---
   const bubbleClasses = isMine

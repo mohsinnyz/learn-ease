@@ -6,7 +6,7 @@ from pydantic import BaseModel
 
 # --- Import core dependencies ---
 from core.db import get_database
-from core.security import get_current_user
+from core.security import get_current_user, get_current_user_from_token
 from core.websocket_manager import manager # Our new connection manager
 from models.user_schemas import UserInDB, PyObjectId, UserPublic
 from models.chat_schemas import (
@@ -18,7 +18,6 @@ from services import chat_service, user_service
 router = APIRouter(
     prefix="/chat",
     tags=["Private Chat"],
-    dependencies=[Depends(get_current_user)] 
 )
 
 class CreateConversationRequest(BaseModel):
@@ -75,51 +74,74 @@ async def get_message_history(
 @router.websocket("/ws")
 async def websocket_endpoint(
     websocket: WebSocket,
-    token: str, # We'll pass the token as a query param
-    db: Annotated[AsyncIOMotorDatabase, Depends(get_database)]
+    token: str  # token passed as ?token=XYZ
 ):
-    """
-    The main WebSocket endpoint for real-time chat.
-    """
-    # 1. Authenticate the user from the token
-    user = await get_current_user(db, token)
-    if not user:
+    await websocket.accept()
+
+    # --- (THIS IS THE FIX) ---
+    # We can't use Depends(), and app.state is empty.
+    # We must call your get_database() function directly.
+    try:
+        db: AsyncIOMotorDatabase = await get_database()
+    except Exception as e:
+        print(f"ERROR: WebSocket failed to get DB connection: {e}")
+        await websocket.close(code=status.WS_1011_INTERNAL_ERROR)
+        return
+    # --- (END FIX) ---
+
+    # Authenticate user
+    try:
+        # Now this call works, because 'db' is a valid object
+        user = await get_current_user_from_token(db, token) 
+    except HTTPException:
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return
-        
+
     user_id_str = str(user.id)
     await manager.connect(user_id_str, websocket)
-    
+
     try:
         while True:
-            # 2. Wait for a new message
             data = await websocket.receive_json()
             message_data = MessageCreate(**data)
-            
-            # 3. Save the message to the database
+
+            # Save message
             message_in_db = await chat_service.create_message(db, message_data, user.id)
-            
-            # 4. Find the recipient
-            convo_doc = await db[chat_service.CONVERSATIONS_COLLECTION].find_one({"_id": message_data.conversation_id})
-            recipient_id = next((str(pid) for pid in convo_doc["members"] if str(pid) != user_id_str), None)
+
+            # Find recipient
+            convo_doc = await db[chat_service.CONVERSATIONS_COLLECTION].find_one(
+                {"_id": message_data.conversation_id}
+            )
+            recipient_id = next(
+                (str(pid) for pid in convo_doc["members"] if str(pid) != user_id_str),
+                None,
+            )
 
             if recipient_id:
-                # 5. Convert to public model for broadcasting
-                message_public = MessagePublic(**message_in_db.dict(), id=str(message_in_db.id))
-                
-                # 6. Create the "envelope"
+                message_public = MessagePublic(
+                    id=str(message_in_db.id),
+                    conversation_id=str(message_in_db.conversation_id),
+                    sender_id=str(message_in_db.sender_id),
+                    content=message_in_db.content,
+                    created_at=message_in_db.created_at
+                )
+
                 ws_message = WebSocketMessage(
                     type="new_message",
-                    payload=message_public.dict()
+                    payload=message_public.dict(), # <-- This is the buggy line
                 )
-                
-                # 7. Send to recipient and also back to sender (for confirmation)
+
                 await manager.broadcast_json(ws_message.dict(), user_id=recipient_id)
                 await manager.broadcast_json(ws_message.dict(), user_id=user_id_str)
-                
+
     except WebSocketDisconnect:
         manager.disconnect(user_id_str)
     except Exception as e:
         print(f"ERROR: WebSocket error for user {user_id_str}: {e}")
-        await websocket.send_json(WebSocketMessage(type="error", payload={"detail": str(e)}).dict())
+        try:
+            await websocket.send_json(
+                WebSocketMessage(type="error", payload={"detail": str(e)}).dict()
+            )
+        except Exception:
+            pass # Client already disconnected
         manager.disconnect(user_id_str)
