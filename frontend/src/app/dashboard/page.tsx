@@ -41,6 +41,17 @@ const ChartBarIcon = (props: React.SVGProps<SVGSVGElement>) => (
     <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
   </svg>
 );
+
+const MessagesIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 mr-1.5">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+  </svg>
+);
+const ForumIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 mr-1.5">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12.76c0 1.6 1.123 2.994 2.707 3.227 1.087.16 2.185.283 3.293.369V21l4.076-4.076c.295.036.59.068.884.094 2.683.213 5.16-.063 7.227-1.125s3.6-2.67 3.6-4.618c0-1.948-1.536-3.6-3.6-4.618-2.067-1.063-4.544-1.338-7.227-1.125C7.388 3.062 4.966 3.39 2.707 4.453s-2.707 2.45-2.707 4.103v4.204zM12 9a.75.75 0 110-1.5.75.75 0 010 1.5zm0 3a.75.75 0 110-1.5.75.75 0 010 1.5zm.008 3.03a.75.75 0 11-.017-1.503.75.75 0 01.017 1.503z" />
+  </svg>
+)
 // --- [END ICONS] ---
 
 // --- Standardized Dot Patterns ---
@@ -223,7 +234,7 @@ export default function DashboardPage() {
     >
       <GlobalStyles />
 
-      <header className="pb-6 border-b border-slate-300/70 dark:border-slate-700/70 flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
+<header className="pb-6 border-b border-slate-300/70 dark:border-slate-700/70 flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
         <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight mb-4 sm:mb-0 whitespace-nowrap text-left self-start sm:self-auto"> 
           <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-500 via-red-500 to-red-600">
             Learn-Ease
@@ -231,6 +242,22 @@ export default function DashboardPage() {
           <span className="text-slate-700 dark:text-slate-300"> Dashboard</span>
         </h1>
         <nav className="flex items-center space-x-3 mt-4 sm:mt-0 self-start sm:self-center">
+          
+          {/* --- [NEW] --- */}
+          <Link 
+            href="/messages"
+            className="flex items-center px-4 py-2.5 bg-sky-600 text-white rounded-lg shadow-lg hover:bg-sky-700 focus:outline-none focus:ring-2 ring-offset-2 dark:ring-offset-slate-900 ring-sky-500 transition-all duration-150 ease-in-out text-sm font-medium transform hover:scale-105 active:scale-95"
+          >
+            <MessagesIcon /> Messages
+          </Link>
+          <Link 
+            href="/forum"
+            className="flex items-center px-4 py-2.5 bg-teal-600 text-white rounded-lg shadow-lg hover:bg-teal-700 focus:outline-none focus:ring-2 ring-offset-2 dark:ring-offset-slate-900 ring-teal-500 transition-all duration-150 ease-in-out text-sm font-medium transform hover:scale-105 active:scale-95"
+          >
+            <ForumIcon /> Forum
+          </Link>
+          {/* --- [END NEW] --- */}
+
           <button 
             onClick={() => { setShowUploadModal(true); setUploadError(null); setUploadSuccess(null); setSelectedFile(null); setUploadTargetCategoryId(null); if (document.getElementById("bookFile")) (document.getElementById("bookFile") as HTMLInputElement).value = ""; }} 
             className="flex items-center px-4 py-2.5 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-lg shadow-lg hover:shadow-xl hover:from-orange-600 hover:to-red-600 focus:outline-none focus:ring-2 ring-offset-2 dark:ring-offset-slate-900 ring-red-500 transition-all duration-150 ease-in-out text-sm font-medium transform hover:scale-105 active:scale-95"
@@ -397,7 +424,7 @@ export default function DashboardPage() {
                           <button 
                             onClick={() => handleAttemptDeleteBook(book.id, book.title)} 
                             title="Delete Book"
-                            className="p-2.5 bg-red-100/50 dark:bg-red-800/30 text-red-600 dark:text-red-400 rounded-md hover:bg-red-200/7V0 dark:hover:bg-red-700/50 hover:text-red-700 dark:hover:text-red-300 focus:outline-none focus:ring-2 ring-offset-2 dark:ring-offset-slate-800 ring-red-500 transition-all duration-150 ease-in-out transform hover:scale-105 active:scale-95"
+                            className="p-2.5 bg-red-100/50 dark:bg-red-800/30 text-red-600 dark:text-red-400 rounded-md hover:bg-red-200/70 dark:hover:bg-red-700/50 hover:text-red-700 dark:hover:text-red-300 focus:outline-none focus:ring-2 ring-offset-2 dark:ring-offset-slate-800 ring-red-500 transition-all duration-150 ease-in-out transform hover:scale-105 active:scale-95"
                           >
                             <TrashIcon className="w-4 h-4" />
                           </button>
