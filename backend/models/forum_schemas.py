@@ -1,9 +1,10 @@
+# backend/models/forum_schemas.py
 from pydantic import BaseModel, EmailStr, Field
 from typing import List, Optional
 from datetime import datetime
 from bson import ObjectId
 
-# --- (Copied PyObjectId directly from your user_schemas.py) ---
+# --- (PyObjectId Helper - Unchanged) ---
 class PyObjectId(ObjectId):
     @classmethod
     def __get_validators__(cls):
@@ -25,15 +26,16 @@ class PyObjectId(ObjectId):
 
 # --- Schema for a Reply (a single post) ---
 
-# (FIXED) This is what the user sends. 'author_id' is removed.
+# (MODIFIED) Added parent_id for nested replies
 class ForumPostCreate(BaseModel):
     thread_id: PyObjectId
     content: str = Field(..., min_length=1)
+    parent_id: Optional[PyObjectId] = None 
 
-# (FIXED) This is the full model for the database.
-class ForumPostInDB(ForumPostCreate): # Inherits from Create
+# (Unchanged logic, inherits parent_id from Create)
+class ForumPostInDB(ForumPostCreate): 
     id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
-    author_id: PyObjectId # This will be added by the service
+    author_id: PyObjectId 
     created_at: datetime = Field(default_factory=datetime.utcnow)
     upvotes: List[PyObjectId] = []
     downvotes: List[PyObjectId] = []
@@ -45,7 +47,7 @@ class ForumPostInDB(ForumPostCreate): # Inherits from Create
 
 # --- Schema for the Main Thread (the question) ---
 
-# (FIXED) This is what the user sends. 'author_id' is removed.
+# (Unchanged)
 class ForumThreadCreate(BaseModel):
     title: str = Field(..., min_length=5, max_length=150)
     content: str = Field(..., min_length=10)
@@ -53,10 +55,10 @@ class ForumThreadCreate(BaseModel):
     tags: Optional[List[str]] = []
     is_group: bool = Field(default=False)
 
-# (FIXED) This is the full model for the database.
-class ForumThreadInDB(ForumThreadCreate): # Inherits from Create
+# (Unchanged)
+class ForumThreadInDB(ForumThreadCreate): 
     id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
-    author_id: PyObjectId # This will be added by the service
+    author_id: PyObjectId 
     created_at: datetime = Field(default_factory=datetime.utcnow)
     upvotes: List[PyObjectId] = []
     downvotes: List[PyObjectId] = []
@@ -74,9 +76,11 @@ class AuthorPublic(BaseModel):
     lastname: str
     image: Optional[str] = None
 
+# (MODIFIED) Added parent_id so frontend can nest threads
 class ForumPostPublic(BaseModel):
     id: str
     thread_id: str
+    parent_id: Optional[str] = None
     author: AuthorPublic
     content: str
     created_at: datetime
@@ -96,9 +100,8 @@ class ForumThreadPublic(BaseModel):
     created_at: datetime
     upvote_count: int
     downvote_count: int
-    reply_count: int = 0 # This will be calculated in the service
+    reply_count: int = 0 
     is_group: bool
-    
     
     class Config:
         from_attributes = True

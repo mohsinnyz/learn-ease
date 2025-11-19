@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Body
+# backend/routers/forum_router.py
+from fastapi import APIRouter, Depends, HTTPException, status, Body, Query
 from motor.motor_asyncio import AsyncIOMotorDatabase
-from typing import Annotated, List, Literal
+from typing import Annotated, List, Literal, Optional
 from pydantic import BaseModel, Field
 
 # --- Import your core dependencies ---
@@ -43,18 +44,22 @@ async def create_new_thread(
 
 @router.get("/threads", response_model=List[ForumThreadPublic])
 async def get_all_public_threads(
-    db: Annotated[AsyncIOMotorDatabase, Depends(get_database)]
+    db: Annotated[AsyncIOMotorDatabase, Depends(get_database)],
+    # (MODIFIED) Added search parameter
+    search: Optional[str] = Query(None, min_length=3, description="Search threads by title or content")
 ):
     """
     Get a list of all *public* forum threads (is_group is False).
+    Optionally filters by a search string.
     """
-    return await forum_service.get_all_threads(db)
+    # We pass the search_query to the service layer
+    return await forum_service.get_all_threads(db, search_query=search)
 
 @router.get("/threads/{thread_id}", response_model=ForumThreadPublic)
 async def get_single_thread(
     thread_id: PyObjectId,
     db: Annotated[AsyncIOMotorDatabase, Depends(get_database)],
-    user: Annotated[UserInDB, Depends(get_current_user)] # (MODIFIED) Pass user
+    user: Annotated[UserInDB, Depends(get_current_user)] 
 ):
     """
     Get a single thread by its ID (public or private).
@@ -104,12 +109,13 @@ async def create_new_post(
 async def get_posts_for_thread(
     thread_id: PyObjectId,
     db: Annotated[AsyncIOMotorDatabase, Depends(get_database)],
-    user: Annotated[UserInDB, Depends(get_current_user)] # (MODIFIED) Pass user
+    user: Annotated[UserInDB, Depends(get_current_user)] 
 ):
     """
     Get all posts for a single thread.
     Checks group membership if private.
     """
+    # The sorting logic (most upvoted first) is handled inside the service
     return await forum_service.get_posts_for_thread(db, thread_id, user.id)
 
 @router.put("/posts/{post_id}", response_model=ForumPostPublic)

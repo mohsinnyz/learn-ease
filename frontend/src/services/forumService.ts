@@ -1,6 +1,5 @@
 // frontend/src/services/forumService.ts
 
-// --- Helper Functions (Copied from your existing services) ---
 const API_BASE_URL = 'http://localhost:8000'; 
 
 function getAuthToken(): string | null {
@@ -33,7 +32,6 @@ async function handleApiError(response: Response, defaultErrorMessage: string): 
 }
 
 // --- Interfaces for Forum Module ---
-// These match the Public models from backend/models/forum_schemas.py
 
 export interface AuthorPublic {
   id: string;
@@ -49,23 +47,24 @@ export interface ForumThreadPublic {
   content: string;
   book_id?: string | null;
   tags?: string[];
-  created_at: string; // ISO string
+  created_at: string; 
   upvote_count: number;
   downvote_count: number;
   reply_count: number;
 }
 
+// (MODIFIED) Added parent_id support
 export interface ForumPostPublic {
   id: string;
   thread_id: string;
+  parent_id?: string | null; // New field for nesting
   author: AuthorPublic;
   content: string;
-  created_at: string; // ISO string
+  created_at: string; 
   upvote_count: number;
   downvote_count: number;
 }
 
-// --- Types for creating new threads/posts ---
 export interface ForumThreadCreate {
   title: string;
   content: string;
@@ -73,9 +72,11 @@ export interface ForumThreadCreate {
   tags?: string[];
 }
 
+// (MODIFIED) Added parent_id support
 export interface ForumPostCreate {
   thread_id: string;
   content: string;
+  parent_id?: string; // New optional field for replying to a reply
 }
 
 export type VoteType = "upvote" | "downvote" | "none";
@@ -83,14 +84,20 @@ export type VoteType = "upvote" | "downvote" | "none";
 // --- Service Functions ---
 
 /**
- * Fetches all threads for the main forum page.
- * (FR 21.1)
+ * Fetches threads. Optionally filters by a search query.
+ * (FR 21.1 + Discoverability)
  */
-export async function fetchForumThreads(): Promise<ForumThreadPublic[]> {
+export async function fetchForumThreads(searchQuery?: string): Promise<ForumThreadPublic[]> {
   const token = getAuthToken();
   if (!token) throw new Error("Authentication token not found.");
 
-  const response = await fetch(`${API_BASE_URL}/forum/threads`, {
+  // (MODIFIED) Build URL with query params
+  const url = new URL(`${API_BASE_URL}/forum/threads`);
+  if (searchQuery) {
+    url.searchParams.append('search', searchQuery);
+  }
+
+  const response = await fetch(url.toString(), {
     method: 'GET',
     headers: { 'Authorization': `Bearer ${token}` },
   });
@@ -111,7 +118,6 @@ export async function fetchThreadDetails(threadId: string): Promise<{
   const token = getAuthToken();
   if (!token) throw new Error("Authentication token not found.");
 
-  // Fetch thread and posts in parallel
   const [threadRes, postsRes] = await Promise.all([
     fetch(`${API_BASE_URL}/forum/threads/${threadId}`, {
       method: 'GET',
@@ -137,8 +143,7 @@ export async function fetchThreadDetails(threadId: string): Promise<{
 }
 
 /**
- * Creates a new forum thread (question).
- * (FR 21.1)
+ * Creates a new forum thread.
  */
 export async function createForumThread(threadData: ForumThreadCreate): Promise<ForumThreadPublic> {
   const token = getAuthToken();
@@ -160,8 +165,7 @@ export async function createForumThread(threadData: ForumThreadCreate): Promise<
 }
 
 /**
- * Creates a new post (reply) on a thread.
- * (FR 22.1)
+ * Creates a new post (reply).
  */
 export async function createForumPost(postData: ForumPostCreate): Promise<ForumPostPublic> {
   const token = getAuthToken();
@@ -183,7 +187,7 @@ export async function createForumPost(postData: ForumPostCreate): Promise<ForumP
 }
 
 /**
- * Votes on a thread (FR 21.3) or a post (FR 22.3).
+ * Votes on a thread or post.
  */
 export async function voteOn(
   type: 'thread' | 'post',
@@ -213,7 +217,7 @@ export async function voteOn(
 }
 
 /**
- * Edits an existing post. (FR 22.2)
+ * Edits an existing post.
  */
 export async function editForumPost(postId: string, newContent: string): Promise<ForumPostPublic> {
   const token = getAuthToken();
@@ -225,7 +229,7 @@ export async function editForumPost(postId: string, newContent: string): Promise
       'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ content: newContent }), // Matches the router's Body(embed=True)
+    body: JSON.stringify({ content: newContent }), 
   });
 
   if (!response.ok) {
@@ -235,7 +239,7 @@ export async function editForumPost(postId: string, newContent: string): Promise
 }
 
 /**
- * Deletes an existing post. (FR 22.2)
+ * Deletes an existing post.
  */
 export async function deleteForumPost(postId: string): Promise<void> {
   const token = getAuthToken();
@@ -248,7 +252,6 @@ export async function deleteForumPost(postId: string): Promise<void> {
     },
   });
 
-  // A 204 No Content is a success
   if (response.status === 204) {
     return;
   }

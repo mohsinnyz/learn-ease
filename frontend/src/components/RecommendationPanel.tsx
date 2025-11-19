@@ -1,4 +1,3 @@
-//C:\Users\mohsi\Projects\learn-ease-fyp\frontend\src\components\RecommendationPanel.tsx
 "use client";
 
 import React, { useEffect, useState } from "react";
@@ -122,12 +121,24 @@ const RecommendationPanel: React.FC<RecommendationPanelProps> = ({ bookId }) => 
 
   return (
     <section className="learn-ease-card p-4 sm:p-6">
+      {/* CSS to hide scrollbar but allow scrolling */}
+      <style>{`
+        .scrollbar-hide::-webkit-scrollbar {
+            display: none;
+        }
+        .scrollbar-hide {
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;  /* Firefox */
+        }
+      `}</style>
+      
       <h2 className="text-2xl font-bold tracking-tight text-slate-800 dark:text-slate-100 mb-5 pb-4 border-b border-slate-300 dark:border-slate-700">
         <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-red-500">
           Your Personalized Study Plan
         </span>
       </h2>
-      <div className="max-h-[500px] overflow-y-auto pr-2">
+      {/* Added 'scrollbar-hide' class here */}
+      <div className="max-h-[500px] overflow-y-auto pr-2 scrollbar-hide">
         {renderContent()}
       </div>
     </section>

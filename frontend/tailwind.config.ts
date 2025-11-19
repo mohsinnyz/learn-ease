@@ -4,15 +4,16 @@ import typography from '@tailwindcss/typography'
 
 const config: Config = {
   content: [
-    // Corrected paths to include the 'src' directory
     './src/app/**/*.{js,ts,jsx,tsx}',
     './src/components/**/*.{js,ts,jsx,tsx}',
-    './src/pages/**/*.{js,ts,jsx,tsx}', // Keep this if you use both routers
+    './src/pages/**/*.{js,ts,jsx,tsx}',
   ],
   theme: {
     extend: {},
   },
-  plugins: [typography],
+  plugins: [
+    typography, // <--- This is already correct
+  ],
 }
 
 export default config
