@@ -1,74 +1,52 @@
+//C:\Users\mohsi\Projects\learn-ease-fyp\frontend\src\app\progress\[bookID]\page.tsx
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import Link from "next/link";
-import {
-  fetchBookProgress,
-  BookProgressResponse,
-} from "@/services/progressService";
-import { fetchBookDetails, Book } from "@/services/bookService"; // Assuming this is in bookService
+import { fetchBookDetails } from "@/services/bookService"; 
 
-// --- Import our new components ---
+// --- Import our components ---
 import TopicCompletionList from "@/components/TopicCompletionList";
 import ProgressTopicBarChart from "@/components/ProgressTopicBarChart";
-import RecommendationPanel from "@/components/RecommendationPanel"; // <-- 1. IMPORT THE NEW PANEL
+import RecommendationPanel from "@/components/RecommendationPanel";
 
-// --- Icons (copied from your dashboard) ---
-const SpinnerIcon = ({
-  className = "h-5 w-5 text-white",
-}: {
-  className?: string;
-}) => (
-  <svg
-    className={`animate-spin ${className}`}
-    xmlns="http://www.w3.org/2000/svg"
-    fill="none"
-    viewBox="0 0 24 24"
-  >
-    <circle
-      className="opacity-25"
-      cx="12"
-      cy="12"
-      r="10"
-      stroke="currentColor"
-      strokeWidth="4"
-    ></circle>
-    <path
-      className="opacity-75"
-      fill="currentColor"
-      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-    ></path>
+// --- Icons ---
+const SpinnerIcon = ({ className = "h-5 w-5 text-white" }: { className?: string }) => (
+  <svg className={`animate-spin ${className}`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
   </svg>
 );
 
 const GlobalStyles = () => (
-  // ... (Your GlobalStyles component)
   <style jsx global>{`
+    /* Update Card Style: Full Opaque White for better separation */
     .learn-ease-card {
-      background-color: rgba(255, 255, 255, 0.85);
-      backdrop-filter: blur(6px);
-      border-radius: 0.75rem;
-      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.07),
-        0 4px 6px -2px rgba(0, 0, 0, 0.05);
-      border-width: 1px;
-      border-color: rgba(203, 213, 225, 0.5);
+      background-color: #ffffff; 
+      border-radius: 1rem; /* More rounded */
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+      border: 1px solid rgba(226, 232, 240, 1);
+      height: 100%; /* Force card to fill grid cell */
+      display: flex;
+      flex-direction: column;
     }
     html.dark .learn-ease-card {
-      background-color: rgba(30, 41, 59, 0.85);
+      background-color: rgba(30, 41, 59, 0.95);
       border-color: rgba(51, 65, 85, 0.8);
     }
-    /* Define dot patterns from your dashboard */
+    
+    /* Darker Polka Dots */
     :root {
-      --dot-pattern-url: url("data:image/svg+xml,%3Csvg width='15' height='15' viewBox='0 0 15 15' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='15' height='15' fill='none'/%3E%3Ccircle cx='7.5' cy='7.5' r='0.8' fill='%23A0AEC0' fill-opacity='0.3'/%3E%3C/svg%3E");
+      /* Darker grey dots (94a3b8) with higher opacity for the slate-200 background */
+      --dot-pattern-url: url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='1.5' cy='1.5' r='1.5' fill='%2394a3b8' fill-opacity='0.4'/%3E%3C/svg%3E");
     }
     html.dark {
-      --dot-pattern-url: url("data:image/svg+xml,%3Csvg width='15' height='15' viewBox='0 0 15 15' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='15' height='15' fill='none'/%3E%3Ccircle cx='7.5' cy='7.5' r='0.8' fill='%23CBD5E0' fill-opacity='0.15'/%3E%3C/svg%3E");
+      --dot-pattern-url: url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='1' cy='1' r='1' fill='%23cbd5e1' fill-opacity='0.1'/%3E%3C/svg%3E");
     }
   `}</style>
 );
 
-// --- The Main Page Component ---
 export default function PerBookProgressPage() {
   const params = useParams();
   const bookId = params.bookID as string;
@@ -79,97 +57,116 @@ export default function PerBookProgressPage() {
 
   useEffect(() => {
     if (!bookId) return;
-
     const loadBookTitle = async () => {
       setIsLoading(true);
       setError(null);
       try {
-        // Fetch book details to get the title
         const bookDetails = await fetchBookDetails(bookId);
         setBookTitle(bookDetails.title);
       } catch (err: any) {
         console.error("Failed to fetch book title:", err);
         setError(err.message || "Failed to load book details.");
       } finally {
-        // We set loading to false *inside* this function,
-        // but the components will manage their own loading state.
         setIsLoading(false);
       }
     };
-
     loadBookTitle();
   }, [bookId]);
 
   const renderContent = () => {
     if (isLoading) {
       return (
-        <div className="text-center py-20">
+        <div className="h-full flex flex-col items-center justify-center">
           <SpinnerIcon className="h-12 w-12 text-orange-500 mx-auto" />
-          <p className="mt-3 text-lg text-slate-600 dark:text-slate-300">
-            Loading Book Details...
-          </p>
+          <p className="mt-3 text-lg text-slate-600 dark:text-slate-300">Loading Book Details...</p>
         </div>
       );
     }
 
     if (error) {
       return (
-        <div className="learn-ease-card p-10 text-center text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30">
-          <h3 className="text-2xl font-semibold mb-2">Error Loading Page</h3>
-          <p className="text-sm">{error}</p>
+        <div className="h-full flex items-center justify-center p-10">
+          <div className="text-center text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30 p-8 rounded-xl border border-red-200 dark:border-red-800 shadow-lg">
+            <h3 className="text-2xl font-semibold mb-2">Error Loading Page</h3>
+            <p className="text-sm">{error}</p>
+          </div>
         </div>
       );
     }
 
-    // Data is loaded, render the dashboard
+    // --- GRID LAYOUT ---
     return (
-      <div className="space-y-8">
-        
-        {/* --- 2. ADD THE PANEL COMPONENT HERE --- */}
-        <RecommendationPanel bookId={bookId} />
-
-        {/*
-          The components themselves will handle their own data fetching,
-          loading, and error states using the bookId.
+      <div className="flex-grow w-full p-6 pt-0 min-h-0">
+        {/* gap-6: Increases space between cards 
+           z-0: establishes stacking context
         */}
-        <section className="learn-ease-card">
-          <TopicCompletionList bookId={bookId} />
-        </section>
+        <div className="grid grid-cols-12 grid-rows-2 gap-6 h-full w-full">
+            
+            {/* TOP ROW (Height 50%) */}
+            {/* We add z-10 to the top row so if shadows overlap, they go OVER the bottom chart */}
+            
+            {/* TOP LEFT: Personalized Study Plan */}
+            <div className="col-span-6 row-span-1 min-h-0 z-10">
+                 {/* RecommendationPanel has .learn-ease-card internally */}
+                 <RecommendationPanel bookId={bookId} />
+            </div>
 
-        <section className="learn-ease-card">
-          <ProgressTopicBarChart bookId={bookId} />
-        </section>
+            {/* TOP RIGHT: Topic Breakdown */}
+            <div className="col-span-6 row-span-1 min-h-0 z-10">
+                {/* TopicCompletionList uses internal bg-white classes. 
+                   We wrap it in 'learn-ease-card' here to enforce consistency 
+                   if the component itself doesn't have the shadow/height styles perfect.
+                   (Assuming you removed the outer wrapper in the component file as requested previously, 
+                    or we can just let it live inside this wrapper for safety).
+                */}
+                 <div className="learn-ease-card">
+                    <TopicCompletionList bookId={bookId} />
+                 </div>
+            </div>
+
+            {/* BOTTOM: Performance by Topic */}
+            <div className="col-span-12 row-span-1 min-h-0 z-0">
+                {/* Chart component also has .learn-ease-card internally usually, but we can wrap to be safe or let it be */}
+                <ProgressTopicBarChart bookId={bookId} />
+            </div>
+
+        </div>
       </div>
     );
   };
 
   return (
+    // Updated background to slate-200 for darker look
     <div
-      className="min-h-screen text-slate-900 dark:text-slate-100 p-4 sm:p-6 lg:p-8 bg-slate-100 dark:bg-slate-900 transition-colors duration-500"
+      className="h-screen w-full overflow-hidden flex flex-col text-slate-900 dark:text-slate-100 bg-slate-200 dark:bg-slate-950 transition-colors duration-500"
       style={{ backgroundImage: "var(--dot-pattern-url)" }}
     >
       <GlobalStyles />
-      <main className="max-w-7xl mx-auto">
-        <div className="flex justify-between items-center mb-6">
+      
+      {/* HEADER */}
+      <header className="flex-shrink-0 w-full px-6 py-5 z-20">
           <div>
             <Link
               href="/dashboard"
-              className="text-sm text-blue-500 hover:underline"
+              className="group inline-flex items-center text-sm font-semibold text-orange-600 hover:text-orange-700 transition-colors mb-1"
             >
-              &larr; Back to Dashboard
+              <span className="mr-1 transform group-hover:-translate-x-1 transition-transform">←</span> 
+              Back to Dashboard
             </Link>
-            <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight">
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-500 via-red-500 to-red-600">
+            <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight truncate drop-shadow-sm">
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-600 via-red-500 to-red-600">
                 Progress: 
               </span>
-              <span className="text-slate-700 dark:text-slate-300 ml-3">
+              <span className="text-slate-800 dark:text-slate-100 ml-2">
                 {bookTitle || "Loading..."}
               </span>
             </h1>
           </div>
-        </div>
-        {renderContent()}
-      </main>
+      </header>
+
+      {/* MAIN CONTENT */}
+      {renderContent()}
+      
     </div>
   );
 }

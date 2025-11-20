@@ -1,3 +1,4 @@
+// frontend/src/app/dashboard/page.tsx
 "use client";
 import { useEffect, useState, FormEvent, ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
@@ -15,13 +16,10 @@ import GlobalRecommendationPanel from "@/components/GlobalRecommendationPanel";
 // --- [END NEW] ---
 
 // --- Icons ---
-// (All your icons: UploadIcon, PlusIcon, LogoutIcon, SettingsIcon, etc. remain here)
-// ...
 const UploadIcon = () => ( <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 mr-2"><path d="M9.25 13.25a.75.75 0 001.5 0V4.636l2.955 3.129a.75.75 0 001.09-1.03l-4.25-4.5a.75.75 0 00-1.09 0l-4.25 4.5a.75.75 0 101.09 1.03L9.25 4.636v8.614z" /><path d="M3.5 12.75a.75.75 0 00-1.5 0v2.5A2.75 2.75 0 004.75 18h10.5A2.75 2.75 0 0018 15.25v-2.5a.75.75 0 00-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5z" /></svg> );
 const PlusIcon = () => ( <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 mr-1.5"><path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" /></svg> );
 const LogoutIcon = () => ( <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 mr-1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m-3 0l-3-3m0 0l3-3m-3 3H12" /></svg>);
-const SettingsIcon = () => ( <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M10.343 3.94c.09-.542.56-.94 1.11-.94h1.093c.55 0 1.02.398 1.11.94l.149.894c.07.424.384.764.78.93.398.164.855.142 1.205-.108l.737-.527a1.125 1.125 0 0 1 1.45.12l.773.774c.39.389.44 1.002.12 1.45l-.527.737c-.25.35-.272.806-.108 1.204.165.399.505.71.93.78l.893.15c.543.09.94.56.94 1.11v1.093c0 .55-.397 1.02-.94 1.11l-.893.149c-.425.07-.765.383-.93.78-.165.398-.142.854.108 1.204l.527.738c.32.447.27.96-.12 1.45l-.773.773a1.125 1.125 0 0 1-1.449.12l-.738-.527c-.35-.25-.806-.272-1.203-.107-.399.165-.71.505-.781.93l-.149.894c-.09.542-.56.94-1.11.94h-1.094c-.55 0-1.019-.398-1.11-.94l-.148-.894c-.071-.424-.384-.764-.781-.93-.398-.164-.854-.142-1.204.108l-.738.527c-.447.32-.96.27-1.45-.12l-.773-.774a1.125 1.125 0 0 1-.12-1.45l.527-.737c.25-.35.273-.806.108-1.204-.165-.399-.506-.71-.93-.78l-.894-.15c-.542-.09-.94-.56-.94-1.11v-1.094c0 .55.398-1.02.94-1.11l.894-.149c.424-.07.765-.383.93-.78.165-.398.142-.854-.107-1.204l-.527-.738a1.125 1.125 0 0 1 .12-1.45l.773-.773a1.125 1.125 0 0 1 1.45-.12l.737.527c.35.25.807.272 1.204.107.399-.165.71-.505.78-.93l.15-.893Z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /></svg>
-);
+const SettingsIcon = () => ( <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M10.343 3.94c.09-.542.56-.94 1.11-.94h1.093c.55 0 1.02.398 1.11.94l.149.894c.07.424.384.764.78.93.398.164.855.142 1.205-.108l.737-.527a1.125 1.125 0 0 1 1.45.12l.773.774c.39.389.44 1.002.12 1.45l-.527.737c-.25.35-.272.806-.108 1.204.165.399.505.71.93.78l.893.15c.543.09.94.56.94 1.11v1.093c0 .55-.397 1.02-.94 1.11l-.893.149c-.425.07-.765.383-.93.78-.165.398-.142.854.108 1.204l.527.738c.32.447.27.96-.12 1.45l-.773.773a1.125 1.125 0 0 1-1.449.12l-.738-.527c-.35-.25-.806-.272-1.203-.107-.399.165-.71.505-.781.93l-.149.894c-.09.542-.56.94-1.11.94h-1.094c-.55 0-1.019-.398-1.11-.94l-.148-.894c-.071-.424-.384-.764-.781-.93-.398-.164-.854-.142-1.204.108l-.738.527c-.447.32-.96.27-1.45-.12l-.773-.774a1.125 1.125 0 0 1-.12-1.45l.527-.737c.25-.35.273-.806.108-1.204-.165-.399-.506-.71-.93-.78l-.894-.15c-.542-.09-.94-.56-.94-1.11v-1.094c0 .55.398-1.02.94-1.11l.894-.149c.424-.07.765-.383.93-.78.165-.398.142-.854-.107-1.204l-.527-.738a1.125 1.125 0 0 1 .12-1.45l.773-.773a1.125 1.125 0 0 1 1.45-.12l.737.527c.35.25.807.272 1.204.107.399-.165.71-.505.78-.93l.15-.893Z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /></svg>);
 const SpinnerIcon = ({className = "h-5 w-5 text-white"} : {className?: string}) => ( <svg className={`animate-spin ${className}`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>);
 const EmptyStateBooksIcon = () => ( <svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-16 w-16 text-slate-400 dark:text-slate-500 opacity-70 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v11.494m0 0a8.485 8.485 0 0011.97 0M12 17.747a8.485 8.485 0 01-11.97 0M12 17.747v-2.024m0 0A8.455 8.455 0 0018 9.723M12 15.723A8.455 8.455 0 016 9.723m6 6V9.723M12 6.253a2.25 2.25 0 100-4.5 2.25 2.25 0 000 4.5zM12 6.253V3M12 6.253l2.5-1.5M12 3L9.5 1.75M12 3l2.5 1.75M12 3L9.5 4.75" /></svg> );
 const NoResultsIcon = () => ( <svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-16 w-16 text-slate-400 dark:text-slate-500 opacity-70 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1"><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607zM13.5 10.5h.008v.008h-.008V10.5zm-3 0h.008v.008h-.008V10.5zm-3 0h.008v.008H7.5v-.008z" /></svg> );
@@ -51,48 +49,52 @@ const ForumIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 mr-1.5">
     <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12.76c0 1.6 1.123 2.994 2.707 3.227 1.087.16 2.185.283 3.293.369V21l4.076-4.076c.295.036.59.068.884.094 2.683.213 5.16-.063 7.227-1.125s3.6-2.67 3.6-4.618c0-1.948-1.536-3.6-3.6-4.618-2.067-1.063-4.544-1.338-7.227-1.125C7.388 3.062 4.966 3.39 2.707 4.453s-2.707 2.45-2.707 4.103v4.204zM12 9a.75.75 0 110-1.5.75.75 0 010 1.5zm0 3a.75.75 0 110-1.5.75.75 0 010 1.5zm.008 3.03a.75.75 0 11-.017-1.503.75.75 0 01.017 1.503z" />
   </svg>
-)
+);
+
+const XMarkIcon = ({ className = "w-6 h-6" }: { className?: string }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
+      <path fillRule="evenodd" d="M5.47 5.47a.75.75 0 011.06 0L12 10.94l5.47-5.47a.75.75 0 111.06 1.06L13.06 12l5.47 5.47a.75.75 0 11-1.06 1.06L12 13.06l-5.47 5.47a.75.75 0 01-1.06-1.06L10.94 12 5.47 6.53a.75.75 0 010-1.06z" clipRule="evenodd" />
+    </svg>
+);
 // --- [END ICONS] ---
 
 // --- Standardized Dot Patterns ---
 const lightModeDotPatternUrl = "url(\"data:image/svg+xml,%3Csvg width='15' height='15' viewBox='0 0 15 15' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='15' height='15' fill='none'/%3E%3Ccircle cx='7.5' cy='7.5' r='0.8' fill='%23A0AEC0' fill-opacity='0.3'/%3E%3C/svg%3E\")";
 const darkModeDotPatternUrl = "url(\"data:image/svg+xml,%3Csvg width='15' height='15' viewBox='0 0 15 15' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='15' height='15' fill='none'/%3E%3Ccircle cx='7.5' cy='7.5' r='0.8' fill='%23CBD5E0' fill-opacity='0.15'/%3E%3C/svg%3E\")";
 
-// --- Modal component ---
-// ... (Modal component code remains unchanged)
+// --- Polished Modal Component ---
 interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
   children: React.ReactNode;
   title: string;
 }
+
 const Modal: React.FC<ModalProps> = ({ isOpen, onClose, children, title }) => {
   if (!isOpen) return null;
   return (
-    <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center z-50 p-4 transition-opacity duration-300 ease-in-out">
-      <div className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-md p-6 sm:p-8 rounded-xl shadow-2xl w-full max-w-lg transform transition-all duration-300 ease-in-out scale-95 opacity-0 animate-modalShow border border-slate-200/80 dark:border-slate-700/70">
-        <div className="flex justify-between items-center mb-6 pb-3 border-b border-slate-300 dark:border-slate-700">
-          <h2 className="text-2xl font-semibold text-slate-800 dark:text-slate-100">
-            {title}
-          </h2>
+    <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-md flex items-center justify-center z-50 p-4 transition-all duration-300">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-2xl transform transition-all duration-300 scale-100 border border-slate-200 dark:border-slate-800 flex flex-col max-h-[90vh] animate-fadeIn">
+        {/* Header - Updated with prominent border */}
+        <div className="flex justify-between items-center px-8 py-6 border-b-2 border-slate-200 dark:border-slate-700 bg-gradient-to-r from-slate-50 to-white dark:from-slate-900 dark:to-slate-900 rounded-t-2xl">
+          <div>
+            <h2 className="text-2xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-orange-500 to-red-600">
+               {title}
+            </h2>
+          </div>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-orange-500 dark:text-slate-500 dark:hover:text-orange-400 text-3xl transition-colors rounded-full p-1 leading-none flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-700"
+            className="text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 transition-colors p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"
             aria-label="Close modal"
           >
-            &times;
+            <XMarkIcon className="w-6 h-6" />
           </button>
         </div>
-        {children}
-        <style jsx global>{`
-          @keyframes modalShow { 
-            0% { transform: scale(0.95) translateY(20px); opacity: 0; }
-            100% { transform: scale(1) translateY(0); opacity: 1; } 
-          }
-          .animate-modalShow { 
-            animation: modalShow 0.35s cubic-bezier(0.25, 0.8, 0.25, 1) forwards; 
-          }
-        `}</style>
+        
+        {/* Body */}
+        <div className="p-8 overflow-y-auto custom-scrollbar">
+           {children}
+        </div>
       </div>
     </div>
   );
@@ -191,7 +193,7 @@ export default function DashboardPage() {
     }
     .learn-ease-card-hover:hover {
       box-shadow: 0 6px 20px -3px rgba(249, 115, 22, 0.35), /* Orange part */
-                    0 4px 30px 0px rgba(239, 68, 68, 0.25);  /* Red part */
+                0 4px 30px 0px rgba(239, 68, 68, 0.25);  /* Red part */
       transform: translateY(-2px);
     }
     input, select { background-clip: padding-box !important; }
@@ -440,30 +442,130 @@ export default function DashboardPage() {
       </main>
 
       {/* Modals */}
-      {/* ... (All your Modals: Upload, Create Category, Delete Confirm) ... */}
       <Modal isOpen={showUploadModal} onClose={() => setShowUploadModal(false)} title="Upload Your Textbook"> 
         <form onSubmit={handleUploadSubmit} className="space-y-5">
-          <div><label htmlFor="bookFile" className="sr-only">Select PDF file:</label><input id="bookFile" type="file" accept=".pdf" onChange={handleFileSelect} className="block w-full text-sm text-slate-900 dark:text-slate-200 bg-slate-100 dark:bg-slate-700/80 rounded-lg border border-slate-300 dark:border-slate-600 cursor-pointer focus:outline-none focus:ring-2 focus:ring-orange-500 file:mr-4 file:py-2.5 file:px-5 file:rounded-l-lg file:border-0 file:text-sm file:font-semibold file:bg-orange-100 dark:file:bg-slate-600 file:text-orange-700 dark:file:text-orange-300 hover:file:bg-orange-200 dark:hover:file:bg-slate-500" />{selectedFile && <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">Selected: {selectedFile.name} ({(selectedFile.size / 1024).toFixed(2)} KB)</p>}</div>
-          <div><label htmlFor="uploadCategorySelect" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Assign to Category (Optional):</label><select id="uploadCategorySelect" value={uploadTargetCategoryId || ""} onChange={(e) => setUploadTargetCategoryId(e.target.value === "" ? null : e.target.value)} className="w-full p-2.5 border border-slate-300 dark:border-slate-600 rounded-md bg-white/70 dark:bg-slate-700/80 text-slate-700 dark:text-slate-200 focus:ring-1 focus:ring-orange-500 focus:border-orange-500 text-sm"><option value="">Uncategorized</option>{categories.map(cat => (<option key={cat.id} value={cat.id}>{cat.name}</option>))}</select></div>
-          {uploadError && <p className="p-3 text-sm text-red-700 bg-red-100 dark:bg-red-900/50 dark:text-red-300 rounded-md border border-red-300 dark:border-red-700">{uploadError}</p>}
-          {uploadSuccess && <p className="p-3 text-sm text-green-600 bg-green-100 dark:bg-green-900/50 dark:text-green-300 rounded-md border border-green-300 dark:border-green-700">{uploadSuccess}</p>}
-          <button type="submit" disabled={isUploading || !selectedFile} className="w-full px-4 py-2.5 bg-gradient-to-r from-orange-500 to-red-500 text-white font-medium rounded-lg shadow-md hover:from-orange-600 hover:to-red-600 focus:outline-none focus:ring-2 ring-offset-2 dark:ring-offset-slate-800 ring-red-500 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center">{isUploading ? <SpinnerIcon/> : "Start Upload"}</button>
+          <div>
+              <label htmlFor="bookFile" className="block text-lg font-bold text-slate-800 dark:text-slate-100 mb-3">
+                  Select PDF File
+              </label>
+              <input 
+                  id="bookFile" 
+                  type="file" 
+                  accept=".pdf" 
+                  onChange={handleFileSelect} 
+                  className="block w-full text-sm text-slate-900 dark:text-slate-200 bg-slate-100 dark:bg-slate-900/80 rounded-xl border border-transparent cursor-pointer focus:outline-none focus:ring-2 focus:ring-orange-500 file:mr-4 file:py-4 file:px-6 file:rounded-l-xl file:border-0 file:text-sm file:font-bold file:bg-orange-100 dark:file:bg-slate-800 file:text-orange-700 dark:file:text-orange-400 hover:file:bg-orange-200 dark:hover:file:bg-slate-700 transition-all" 
+              />
+              {selectedFile && <p className="mt-2 text-xs font-bold text-slate-500 dark:text-slate-400">Selected: {selectedFile.name} ({(selectedFile.size / 1024).toFixed(2)} KB)</p>}
+          </div>
+          
+          <div className="space-y-3">
+            <label htmlFor="uploadCategorySelect" className="block text-lg font-bold text-slate-800 dark:text-slate-100">
+                Assign to Category <span className="text-sm font-normal text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded ml-2">Optional</span>
+            </label>
+            <select 
+                id="uploadCategorySelect" 
+                value={uploadTargetCategoryId || ""} 
+                onChange={(e) => setUploadTargetCategoryId(e.target.value === "" ? null : e.target.value)} 
+                className="block w-full px-5 py-4 text-lg bg-slate-100 dark:bg-slate-900 border-2 border-transparent rounded-xl focus:bg-white dark:focus:bg-slate-950 focus:border-orange-500 outline-none text-slate-900 dark:text-white placeholder-slate-400 transition-all font-medium appearance-none"
+            >
+                <option value="">-- Uncategorized --</option>
+                {categories.map(cat => (<option key={cat.id} value={cat.id}>{cat.name}</option>))}
+            </select>
+          </div>
+
+          {uploadError && (
+              <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl flex items-center gap-3 animate-pulse">
+                  <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                  <p className="text-sm font-bold text-red-600 dark:text-red-400">{uploadError}</p>
+              </div>
+          )}
+          {uploadSuccess && (
+              <div className="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl flex items-center gap-3 animate-fadeIn">
+                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                  <p className="text-sm font-bold text-green-600 dark:text-green-400">{uploadSuccess}</p>
+              </div>
+          )}
+
+          <div className="pt-2">
+            <button 
+                type="submit" 
+                disabled={isUploading || !selectedFile} 
+                className={`w-full py-4 text-lg font-bold text-white rounded-xl shadow-lg shadow-orange-500/20 flex items-center justify-center gap-2 transition-all transform ${isUploading || !selectedFile ? 'bg-slate-400 cursor-not-allowed' : 'bg-gradient-to-br from-orange-500 via-orange-600 to-red-600 hover:from-orange-400 hover:to-red-500 hover:-translate-y-1 hover:shadow-orange-500/40 active:scale-95'}`}
+            >
+                {isUploading ? <SpinnerIcon/> : "Start Upload"}
+            </button>
+          </div>
         </form> 
       </Modal>
+
       <Modal isOpen={showCreateCategoryModal} onClose={() => setShowCreateCategoryModal(false)} title="Create New Category"> 
-        <form onSubmit={handleCreateCategorySubmit} className="space-y-4">
-          <div><label htmlFor="newCategoryName" className="block text-sm font-medium text-slate-700 dark:text-slate-300">Category Name:</label><input id="newCategoryName" type="text" value={newCategoryName} onChange={(e) => setNewCategoryName(e.target.value)} className="mt-1 block w-full px-3 py-2.5 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm focus:ring-orange-500 focus:border-orange-500 sm:text-sm bg-white/70 dark:bg-slate-700/80 text-slate-900 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500" required /></div>
-          {createCategoryError && <p className="text-sm text-red-600 dark:text-red-400">{createCategoryError}</p>}
-          <button type="submit" disabled={isCreatingCategory} className="w-full px-4 py-2.5 bg-gradient-to-r from-orange-500 to-red-500 text-white font-medium rounded-lg shadow-md hover:from-orange-600 hover:to-red-600 focus:outline-none focus:ring-2 ring-offset-2 dark:ring-offset-slate-800 ring-red-500 disabled:opacity-50 flex items-center justify-center">{isCreatingCategory ? <SpinnerIcon/> : "Create Category"}</button>
+        <form onSubmit={handleCreateCategorySubmit} className="space-y-6">
+          <div className="space-y-3">
+            <label htmlFor="newCategoryName" className="block text-lg font-bold text-slate-800 dark:text-slate-100">
+                Category Name
+            </label>
+            <input 
+                id="newCategoryName" 
+                type="text" 
+                value={newCategoryName} 
+                onChange={(e) => setNewCategoryName(e.target.value)} 
+                placeholder="e.g., Mathematics, Physics"
+                className="block w-full px-5 py-4 text-lg bg-slate-100 dark:bg-slate-900 border-2 border-transparent rounded-xl focus:bg-white dark:focus:bg-slate-950 focus:border-orange-500 outline-none text-slate-900 dark:text-white placeholder-slate-400 transition-all font-medium"
+                required 
+            />
+          </div>
+
+          {createCategoryError && (
+              <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl flex items-center gap-3 animate-pulse">
+                  <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                  <p className="text-sm font-bold text-red-600 dark:text-red-400">{createCategoryError}</p>
+              </div>
+          )}
+
+          <div className="pt-2">
+             <button 
+                type="submit" 
+                disabled={isCreatingCategory} 
+                className={`w-full py-4 text-lg font-bold text-white rounded-xl shadow-lg shadow-orange-500/20 flex items-center justify-center gap-2 transition-all transform ${isCreatingCategory ? 'bg-slate-400 cursor-not-allowed' : 'bg-gradient-to-br from-orange-500 via-orange-600 to-red-600 hover:from-orange-400 hover:to-red-500 hover:-translate-y-1 hover:shadow-orange-500/40 active:scale-95'}`}
+            >
+                {isCreatingCategory ? <SpinnerIcon/> : "Create Category"}
+            </button>
+          </div>
         </form> 
       </Modal>
-      <Modal isOpen={showDeleteConfirmModal} onClose={() => { setShowDeleteConfirmModal(false); setBookToDelete(null); setDeleteBookError(null); }} title="Confirm Book Deletion"> 
-        {deleteBookError && ( <p className="p-3 text-sm text-red-700 bg-red-100 dark:bg-red-900/50 dark:text-red-300 rounded-md mb-4">Error: {deleteBookError}</p> )} 
-        <p className="text-slate-700 dark:text-slate-300 mb-6">Are you sure you want to delete the book &quot;{bookToDelete?.title || 'this book'}&quot;? This action cannot be undone.</p> 
-        <div className="flex justify-end space-x-3"> 
-          <button onClick={() => { setShowDeleteConfirmModal(false); setBookToDelete(null); setDeleteBookError(null); }} className="px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 bg-slate-200 dark:bg-slate-600 rounded-lg hover:bg-slate-300 dark:hover:bg-slate-500 focus:outline-none focus:ring-2 ring-slate-400 transition-colors">Cancel</button> 
-          <button onClick={handleConfirmDeleteBook} disabled={isDeletingBook} className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 ring-red-500 disabled:opacity-50 flex items-center justify-center">{isDeletingBook ? <SpinnerIcon/> : "Confirm Delete"}</button> 
-        </div> 
+
+      <Modal isOpen={showDeleteConfirmModal} onClose={() => { setShowDeleteConfirmModal(false); setBookToDelete(null); setDeleteBookError(null); }} title="Confirm Deletion"> 
+        <div className="space-y-6">
+            {deleteBookError && ( 
+                <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl flex items-center gap-3 animate-pulse">
+                    <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                    <p className="text-sm font-bold text-red-600 dark:text-red-400">{deleteBookError}</p>
+                </div>
+            )} 
+            
+            <div className="p-4 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800">
+                <p className="text-lg font-medium text-slate-700 dark:text-slate-300">
+                    Are you sure you want to delete <span className="font-bold text-slate-900 dark:text-white">&quot;{bookToDelete?.title || 'this book'}&quot;</span>?
+                </p>
+                <p className="text-sm text-red-500 mt-2 font-bold uppercase tracking-wide">This action cannot be undone.</p>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-2"> 
+                <button 
+                    onClick={() => { setShowDeleteConfirmModal(false); setBookToDelete(null); setDeleteBookError(null); }} 
+                    className="px-6 py-3 text-lg font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 transition-all"
+                >
+                    Cancel
+                </button> 
+                <button 
+                    onClick={handleConfirmDeleteBook} 
+                    disabled={isDeletingBook} 
+                    className="px-6 py-3 text-lg font-bold text-white bg-red-600 rounded-xl hover:bg-red-700 shadow-lg shadow-red-500/30 hover:shadow-red-500/50 disabled:opacity-50 flex items-center justify-center transition-all transform hover:-translate-y-0.5"
+                >
+                    {isDeletingBook ? <SpinnerIcon/> : "Yes, Delete"}
+                </button> 
+            </div> 
+        </div>
       </Modal>
 
       {/* Footer */}

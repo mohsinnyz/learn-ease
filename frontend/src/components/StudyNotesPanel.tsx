@@ -29,7 +29,6 @@ export const StudyNotesPanel: React.FC<StudyNotesPanelProps> = ({ bookId, genera
     async ([id]) => {
       const fetchedTopics = await fetchBookTopics(id);
       
-      // --- (THIS IS THE FIX) ---
       // This regex checks if the trimmed title starts with a digit.
       const mainTopicRegex = /^\d/; 
 
@@ -38,7 +37,6 @@ export const StudyNotesPanel: React.FC<StudyNotesPanelProps> = ({ bookId, genera
         // Only keep topics that start with a number.
         return mainTopicRegex.test(trimmedTitle);
       });
-      // --- END OF FIX ---
     },
     { 
       revalidateOnFocus: false, 
@@ -48,6 +46,18 @@ export const StudyNotesPanel: React.FC<StudyNotesPanelProps> = ({ bookId, genera
 
   return (
     <div className="bg-white/80 dark:bg-slate-800/80 rounded-xl shadow-md p-4 border border-slate-200 dark:border-slate-700">
+      
+      {/* CSS to hide scrollbar but allow scrolling */}
+      <style>{`
+        .scrollbar-hide::-webkit-scrollbar {
+            display: none;
+        }
+        .scrollbar-hide {
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;  /* Firefox */
+        }
+      `}</style>
+
       <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200 mb-3 pb-3 border-b border-slate-300 dark:border-slate-700 flex items-center gap-2">
           <LightBulbIcon className="w-6 h-6 text-orange-500" />
           <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-red-500">Get Study Notes</span>
@@ -64,7 +74,8 @@ export const StudyNotesPanel: React.FC<StudyNotesPanelProps> = ({ bookId, genera
           <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
               Select a topic from the book's Table of Contents to generate notes.
           </p>
-          <div className="max-h-[30vh] overflow-y-auto space-y-2 pr-2">
+          {/* Added scrollbar-hide class here */}
+          <div className="max-h-[40vh] overflow-y-auto space-y-2 pr-2 scrollbar-hide">
               {bookTopics.map((topic) => (
                   <button
                       key={topic.id}

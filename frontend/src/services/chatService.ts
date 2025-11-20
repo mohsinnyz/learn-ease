@@ -1,3 +1,4 @@
+//C:\Users\mohsi\Projects\learn-ease-fyp\frontend\src\services\chatService.ts
 "use client";
 
 import { UserPublic } from './authService'; // We'll get UserPublic from your auth service
