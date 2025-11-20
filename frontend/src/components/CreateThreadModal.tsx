@@ -1,4 +1,3 @@
-// frontend/src/components/CreateThreadModal.tsx
 "use client";
 
 import { useState, FormEvent, useEffect, useRef } from 'react';
@@ -50,8 +49,8 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, children, title }) => {
             <XMarkIcon />
           </button>
         </div>
-        {/* Scrollable Body */}
-        <div className="p-8 overflow-y-auto custom-scrollbar">
+        {/* Scrollable Body - SCROLL REMOVED AS REQUESTED */}
+        <div className="p-8">
             {children}
         </div>
       </div>
@@ -189,7 +188,7 @@ const CreateThreadModal = ({ isOpen, onClose, onThreadCreated }: CreateThreadMod
                 <button type="button" onClick={() => insertMarkdown('- ')} className="p-2 rounded-lg hover:bg-slate-300 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors" title="List"><ListIcon /></button>
                 <button type="button" onClick={() => insertMarkdown('```\n', '\n```')} className="p-2 rounded-lg hover:bg-slate-300 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors" title="Code Block"><CodeIcon /></button>
                 <div className="w-px h-5 bg-slate-300 dark:bg-slate-700 mx-2"></div>
-                <button type="button" onClick={() => insertMarkdown('[Link Text](', ')')} className="p-2 rounded-lg hover:bg-slate-300 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors" title="Link"><LinkIcon /></button>
+                <button type="button" onClick={() => insertMarkdown('[Link Text](https://', ')')} className="p-2 rounded-lg hover:bg-slate-300 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors" title="Link"><LinkIcon /></button>
             </div>
 
             <textarea

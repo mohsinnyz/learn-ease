@@ -2,7 +2,10 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { ForumThreadPublic, voteOn, VoteType } from '@/services/forumService';
+import { timeAgo } from '@/lib/dateUtils'; // <--- Imported central date utility
 
 // --- Icons ---
 const UpArrowIcon = () => ( <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor" className="w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 10.5L12 3m0 0l7.5 7.5M12 3v18" /></svg> );
@@ -17,28 +20,15 @@ const SimpleAvatar = () => (
   </div>
 );
 
-function timeAgo(dateString: string): string {
-  const date = new Date(dateString);
-  const seconds = Math.floor((new Date().getTime() - date.getTime()) / 1000);
-  let interval = seconds / 31536000;
-  if (interval > 1) return Math.floor(interval) + "y ago";
-  interval = seconds / 2592000;
-  if (interval > 1) return Math.floor(interval) + "mo ago";
-  interval = seconds / 86400;
-  if (interval > 1) return Math.floor(interval) + "d ago";
-  interval = seconds / 3600;
-  if (interval > 1) return Math.floor(interval) + "h ago";
-  interval = seconds / 60;
-  if (interval > 1) return Math.floor(interval) + "m ago";
-  return "just now";
-}
+// --- LOCAL timeAgo REMOVED ---
 
 interface ForumThreadCardProps {
   thread: ForumThreadPublic;
-  hideContent?: boolean; // (NEW) Optional prop to hide the preview text
+  hideContent?: boolean; 
+  isDetailView?: boolean; 
 }
 
-const ForumThreadCard = ({ thread, hideContent = false }: ForumThreadCardProps) => {
+const ForumThreadCard = ({ thread, hideContent = false, isDetailView = false }: ForumThreadCardProps) => {
   const [voteScore, setVoteScore] = useState(thread.upvote_count - thread.downvote_count);
   const [isVoting, setIsVoting] = useState(false);
 
@@ -55,8 +45,11 @@ const ForumThreadCard = ({ thread, hideContent = false }: ForumThreadCardProps) 
     }
   };
 
+  const Wrapper = isDetailView ? 'div' : Link;
+  const wrapperProps = isDetailView ? {} : { href: `/forum/${thread.id}`, className: "block group-hover:opacity-90 transition-opacity" };
+
   return (
-    <div className="flex bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden hover:border-orange-300 dark:hover:border-orange-700 transition-all duration-200 hover:shadow-lg group h-full">
+    <div className={`flex bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden ${!isDetailView ? 'hover:border-orange-300 dark:hover:border-orange-700 hover:shadow-lg group cursor-pointer' : ''} transition-all duration-200 h-full`}>
       
       {/* --- 1. Vote Sidebar --- */}
       <div className="flex flex-col items-center pt-3 pb-3 bg-slate-50 dark:bg-slate-900/40 w-14 sm:w-16 border-r border-slate-100 dark:border-slate-700/50">
@@ -90,22 +83,31 @@ const ForumThreadCard = ({ thread, hideContent = false }: ForumThreadCardProps) 
             </div>
           </div>
 
-          {/* Title */}
-          <Link href={`/forum/${thread.id}`} className="block group-hover:opacity-90 transition-opacity">
-            <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-white mb-1.5 leading-tight tracking-tight">
+          {/* Title & Content Wrapper */}
+          {/* @ts-ignore */}
+          <Wrapper {...wrapperProps}>
+            <h2 className={`text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-white mb-1.5 leading-tight tracking-tight ${isDetailView ? 'mb-4 border-b border-slate-100 dark:border-slate-700 pb-2' : ''}`}>
               {thread.title}
             </h2>
-            {/* (MODIFIED) Only show preview if hideContent is false */}
+            
             {!hideContent && (
-              <p className="text-base sm:text-lg text-slate-600 dark:text-slate-300 line-clamp-2 mb-2 leading-relaxed font-normal">
-                {thread.content}
-              </p>
+              <div className={`text-base sm:text-lg text-slate-600 dark:text-slate-300 leading-relaxed font-normal prose prose-slate dark:prose-invert max-w-none prose-p:my-2 prose-headings:text-base prose-headings:my-2 ${isDetailView ? '' : 'line-clamp-2'}`}>
+                 <ReactMarkdown 
+                   remarkPlugins={[remarkGfm]}
+                   components={isDetailView ? undefined : {
+                     // Only disable links in Preview mode
+                     a: ({node, ...props}) => <span className="text-orange-500" {...props} />
+                   }}
+                 >
+                   {thread.content}
+                 </ReactMarkdown>
+              </div>
             )}
-          </Link>
+          </Wrapper>
         </div>
 
         {/* Footer: Tags & Comments */}
-        <div className="flex items-center justify-between pt-2 mt-1 border-t border-slate-100 dark:border-slate-700/50">
+        <div className="flex items-center justify-between pt-2 mt-2 border-t border-slate-100 dark:border-slate-700/50">
            <div className="flex flex-wrap gap-2">
             {thread.tags?.map((tag) => (
               <span key={tag} className="px-2.5 py-1 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-lg text-xs font-semibold border border-slate-200 dark:border-slate-700 hover:bg-orange-50 hover:text-orange-600 dark:hover:bg-slate-700 transition-colors cursor-default">
@@ -113,10 +115,12 @@ const ForumThreadCard = ({ thread, hideContent = false }: ForumThreadCardProps) 
               </span>
             ))}
           </div>
-          <Link href={`/forum/${thread.id}`} className="flex items-center px-3 py-1.5 text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 rounded-lg transition-colors ml-4">
-            <ChatBubbleIcon />
-            {thread.reply_count} <span className="hidden sm:inline ml-1">{thread.reply_count === 1 ? 'Comment' : 'Comments'}</span>
-          </Link>
+          {!isDetailView && (
+            <Link href={`/forum/${thread.id}`} className="flex items-center px-3 py-1.5 text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 rounded-lg transition-colors ml-4">
+                <ChatBubbleIcon />
+                {thread.reply_count} <span className="hidden sm:inline ml-1">{thread.reply_count === 1 ? 'Comment' : 'Comments'}</span>
+            </Link>
+          )}
         </div>
       </div>
     </div>

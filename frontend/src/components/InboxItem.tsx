@@ -1,6 +1,7 @@
 "use client";
 
 import Link from 'next/link';
+import { parseUTC } from '@/lib/dateUtils'; // <--- Imported central date utility
 
 // --- Icons (from your dashboard file) ---
 const UsersIcon = () => (
@@ -35,9 +36,9 @@ interface InboxItemProps {
 // Helper to format dates
 function formatLastActivity(dateString: string): string {
   try {
-    const date = new Date(dateString);
+    // Use parseUTC to correctly handle the time zone offset
+    const date = parseUTC(dateString);
     const now = new Date();
-    const diff = now.getTime() - date.getTime();
     
     // Get local date at midnight
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());

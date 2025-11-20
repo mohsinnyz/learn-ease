@@ -21,6 +21,16 @@ interface ProgressTopicBarChartProps {
   bookId: string | null;
 }
 
+// Helper Component for the Legend
+const LegendItem = ({ color, label }: { color: string, label: string }) => (
+  <div className="flex items-center gap-1.5">
+    <div className={`w-2.5 h-2.5 rounded-full ${color}`} />
+    <span className="text-[10px] sm:text-xs font-medium text-slate-500 dark:text-slate-400">
+      {label}
+    </span>
+  </div>
+);
+
 // Helper to get color class based on value (for Tooltip)
 const getStatusColorClass = (value: number) => {
   if (value > 75) return 'bg-green-500';
@@ -105,99 +115,98 @@ const ProgressTopicBarChart = ({ bookId }: ProgressTopicBarChartProps) => {
   }
 
   const title = bookId ? 'Performance by Topic' : 'Performance by Subject';
-  const minWidth = Math.max(100, data.length * 60);
 
   return (
     <div className="learn-ease-card p-4 sm:p-6 flex flex-col h-full bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
-       {/* CSS to hide scrollbar but allow scrolling */}
-       <style>{`
-        .scrollbar-hide::-webkit-scrollbar {
-            display: none;
-        }
-        .scrollbar-hide {
-            -ms-overflow-style: none;  /* IE and Edge */
-            scrollbar-width: none;  /* Firefox */
-        }
-      `}</style>
-
-      {/* Gradient Title */}
-      <h2 className="text-2xl font-bold tracking-tight text-slate-800 dark:text-slate-100 mb-5 pb-4 border-b border-slate-300 dark:border-slate-700">
-        <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-red-500">
-          {title}
-        </span>
-      </h2>
       
-      {/* Horizontal Scroll Wrapper */}
-      <div className="flex-grow overflow-x-auto scrollbar-hide pb-2">
-        <div style={{ width: `${minWidth}px`, minWidth: '100%', height: '300px' }}>
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart
-              data={data}
-              margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
-            >
-              {/* Gradients Definitions */}
-              <defs>
-                {/* > 75: Green */}
-                <linearGradient id="colorSuccess" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#22c55e" stopOpacity={0.9}/>
-                  <stop offset="100%" stopColor="#22c55e" stopOpacity={0.3}/>
-                </linearGradient>
-                
-                {/* > 60: Yellow */}
-                <linearGradient id="colorGood" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#eab308" stopOpacity={0.9}/>
-                  <stop offset="100%" stopColor="#eab308" stopOpacity={0.3}/>
-                </linearGradient>
+      {/* Header Section with Title and Legend */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-5 pb-4 border-b border-slate-300 dark:border-slate-700 gap-4">
+        
+        {/* Gradient Title */}
+        <h2 className="text-2xl font-bold tracking-tight text-slate-800 dark:text-slate-100">
+          <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-red-500">
+            {title}
+          </span>
+        </h2>
 
-                {/* > 50: Blue */}
-                <linearGradient id="colorAverage" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.9}/>
-                  <stop offset="100%" stopColor="#3b82f6" stopOpacity={0.3}/>
-                </linearGradient>
-
-                {/* <= 50: Red */}
-                <linearGradient id="colorPoor" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#ef4444" stopOpacity={0.9}/>
-                  <stop offset="100%" stopColor="#ef4444" stopOpacity={0.3}/>
-                </linearGradient>
-              </defs>
-
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#94a3b8" opacity={0.1} />
-              
-              <XAxis 
-                dataKey="label" 
-                axisLine={false} 
-                tickLine={false}
-                tick={{ fill: '#64748b', fontSize: 11, fontWeight: 500 }} 
-                interval={0}
-                dy={10}
-                tickFormatter={(value) => value.length > 12 ? `${value.substring(0, 10)}..` : value}
-              />
-              
-              <YAxis 
-                axisLine={false} 
-                tickLine={false}
-                tick={{ fill: '#64748b', fontSize: 11 }} 
-                domain={[0, 100]} 
-                dx={-5}
-              />
-              
-              <Tooltip 
-                content={<CustomTooltip />} 
-                cursor={{ fill: 'rgba(148, 163, 184, 0.1)', radius: 4 }}
-              />
-              
-              <Bar dataKey="value" radius={[8, 8, 0, 0]} barSize={40} animationDuration={1000}>
-                {data.map((entry, index) => (
-                  <Cell 
-                    key={`cell-${index}`} 
-                    fill={getGradientId(entry.value)} 
-                  />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+        {/* Legend */}
+        <div className="flex flex-wrap items-center gap-3 sm:gap-4 bg-slate-50 dark:bg-slate-900/50 px-3 py-2 rounded-lg border border-slate-100 dark:border-slate-700/50">
+          <LegendItem color="bg-green-500" label="> 75%" />
+          <LegendItem color="bg-yellow-500" label="> 60%" />
+          <LegendItem color="bg-blue-500" label="> 50%" />
+          <LegendItem color="bg-red-500" label="≤ 50%" />
         </div>
+      </div>
+      
+      {/* Chart Container without Scroll */}
+      <div className="flex-grow h-[300px] w-full">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart
+            data={data}
+            margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+          >
+            {/* Gradients Definitions */}
+            <defs>
+              {/* > 75: Green */}
+              <linearGradient id="colorSuccess" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#22c55e" stopOpacity={0.9}/>
+                <stop offset="100%" stopColor="#22c55e" stopOpacity={0.3}/>
+              </linearGradient>
+              
+              {/* > 60: Yellow */}
+              <linearGradient id="colorGood" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#eab308" stopOpacity={0.9}/>
+                <stop offset="100%" stopColor="#eab308" stopOpacity={0.3}/>
+              </linearGradient>
+
+              {/* > 50: Blue */}
+              <linearGradient id="colorAverage" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.9}/>
+                <stop offset="100%" stopColor="#3b82f6" stopOpacity={0.3}/>
+              </linearGradient>
+
+              {/* <= 50: Red */}
+              <linearGradient id="colorPoor" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#ef4444" stopOpacity={0.9}/>
+                <stop offset="100%" stopColor="#ef4444" stopOpacity={0.3}/>
+              </linearGradient>
+            </defs>
+
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#94a3b8" opacity={0.1} />
+            
+            <XAxis 
+              dataKey="label" 
+              axisLine={false} 
+              tickLine={false}
+              tick={{ fill: '#64748b', fontSize: 11, fontWeight: 500 }} 
+              interval={0}
+              dy={10}
+              tickFormatter={(value) => value.length > 12 ? `${value.substring(0, 10)}..` : value}
+            />
+            
+            <YAxis 
+              axisLine={false} 
+              tickLine={false}
+              tick={{ fill: '#64748b', fontSize: 11 }} 
+              domain={[0, 100]} 
+              dx={-5}
+            />
+            
+            <Tooltip 
+              content={<CustomTooltip />} 
+              cursor={{ fill: 'rgba(148, 163, 184, 0.1)', radius: 4 }}
+            />
+            
+            <Bar dataKey="value" radius={[8, 8, 0, 0]} barSize={40} animationDuration={1000}>
+              {data.map((entry, index) => (
+                <Cell 
+                  key={`cell-${index}`} 
+                  fill={getGradientId(entry.value)} 
+                />
+              ))}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
       </div>
     </div>
   );
