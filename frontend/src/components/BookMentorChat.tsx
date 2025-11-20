@@ -66,7 +66,7 @@ export const BookMentorChat: React.FC<BookMentorChatProps> = ({ bookId, ChatIcon
     };
 
     return (
-        <div className="bg-white/80 dark:bg-slate-800/80 rounded-xl shadow-md p-4 border border-slate-200 dark:border-slate-700 flex flex-col h-[calc(100vh-4rem)] max-h-[50rem]">
+        <div className="bg-white/80 dark:bg-slate-800/80 rounded-xl shadow-md p-4 border border-slate-200 dark:border-slate-700 flex flex-col h-[calc(100vh-4rem)] max-h-[60rem]">
             <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200 mb-3 pb-3 border-b border-slate-300 dark:border-slate-700 flex items-center gap-2">
                 <ChatIcon className="w-6 h-6 text-orange-500" />
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-red-500">

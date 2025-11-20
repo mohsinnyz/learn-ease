@@ -1,11 +1,8 @@
-// frontend/src/app/forum/[threadID]/page.tsx
 "use client";
 
 import { useEffect, useState, FormEvent, useRef, useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import ReactMarkdown from 'react-markdown'; 
-import remarkGfm from 'remark-gfm';
 
 import { UserPublic, fetchUserProfile } from '@/services/authService';
 import { 
@@ -170,18 +167,10 @@ export default function ThreadDetailPage() {
 
     return (
       <>
-        {/* 1. Main Question */}
+        {/* 1. Main Question (Unified Card) */}
         <section className="mb-8 animate-fadeIn">
-          {/* Thread Card - We remove bottom rounded corners to attach the content */}
           <div className="relative z-10">
-             <ForumThreadCard thread={thread} />
-          </div>
-          
-          {/* Full Content Box (Attached to bottom of card) */}
-          <div className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-md border border-t-0 border-slate-200 dark:border-slate-700 rounded-b-2xl p-8 sm:p-10 -mt-4 pt-8 shadow-sm">
-            <article className="prose prose-lg prose-slate dark:prose-invert max-w-none text-slate-800 dark:text-slate-200 leading-relaxed break-words">
-               <ReactMarkdown remarkPlugins={[remarkGfm]}>{thread.content}</ReactMarkdown>
-            </article>
+             <ForumThreadCard thread={thread} isDetailView={true} />
           </div>
         </section>
 
@@ -210,7 +199,7 @@ export default function ThreadDetailPage() {
                     <button type="button" onClick={() => insertMarkdown('- ')} className="p-2 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 transition-colors" title="List"><ListIcon /></button>
                     <button type="button" onClick={() => insertMarkdown('```\n', '\n```')} className="p-2 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 transition-colors" title="Code Block"><CodeIcon /></button>
                     <div className="w-px h-5 bg-slate-300 dark:bg-slate-600 mx-2"></div>
-                    <button type="button" onClick={() => insertMarkdown('[Link Text](', ')')} className="p-2 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 transition-colors" title="Link"><LinkIcon /></button>
+                    <button type="button" onClick={() => insertMarkdown('[Link Text](https://', ')')} className="p-2 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 transition-colors" title="Link"><LinkIcon /></button>
                 </div>
 
                 {/* Text Area */}
@@ -229,7 +218,7 @@ export default function ThreadDetailPage() {
                {postError ? (
                   <p className="text-sm text-red-600 font-medium bg-red-50 px-3 py-1 rounded-lg">{postError}</p>
                ) : (
-                 <p className="text-xs text-slate-400 dark:text-slate-500">Markdown Supported</p>
+                  <p className="text-xs text-slate-400 dark:text-slate-500">Markdown Supported</p>
                )}
               
               <button 
@@ -246,8 +235,8 @@ export default function ThreadDetailPage() {
         {/* 3. Replies List */}
         <section className="bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm rounded-2xl border border-slate-200 dark:border-slate-700 p-6 sm:p-8 shadow-sm">
           <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-8 border-b border-slate-200 dark:border-slate-700 pb-4 flex items-center gap-2">
-             <span className="bg-slate-100 dark:bg-slate-700 px-3 py-1 rounded-lg text-slate-700 dark:text-slate-200">{posts.length}</span>
-             {posts.length === 1 ? 'Reply' : 'Replies'}
+              <span className="bg-slate-100 dark:bg-slate-700 px-3 py-1 rounded-lg text-slate-700 dark:text-slate-200">{posts.length}</span>
+              {posts.length === 1 ? 'Reply' : 'Replies'}
           </h3>
           <div className="space-y-8">
             {rootPosts.length > 0 ? (
@@ -262,7 +251,7 @@ export default function ThreadDetailPage() {
               ))
             ) : (
               <div className="text-center py-12">
-                 <p className="text-lg text-slate-500 dark:text-slate-400 font-medium">No replies yet. Be the first to join the discussion!</p>
+                  <p className="text-lg text-slate-500 dark:text-slate-400 font-medium">No replies yet. Be the first to join the discussion!</p>
               </div>
             )}
           </div>

@@ -7,6 +7,17 @@ interface TopicCompletionListProps {
   bookId: string;
 }
 
+// --- Helper Components ---
+
+const LegendItem = ({ color, label }: { color: string, label: string }) => (
+  <div className="flex items-center gap-1.5">
+    <div className={`w-2.5 h-2.5 rounded-full ${color}`} />
+    <span className="text-[10px] sm:text-xs font-medium text-slate-500 dark:text-slate-400">
+      {label}
+    </span>
+  </div>
+);
+
 // --- Sorting Logic ---
 const extractChapterNumbers = (title: string): number[] => {
   const match = title.match(/^(\d+(\.\d+)*)/);
@@ -33,7 +44,7 @@ const TopicItem = ({ topic }: { topic: TopicStatus }) => {
   // Default Styles (Not started)
   let rowClass = 'bg-white dark:bg-slate-800/50 border-slate-100 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700/50';
   
-  // Color Logic for Completed/Failed items
+  // Color Logic for Completed/Failed items (Matches Legend)
   if (isCompleted || isFailed) {
     if (scoreVal > 75) {
       // Green
@@ -45,7 +56,7 @@ const TopicItem = ({ topic }: { topic: TopicStatus }) => {
       // Blue
       rowClass = 'bg-blue-100/60 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800 text-blue-900 dark:text-blue-100';
     } else {
-      // Red (Under 50)
+      // Red (<= 50)
       rowClass = 'bg-red-100/60 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-900 dark:text-red-100';
     }
   }
@@ -103,13 +114,23 @@ const TopicCompletionList = ({ bookId }: TopicCompletionListProps) => {
         }
       `}</style>
 
-      {/* HEADER */}
+      {/* HEADER with Legend */}
       <div className="p-4 sm:p-6 pb-0 shrink-0">
-        <h2 className="text-2xl font-bold tracking-tight text-slate-800 dark:text-slate-100 mb-4 pb-4 border-b border-slate-300 dark:border-slate-700">
-          <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-red-500">
-            Topic Breakdown
-          </span>
-        </h2>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 pb-4 border-b border-slate-300 dark:border-slate-700 gap-4">
+          <h2 className="text-2xl font-bold tracking-tight text-slate-800 dark:text-slate-100">
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-red-500">
+              Topic Breakdown
+            </span>
+          </h2>
+
+          {/* Legend */}
+          <div className="flex flex-wrap items-center gap-3 sm:gap-4 bg-slate-50 dark:bg-slate-900/50 px-3 py-2 rounded-lg border border-slate-100 dark:border-slate-700/50">
+            <LegendItem color="bg-green-500" label="> 75%" />
+            <LegendItem color="bg-yellow-500" label="> 60%" />
+            <LegendItem color="bg-blue-500" label="> 50%" />
+            <LegendItem color="bg-red-500" label="≤ 50%" />
+          </div>
+        </div>
       </div>
 
       {/* CONTENT */}
