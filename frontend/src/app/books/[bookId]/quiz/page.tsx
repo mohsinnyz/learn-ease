@@ -16,7 +16,7 @@ import {
 
 // --- Icons ---
 const SpinnerIcon = () => (
-  <svg className="animate-spin h-8 w-8 text-orange-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+  <svg className="animate-spin h-10 w-10 text-orange-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
   </svg>
@@ -27,6 +27,30 @@ const ChevronLeftIcon = (props: React.SVGProps<SVGSVGElement>) => (
   </svg>
 );
 
+// --- Global Styles (Unified Design) ---
+const GlobalStyles = () => (
+  <style jsx global>{`
+    /* Unified Card Style */
+    .learn-ease-card {
+      background-color: #ffffff; 
+      border-radius: 1rem;
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+      border: 1px solid rgba(226, 232, 240, 1);
+    }
+    html.dark .learn-ease-card {
+      background-color: rgba(30, 41, 59, 0.95);
+      border-color: rgba(51, 65, 85, 0.8);
+    }
+
+    /* Polka Dot Pattern */
+    :root {
+      --dot-pattern-url: url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='1.5' cy='1.5' r='1.5' fill='%2394a3b8' fill-opacity='0.4'/%3E%3C/svg%3E");
+    }
+    html.dark {
+      --dot-pattern-url: url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='1' cy='1' r='1' fill='%23cbd5e1' fill-opacity='0.1'/%3E%3C/svg%3E");
+    }
+  `}</style>
+);
 
 export default function QuizPage() {
   const params = useParams();
@@ -126,13 +150,30 @@ export default function QuizPage() {
   const renderContent = () => {
     switch (quizPhase) {
       case "loading_topics":
-        return <div className="text-center"><SpinnerIcon /> <p className="mt-4">Loading quiz topics...</p></div>;
+        return (
+          <div className="text-center py-12">
+            <div className="flex justify-center mb-4"><SpinnerIcon /></div>
+            <p className="text-lg text-slate-600 dark:text-slate-300">Loading quiz topics...</p>
+          </div>
+        );
       
       case "topic_selection":
         return (
           <div>
-            <h2 className="text-2xl font-bold mb-4">Select a Topic to Start Quiz</h2>
-            {error && <p className="text-red-500 bg-red-500/10 p-3 rounded-md mb-4">{error}</p>}
+            <div className="text-center mb-8">
+              <h2 className="text-3xl font-extrabold text-slate-900 dark:text-white mb-2">
+                Select a Topic
+              </h2>
+              <p className="text-slate-600 dark:text-slate-400">
+                Choose a chapter or section to generate a quiz from.
+              </p>
+            </div>
+
+            {error && (
+              <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl mb-6 text-center">
+                <p className="text-red-600 dark:text-red-400">{error}</p>
+              </div>
+            )}
             
             {topics.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -140,29 +181,58 @@ export default function QuizPage() {
                   <button
                     key={topic.id}
                     onClick={() => handleTopicSelect(topic.id, topic.topic_title)}
-                    className="p-6 bg-muted hover:bg-accent rounded-lg shadow-lg text-left transition-all hover:scale-105"
+                    className="p-6 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm hover:shadow-md hover:bg-orange-50 dark:hover:bg-slate-800 text-left transition-all transform hover:-translate-y-1 group"
                   >
-                    <h3 className="font-semibold text-lg text-orange-400">{topic.topic_title}</h3>
+                    <h3 className="font-semibold text-lg text-slate-800 dark:text-slate-200 group-hover:text-orange-600 dark:group-hover:text-orange-400 transition-colors">
+                      {topic.topic_title}
+                    </h3>
                   </button>
                 ))}
               </div>
             ) : (
-              <p className="text-muted-foreground">No quiz topics were found for this book.</p>
+              <div className="text-center py-12 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-dashed border-slate-300 dark:border-slate-700">
+                <p className="text-slate-500 dark:text-slate-400">No quiz topics were found for this book.</p>
+              </div>
             )}
-
           </div>
         );
 
       case "generating":
-        return <div className="text-center"><SpinnerIcon /> <p className="mt-4">Fetching topic and generating your quiz...</p></div>;
+        return (
+          <div className="text-center py-12">
+            <div className="flex justify-center mb-6"><SpinnerIcon /></div>
+            <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-2">Generating Quiz</h3>
+            <p className="text-slate-600 dark:text-slate-400">
+              Our AI is crafting questions based on <span className="font-semibold text-orange-500">{selectedTopicTitle}</span>...
+            </p>
+          </div>
+        );
 
       case "in_progress":
         if (!generatedQuiz) return <p>Something went wrong.</p>;
         const currentQuestion = generatedQuiz.questions[currentQuestionIndex];
         return (
-          <div className="w-full max-w-2xl mx-auto">
-            <p className="text-sm text-muted-foreground">Question {currentQuestionIndex + 1} of {generatedQuiz.questions.length}</p>
-            <h3 className="text-2xl font-semibold my-4">{currentQuestion.question_text}</h3>
+          <div className="w-full max-w-3xl mx-auto">
+            {/* Progress Bar */}
+            <div className="mb-8">
+              <div className="flex justify-between text-sm font-medium text-slate-500 dark:text-slate-400 mb-2">
+                <span>Question {currentQuestionIndex + 1}</span>
+                <span>{generatedQuiz.questions.length} total</span>
+              </div>
+              <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2.5">
+                <div 
+                  className="bg-orange-500 h-2.5 rounded-full transition-all duration-300" 
+                  style={{ width: `${((currentQuestionIndex + 1) / generatedQuiz.questions.length) * 100}%` }}
+                ></div>
+              </div>
+            </div>
+
+            <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-6 border border-slate-200 dark:border-slate-700 mb-6">
+              <h3 className="text-xl sm:text-2xl font-semibold text-slate-900 dark:text-slate-100 leading-relaxed">
+                {currentQuestion.question_text}
+              </h3>
+            </div>
+
             <textarea
               value={userAnswers[currentQuestionIndex]}
               onChange={(e) => {
@@ -171,66 +241,116 @@ export default function QuizPage() {
                 setUserAnswers(newAnswers);
               }}
               placeholder="Type your short answer here..."
-              className="w-full p-3 bg-background border border-input rounded-md focus:ring-2 focus:ring-orange-500 focus:outline-none transition"
-              rows={4}
+              className="w-full p-4 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition text-slate-900 dark:text-white placeholder-slate-400"
+              rows={5}
             />
-            <div className="mt-6 flex justify-between items-center">
+
+            <div className="mt-8 flex justify-between items-center">
               <button
                 onClick={() => setCurrentQuestionIndex(prev => Math.max(0, prev - 1))}
                 disabled={currentQuestionIndex === 0}
-                className="px-4 py-2 bg-secondary text-secondary-foreground rounded-md disabled:opacity-50"
+                className="px-6 py-2.5 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors"
               >
                 Previous
               </button>
+              
               {currentQuestionIndex < generatedQuiz.questions.length - 1 ? (
                 <button
                   onClick={() => setCurrentQuestionIndex(prev => prev + 1)}
-                  className="px-6 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-md font-semibold"
+                  className="px-6 py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-semibold shadow-md hover:shadow-lg transition-all transform hover:-translate-y-0.5"
                 >
-                  Next
+                  Next Question
                 </button>
               ) : (
-                <button onClick={handleSubmitQuiz} className="px-6 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-md font-semibold">
+                <button 
+                  onClick={handleSubmitQuiz} 
+                  className="px-8 py-2.5 bg-gradient-to-r from-orange-500 to-red-600 text-white rounded-lg font-bold shadow-lg hover:shadow-xl hover:from-orange-600 hover:to-red-700 transition-all transform hover:-translate-y-0.5"
+                >
                   Submit Quiz
                 </button>
               )}
             </div>
-            {error && <p className="text-red-500 bg-red-500/10 p-3 rounded-md mt-4">{error}</p>}
+            {error && (
+              <div className="mt-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl text-center">
+                <p className="text-red-600 dark:text-red-400">{error}</p>
+              </div>
+            )}
           </div>
         );
 
       case "evaluating":
-        return <div className="text-center"><SpinnerIcon /> <p className="mt-4">Evaluating your answers...</p></div>;
+        return (
+          <div className="text-center py-12">
+            <div className="flex justify-center mb-6"><SpinnerIcon /></div>
+            <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-2">Grading Quiz</h3>
+            <p className="text-slate-600 dark:text-slate-400">
+              Analyzing your answers against the source material...
+            </p>
+          </div>
+        );
 
       case "results":
         if (!evaluationResult) return <p>Could not load results.</p>;
         const scorePercentage = Math.round(evaluationResult.total_score * 100);
+        
+        // Determine color based on grade/score
+        let scoreColorClass = "text-orange-500";
+        if (scorePercentage >= 80) scoreColorClass = "text-green-500";
+        else if (scorePercentage < 60) scoreColorClass = "text-red-500";
+
         return (
-          <div className="w-full max-w-3xl mx-auto">
-            <h2 className="text-3xl font-bold text-center mb-2">Quiz Results</h2>
-            <p className="text-center text-muted-foreground mb-6">Topic: {selectedTopicTitle}</p>
-            <div className="text-center bg-muted p-6 rounded-lg mb-8">
-              <p className="text-lg text-muted-foreground">Your Score</p>
-              <p className="text-6xl font-bold text-orange-400 my-2">{scorePercentage}%</p>
-              <p className="text-xl font-semibold">{evaluationResult.total_grade}</p>
+          <div className="w-full max-w-4xl mx-auto">
+            <div className="text-center mb-8">
+              <h2 className="text-3xl font-extrabold text-slate-900 dark:text-white mb-2">Quiz Results</h2>
+              <p className="text-slate-600 dark:text-slate-400">Topic: <span className="font-semibold">{selectedTopicTitle}</span></p>
+            </div>
+
+            <div className="bg-slate-50 dark:bg-slate-800/50 p-8 rounded-2xl border border-slate-200 dark:border-slate-700 mb-8 text-center shadow-inner">
+              <p className="text-lg font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Your Score</p>
+              <p className={`text-7xl font-extrabold ${scoreColorClass} mb-4`}>{scorePercentage}%</p>
+              <div className="inline-block px-4 py-1 rounded-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700">
+                <p className="text-xl font-bold text-slate-800 dark:text-slate-200">Grade: {evaluationResult.total_grade}</p>
+              </div>
             </div>
 
             <div className="space-y-6">
-              {evaluationResult.results.map((res, index) => (
-                <div key={index} className="bg-muted p-4 rounded-md">
-                  <p className="font-semibold text-lg">{index + 1}. {res.question_text}</p>
-                  <p className={`mt-2 p-2 rounded-md text-sm ${res.similarity_score > 0.6 ? 'bg-green-500/20 text-green-700' : 'bg-red-500/20 text-red-700'}`}>
-                    <span className="font-bold">Your Answer: </span>{res.user_answer || <span className="italic">No answer provided</span>}
-                  </p>
-                  <p className="mt-2 p-2 rounded-md text-sm bg-sky-500/20 text-sky-700">
-                    <span className="font-bold">Correct Answer: </span>{res.correct_answer}
-                  </p>
-                  <p className="text-right mt-2 text-sm font-mono text-orange-400">Similarity Score: {(res.similarity_score * 100).toFixed(2)}%</p>
-                </div>
-              ))}
+              {evaluationResult.results.map((res, index) => {
+                const isGoodAnswer = res.similarity_score > 0.6;
+                return (
+                  <div key={index} className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm">
+                    <div className="p-4 bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
+                      <span className="font-bold text-slate-700 dark:text-slate-300">Question {index + 1}</span>
+                      <span className={`text-sm font-mono font-bold px-2 py-1 rounded ${isGoodAnswer ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>
+                        Match: {(res.similarity_score * 100).toFixed(0)}%
+                      </span>
+                    </div>
+                    <div className="p-6 space-y-4">
+                      <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">{res.question_text}</p>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className={`p-4 rounded-lg border ${isGoodAnswer ? 'bg-green-50/50 border-green-100 dark:bg-green-900/10 dark:border-green-900' : 'bg-red-50/50 border-red-100 dark:bg-red-900/10 dark:border-red-900'}`}>
+                          <p className="text-xs font-bold uppercase tracking-wide mb-2 text-slate-500 dark:text-slate-400">Your Answer</p>
+                          <p className="text-slate-800 dark:text-slate-200 text-sm">
+                            {res.user_answer || <span className="italic text-slate-400">No answer provided</span>}
+                          </p>
+                        </div>
+                        
+                        <div className="p-4 rounded-lg bg-blue-50/50 border border-blue-100 dark:bg-blue-900/10 dark:border-blue-900">
+                          <p className="text-xs font-bold uppercase tracking-wide mb-2 text-slate-500 dark:text-slate-400">Correct Answer</p>
+                          <p className="text-slate-800 dark:text-slate-200 text-sm">{res.correct_answer}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-            <div className="mt-8 text-center">
-              <button onClick={handleRestart} className="px-6 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-md font-semibold">
+
+            <div className="mt-10 text-center">
+              <button 
+                onClick={handleRestart} 
+                className="px-8 py-3 bg-slate-800 dark:bg-slate-700 hover:bg-slate-900 dark:hover:bg-slate-600 text-white rounded-lg font-bold shadow-lg transition-all transform hover:-translate-y-0.5"
+              >
                 Take Another Quiz
               </button>
             </div>
@@ -243,13 +363,25 @@ export default function QuizPage() {
   };
 
   return (
-    <main className="min-h-screen bg-background text-foreground p-6">
-      <div className="max-w-6xl mx-auto">
-        <Link href={`/books/${bookId}`} className="inline-flex items-center text-orange-400 hover:text-orange-300 mb-6">
-          <ChevronLeftIcon className="w-5 h-5 mr-2" />
-          Back to Book
-        </Link>
-        <div className="bg-card text-card-foreground rounded-lg shadow-2xl p-8">
+    <main 
+      className="min-h-screen flex flex-col items-center p-4 sm:p-6 text-slate-900 dark:text-slate-100 bg-slate-200 dark:bg-slate-950 transition-colors duration-500"
+      style={{ backgroundImage: 'var(--dot-pattern-url)' }}
+    >
+      <GlobalStyles />
+      
+      <div className="w-full max-w-6xl mx-auto">
+        <div className="mb-6">
+          <Link 
+            href={`/books/${bookId}`} 
+            className="inline-flex items-center text-orange-600 dark:text-orange-400 hover:text-red-600 dark:hover:text-red-500 transition-colors font-medium"
+          >
+            <ChevronLeftIcon className="w-5 h-5 mr-1.5" />
+            Back to Book
+          </Link>
+        </div>
+
+        {/* Applied 'learn-ease-card' wrapper */}
+        <div className="learn-ease-card p-6 sm:p-10 min-h-[600px]">
           {renderContent()}
         </div>
       </div>

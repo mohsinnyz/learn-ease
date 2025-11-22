@@ -1,4 +1,4 @@
-// In frontend/src/app/(auth)/signup/page.tsx
+// frontend/src/app/(auth)/signup/page.tsx
 "use client";
 
 import { useState, FormEvent, useEffect, ChangeEvent } from 'react';
@@ -24,6 +24,66 @@ interface PasswordValidationStatus {
 }
 // --- End Password Requirements Definition ---
 
+// --- Global Styles (Unified Design System) ---
+const GlobalStyles = () => (
+  <style jsx global>{`
+    /* Unified Card Style */
+    .learn-ease-card {
+      background-color: #ffffff; 
+      border-radius: 1rem;
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+      border: 1px solid rgba(226, 232, 240, 1);
+    }
+    html.dark .learn-ease-card {
+      background-color: rgba(30, 41, 59, 0.95);
+      border-color: rgba(51, 65, 85, 0.8);
+    }
+
+    /* Polka Dot Pattern */
+    :root {
+      --dot-pattern-url: url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='1.5' cy='1.5' r='1.5' fill='%2394a3b8' fill-opacity='0.4'/%3E%3C/svg%3E");
+    }
+    html.dark {
+      --dot-pattern-url: url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='1' cy='1' r='1' fill='%23cbd5e1' fill-opacity='0.1'/%3E%3C/svg%3E");
+    }
+
+    /* --- Autofill Variables & Styles --- */
+    :root {
+      --input-bg-light: #ffffff;
+      --input-text-light: #0f172a; 
+      --input-placeholder-light: #94a3b8; 
+      --input-caret-light: #0f172a;
+      --input-bg-dark: rgba(51, 65, 85, 1); 
+      --input-text-dark: #ffffff; 
+      --input-placeholder-dark: #64748b; 
+      --input-caret-dark: #ffffff;
+    }
+    
+    input {
+        background-clip: padding-box !important;
+        transition: background-color 600000s 0s, color 600000s 0s !important;
+    }
+    
+    input:-webkit-autofill,
+    input:-webkit-autofill:hover,
+    input:-webkit-autofill:focus,
+    input:-webkit-autofill:active {
+      -webkit-box-shadow: 0 0 0 100px var(--input-bg-light) inset !important;
+      -webkit-text-fill-color: var(--input-text-light) !important;
+      caret-color: var(--input-caret-light) !important;
+    }
+    
+    html.dark input:-webkit-autofill,
+    html.dark input:-webkit-autofill:hover,
+    html.dark input:-webkit-autofill:focus,
+    html.dark input:-webkit-autofill:active {
+      -webkit-box-shadow: 0 0 0 100px var(--input-bg-dark) inset !important;
+      -webkit-text-fill-color: var(--input-text-dark) !important;
+      caret-color: var(--input-caret-dark) !important;
+    }
+  `}</style>
+);
+
 export default function SignupPage() {
   const router = useRouter();
   const [firstname, setFirstname] = useState('');
@@ -47,9 +107,6 @@ export default function SignupPage() {
   const [isPasswordFocused, setIsPasswordFocused] = useState(false);
   const allRequirementsMet = Object.values(passwordValidation).every(Boolean);
   // --- End State for Password Validation UI ---
-
-  const lightModeDotPatternUrl = "url(\"data:image/svg+xml,%3Csvg width='15' height='15' viewBox='0 0 15 15' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='15' height='15' fill='none'/%3E%3Ccircle cx='7.5' cy='7.5' r='0.8' fill='%23A0AEC0' fill-opacity='0.3'/%3E%3C/svg%3E\")";
-  const darkModeDotPatternUrl = "url(\"data:image/svg+xml,%3Csvg width='15' height='15' viewBox='0 0 15 15' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='15' height='15' fill='none'/%3E%3Ccircle cx='7.5' cy='7.5' r='0.8' fill='%23CBD5E0' fill-opacity='0.1'/%3E%3C/svg%3E\")";
 
   // --- Effect to Validate Password on Change ---
   useEffect(() => {
@@ -122,53 +179,13 @@ export default function SignupPage() {
 
   return (
     <main 
-      className="flex min-h-screen w-full flex-col items-center justify-center bg-slate-100 dark:bg-slate-900 p-4 sm:p-6 transition-colors duration-500"
-      style={{ 
-        backgroundImage: 'var(--dot-pattern-url)',
-      }}
+      className="flex min-h-screen w-full flex-col items-center justify-center bg-slate-200 dark:bg-slate-950 p-4 sm:p-6 transition-colors duration-500"
+      style={{ backgroundImage: 'var(--dot-pattern-url)' }}
     >
-      <style jsx global>{`
-        :root { 
-          --dot-pattern-url: ${lightModeDotPatternUrl}; 
-          --input-bg-light: rgba(255, 255, 255, 0.7); 
-          --input-text-light: #0f172a; 
-          --input-placeholder-light: #94a3b8; 
-          --input-caret-light: #0f172a;
+      <GlobalStyles />
 
-          --input-bg-dark: rgba(51, 65, 85, 0.8); 
-          --input-text-dark: #ffffff; 
-          --input-placeholder-dark: #64748b; 
-          --input-caret-dark: #ffffff;
-        }
-        html.dark { 
-          --dot-pattern-url: ${darkModeDotPatternUrl}; 
-        }
-
-        input {
-          background-clip: padding-box !important;
-          transition: background-color 600000s 0s, color 600000s 0s !important;
-        }
-        
-        input:-webkit-autofill,
-        input:-webkit-autofill:hover,
-        input:-webkit-autofill:focus,
-        input:-webkit-autofill:active {
-          -webkit-box-shadow: 0 0 0 1000px var(--input-bg-light) inset !important;
-          -webkit-text-fill-color: var(--input-text-light) !important;
-          caret-color: var(--input-caret-light) !important;
-        }
-        
-        html.dark input:-webkit-autofill,
-        html.dark input:-webkit-autofill:hover,
-        html.dark input:-webkit-autofill:focus,
-        html.dark input:-webkit-autofill:active {
-          -webkit-box-shadow: 0 0 0 1000px var(--input-bg-dark) inset !important; 
-          -webkit-text-fill-color: var(--input-text-dark) !important;
-          caret-color: var(--input-caret-dark) !important;
-        }
-      `}</style>
-
-      <div className="w-full max-w-lg bg-white/80 dark:bg-slate-800/90 backdrop-blur-sm p-8 sm:p-10 space-y-6 rounded-xl shadow-2xl">
+      {/* Applied 'learn-ease-card' for consistent white/dark background */}
+      <div className="w-full max-w-lg learn-ease-card p-8 sm:p-10 space-y-6">
         <div className="text-center">
           <h1 className="text-4xl sm:text-5xl font-extrabold mb-3 tracking-tight">
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-500 via-red-500 to-red-600">
@@ -183,41 +200,37 @@ export default function SignupPage() {
           </p>
         </div>
         
-        {/* Error message moved from here */}
-
         <form onSubmit={handleSubmit} className="space-y-5">
-          {/* ... (firstname, lastname, email, age, universityName input fields) ... */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-4">
             <div>
               <label htmlFor="firstname" className="block text-sm font-medium text-slate-700 dark:text-slate-300">First Name</label>
-              <input id="firstname" name="firstname" type="text" required className="mt-1 block w-full px-4 py-2.5 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm focus:ring-orange-500 focus:border-orange-500 sm:text-sm bg-white/70 dark:bg-slate-700/80 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500" placeholder="Ada" value={firstname} onChange={(e) => setFirstname(e.target.value)} />
+              <input id="firstname" name="firstname" type="text" required className="mt-1 block w-full px-4 py-2.5 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm focus:ring-orange-500 focus:border-orange-500 sm:text-sm bg-white dark:bg-slate-700 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500" placeholder="Ada" value={firstname} onChange={(e) => setFirstname(e.target.value)} />
             </div>
             <div>
               <label htmlFor="lastname" className="block text-sm font-medium text-slate-700 dark:text-slate-300">Last Name</label>
-              <input id="lastname" name="lastname" type="text" required className="mt-1 block w-full px-4 py-2.5 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm focus:ring-orange-500 focus:border-orange-500 sm:text-sm bg-white/70 dark:bg-slate-700/80 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500" placeholder="Lovelace" value={lastname} onChange={(e) => setLastname(e.target.value)} />
+              <input id="lastname" name="lastname" type="text" required className="mt-1 block w-full px-4 py-2.5 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm focus:ring-orange-500 focus:border-orange-500 sm:text-sm bg-white dark:bg-slate-700 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500" placeholder="Lovelace" value={lastname} onChange={(e) => setLastname(e.target.value)} />
             </div>
           </div>
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-slate-700 dark:text-slate-300">Email address</label>
-            <input id="email" name="email" type="email" autoComplete="email" required className="mt-1 block w-full px-4 py-2.5 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm focus:ring-orange-500 focus:border-orange-500 sm:text-sm bg-white/70 dark:bg-slate-700/80 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} />
+            <input id="email" name="email" type="email" autoComplete="email" required className="mt-1 block w-full px-4 py-2.5 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm focus:ring-orange-500 focus:border-orange-500 sm:text-sm bg-white dark:bg-slate-700 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} />
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-4">
             <div>
               <label htmlFor="age" className="block text-sm font-medium text-slate-700 dark:text-slate-300">Age</label>
-              <input id="age" name="age" type="number" required className="mt-1 block w-full px-4 py-2.5 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm focus:ring-orange-500 focus:border-orange-500 sm:text-sm bg-white/70 dark:bg-slate-700/80 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500" value={age} onChange={handleAgeChange} placeholder="e.g., 18" />
+              <input id="age" name="age" type="number" required className="mt-1 block w-full px-4 py-2.5 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm focus:ring-orange-500 focus:border-orange-500 sm:text-sm bg-white dark:bg-slate-700 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500" value={age} onChange={handleAgeChange} placeholder="e.g., 18" />
             </div>
             <div>
               <label htmlFor="universityName" className="block text-sm font-medium text-slate-700 dark:text-slate-300">University Name</label>
-              <input id="universityName" name="universityName" type="text" required className="mt-1 block w-full px-4 py-2.5 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm focus:ring-orange-500 focus:border-orange-500 sm:text-sm bg-white/70 dark:bg-slate-700/80 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500" placeholder="Tech University" value={universityName} onChange={(e) => setUniversityName(e.target.value)} />
+              <input id="universityName" name="universityName" type="text" required className="mt-1 block w-full px-4 py-2.5 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm focus:ring-orange-500 focus:border-orange-500 sm:text-sm bg-white dark:bg-slate-700 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500" placeholder="Tech University" value={universityName} onChange={(e) => setUniversityName(e.target.value)} />
             </div>
           </div>
           
           {/* Password Field */}
           <div>
-            {/* ... Password input and requirements display ... */}
             <label htmlFor="password" className="block text-sm font-medium text-slate-700 dark:text-slate-300">Password</label>
             <div className="relative mt-1"> 
-              <input id="password" name="password" type="password" autoComplete="new-password" required className="block w-full px-4 py-2.5 pr-10 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm focus:ring-orange-500 focus:border-orange-500 sm:text-sm bg-white/70 dark:bg-slate-700/80 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} onFocus={() => setIsPasswordFocused(true)} />
+              <input id="password" name="password" type="password" autoComplete="new-password" required className="block w-full px-4 py-2.5 pr-10 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm focus:ring-orange-500 focus:border-orange-500 sm:text-sm bg-white dark:bg-slate-700 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} onFocus={() => setIsPasswordFocused(true)} />
               {password.length > 0 && allRequirementsMet && ( <span className="absolute inset-y-0 right-0 pr-3 flex items-center text-green-500 dark:text-green-400 pointer-events-none"> <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"> <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /> </svg> </span> )}
             </div>
           </div>
@@ -233,15 +246,13 @@ export default function SignupPage() {
 
           {/* Confirm Password Field */}
           <div>
-            {/* ... Confirm password input and match indicator ... */}
             <label htmlFor="confirmPassword" className="block text-sm font-medium text-slate-700 dark:text-slate-300">Confirm Password</label>
             <div className="relative mt-1"> 
-              <input id="confirmPassword" name="confirmPassword" type="password" autoComplete="new-password" required className="mt-1 block w-full px-4 py-2.5 pr-10 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm focus:ring-orange-500 focus:border-orange-500 sm:text-sm bg-white/70 dark:bg-slate-700/80 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500" placeholder="••••••••" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} />
+              <input id="confirmPassword" name="confirmPassword" type="password" autoComplete="new-password" required className="mt-1 block w-full px-4 py-2.5 pr-10 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm focus:ring-orange-500 focus:border-orange-500 sm:text-sm bg-white dark:bg-slate-700 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500" placeholder="••••••••" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} />
               {confirmPassword.length > 0 && password.length > 0 && ( <span className={`absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none ${password === confirmPassword ? 'text-green-500 dark:text-green-400' : 'text-red-500 dark:text-red-400'}`}> {password === confirmPassword ? ( <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"> <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /> </svg> ) : ( <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"> <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clipRule="evenodd" /> </svg> )} </span> )}
             </div>
           </div>
           
-          {/* Error message moved here, above the signup button */}
           {error && (
             <div className="p-3 text-sm text-red-700 bg-red-100 dark:bg-red-900 dark:text-red-200 rounded-md border border-red-300 dark:border-red-700">
               {error}
