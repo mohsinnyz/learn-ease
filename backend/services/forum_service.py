@@ -148,6 +148,30 @@ async def get_threads_for_group(db: AsyncIOMotorDatabase, group_id: PyObjectId, 
         
     return populated_threads
 
+async def delete_thread(db: AsyncIOMotorDatabase, thread_id: PyObjectId, user_id: PyObjectId) -> bool:
+    """
+    Deletes a thread and all associated posts (replies).
+    Only the author can delete their thread.
+    """
+    # 1. Fetch thread
+    thread_doc = await db[FORUM_THREADS_COLLECTION].find_one({"_id": thread_id})
+    if not thread_doc:
+        raise HTTPException(status_code=404, detail="Thread not found")
+    
+    thread = ForumThreadInDB(**thread_doc)
+
+    # 2. Authorization
+    if thread.author_id != user_id:
+        raise HTTPException(status_code=403, detail="You do not have permission to delete this thread")
+
+    # 3. Cascade Delete: Remove all posts in this thread first
+    await db[FORUM_POSTS_COLLECTION].delete_many({"thread_id": thread_id})
+
+    # 4. Delete the thread itself
+    result = await db[FORUM_THREADS_COLLECTION].delete_one({"_id": thread_id})
+    
+    return result.deleted_count == 1
+
 # --- Post Service Functions ---
 
 async def create_post(db: AsyncIOMotorDatabase, post_create: ForumPostCreate, user_id: PyObjectId) -> ForumPostPublic:

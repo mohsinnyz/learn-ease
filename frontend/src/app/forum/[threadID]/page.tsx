@@ -170,7 +170,12 @@ export default function ThreadDetailPage() {
         {/* 1. Main Question (Unified Card) */}
         <section className="mb-8 animate-fadeIn">
           <div className="relative z-10">
-             <ForumThreadCard thread={thread} isDetailView={true} />
+              {/* MODIFIED: Added currentUserId prop here */}
+             <ForumThreadCard 
+                thread={thread} 
+                isDetailView={true} 
+                currentUserId={user?.id}
+             />
           </div>
         </section>
 
