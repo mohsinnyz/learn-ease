@@ -1,4 +1,4 @@
-//C:\Users\mohsi\Projects\learn-ease-fyp\frontend\src\app\progress\[bookID]\page.tsx
+// frontend/src/app/progress/[bookID]/page.tsx
 "use client";
 
 import { useEffect, useState } from "react";
@@ -38,8 +38,8 @@ const GlobalStyles = () => (
     
     /* Darker Polka Dots */
     :root {
-      /* Darker grey dots (94a3b8) with higher opacity for the slate-200 background */
-      --dot-pattern-url: url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='1.5' cy='1.5' r='1.5' fill='%2394a3b8' fill-opacity='0.4'/%3E%3C/svg%3E");
+      /* UPDATED: fill-opacity='0.3' */
+      --dot-pattern-url: url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='1.5' cy='1.5' r='1.5' fill='%2394a3b8' fill-opacity='0.3'/%3E%3C/svg%3E");
     }
     html.dark {
       --dot-pattern-url: url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='1' cy='1' r='1' fill='%23cbd5e1' fill-opacity='0.1'/%3E%3C/svg%3E");
@@ -117,7 +117,7 @@ export default function PerBookProgressPage() {
                    We wrap it in 'learn-ease-card' here to enforce consistency 
                    if the component itself doesn't have the shadow/height styles perfect.
                    (Assuming you removed the outer wrapper in the component file as requested previously, 
-                    or we can just let it live inside this wrapper for safety).
+                   or we can just let it live inside this wrapper for safety).
                 */}
                  <div className="learn-ease-card">
                     <TopicCompletionList bookId={bookId} />
@@ -136,9 +136,9 @@ export default function PerBookProgressPage() {
   };
 
   return (
-    // Updated background to slate-200 for darker look
+    // UPDATED: bg-slate-200/50
     <div
-      className="h-screen w-full overflow-hidden flex flex-col text-slate-900 dark:text-slate-100 bg-slate-200 dark:bg-slate-950 transition-colors duration-500"
+      className="h-screen w-full overflow-hidden flex flex-col text-slate-900 dark:text-slate-100 bg-slate-200/50 dark:bg-slate-950 transition-colors duration-500"
       style={{ backgroundImage: "var(--dot-pattern-url)" }}
     >
       <GlobalStyles />

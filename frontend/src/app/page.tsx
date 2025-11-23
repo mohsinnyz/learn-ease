@@ -40,7 +40,8 @@ export default function HomePage() {
 
   return (
     <main 
-      className="flex min-h-screen flex-col items-center justify-center bg-slate-200 dark:bg-slate-950 p-6 sm:p-12 lg:p-24 transition-colors duration-500 text-slate-900 dark:text-slate-100"
+      // UPDATED: bg-slate-200/30 is the sweet spot (not too bright like 100, not too dark like 200)
+      className="flex min-h-screen flex-col items-center justify-center bg-slate-200/50 dark:bg-slate-900 p-6 sm:p-12 lg:p-24 transition-colors duration-500 text-slate-900 dark:text-slate-100"
       style={{ 
         backgroundImage: 'var(--dot-pattern-url)', 
       }}

@@ -669,3 +669,69 @@ async def get_topics_for_book(
         )
         for topic_doc in db_topics
     ]
+
+# --- NEW SEARCH FUNCTION ---
+
+async def search_book_pdf(
+    db: AsyncIOMotorDatabase,
+    book_id_str: str,
+    query: str,
+    user_id: PyObjectId
+) -> List[dict]:
+    """
+    Searches the PDF content of a book for a specific query string.
+    Returns a list of dictionaries containing page number and a snippet of text.
+    """
+    # 1. Get PDF path (security check included inside get_book_pdf_filepath)
+    pdf_path = await get_book_pdf_filepath(db, book_id_str, user_id)
+    if not pdf_path:
+        return []
+
+    results = []
+    query_lower = query.lower()
+
+    try:
+        doc = fitz.open(pdf_path)
+        
+        # Iterate through all pages
+        for page_num, page in enumerate(doc):
+            text = page.get_text()
+            if not text: continue
+
+            text_lower = text.lower()
+            start_idx = 0
+            
+            # Find all occurrences on this page
+            while True:
+                idx = text_lower.find(query_lower, start_idx)
+                if idx == -1:
+                    break
+
+                # Extract snippet (e.g., 40 chars before and after)
+                snippet_start = max(0, idx - 40)
+                snippet_end = min(len(text), idx + len(query) + 40)
+                
+                raw_snippet = text[snippet_start:snippet_end].replace('\n', ' ').strip()
+                
+                # Add ellipsis if truncated
+                formatted_snippet = "..." + raw_snippet + "..."
+
+                results.append({
+                    "page_number": page_num + 1,
+                    "snippet": formatted_snippet
+                })
+
+                # Safety limit: Stop if we found too many results (e.g., 50)
+                if len(results) >= 50:
+                     doc.close()
+                     return results
+
+                # Move past this match to find the next one
+                start_idx = idx + len(query)
+
+        doc.close()
+    except Exception as e:
+        print(f"Error searching PDF for book {book_id_str}: {e}")
+        # We return whatever results we found so far, or empty list
+        
+    return results

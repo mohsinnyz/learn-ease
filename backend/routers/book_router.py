@@ -1,6 +1,6 @@
 # backend/routers/book_router.py
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status, Path, Form, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status, Path, Form, BackgroundTasks, Query
 from fastapi.responses import FileResponse
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from typing import List, Annotated, Optional
@@ -197,25 +197,14 @@ async def api_get_glossary_for_page(
     return terms
 
 
-# --- (REMOVED) ---
-# The old `http_get_book_text` (`GET /{book_id}/text`) endpoint was here.
-# It has been removed as it's no longer needed by the new topic system.
-
-
-# --- (REMOVED) ---
-# The old `TopicContentRequest` and `http_get_topic_content` 
-# (`POST /{book_id}/topic-content`) endpoint was here.
-# It has been removed and replaced by the /ai/generate-study-notes/topic endpoint.
-
-
 # --- (MODIFIED) ---
 # This endpoint now fetches pre-processed topics from the database.
 @router.get(
     "/{book_id}/topics",
-    response_model=List[BookTopicPublic], # <<< CHANGED response model
+    response_model=List[BookTopicPublic], 
     summary="Get saved topic titles for a book"
 )
-async def http_get_book_topics( # <<< RENAMED function
+async def http_get_book_topics( 
     book_id: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
     current_user: UserInDB = Depends(get_current_user),
@@ -228,7 +217,6 @@ async def http_get_book_topics( # <<< RENAMED function
         if not current_user.id:
                 raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User not authenticated")
 
-        # <<< REPLACED all logic with a single service call >>>
         topics = await book_service.get_topics_for_book(
             db=db, book_id_str=book_id, user_id=current_user.id
         )
@@ -239,8 +227,32 @@ async def http_get_book_topics( # <<< RENAMED function
         return topics
         
     except HTTPException as he:
-        # This will catch the 404 from get_topics_for_book if the book isn't found
         raise he
     except Exception as e:
         print(f"ERROR: Failed to get topics for book {book_id}: {e}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to retrieve topics from the database.")
+
+# --- NEW SEARCH ENDPOINT ---
+
+class BookSearchResult(BaseModel):
+    page_number: int
+    snippet: str
+
+@router.get("/{book_id}/search", response_model=List[BookSearchResult])
+async def api_search_book_content(
+    book_id: Annotated[str, Path(description="The ID of the book")],
+    query: Annotated[str, Query(min_length=1, description="Text to search for")],
+    current_user: Annotated[UserInDB, Depends(get_current_user)],
+    db: Annotated[AsyncIOMotorDatabase, Depends(get_database)],
+):
+    """
+    Searches for text within the book PDF and returns matching pages with snippets.
+    """
+    # Ensure the service function 'search_book_pdf' exists in book_service.py
+    results = await book_service.search_book_pdf(
+        db=db, 
+        book_id_str=book_id, 
+        query=query, 
+        user_id=current_user.id
+    )
+    return results

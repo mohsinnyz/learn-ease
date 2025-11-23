@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { 
   PieChart, 
   Pie, 
@@ -18,23 +18,37 @@ import {
 const COLORS = ['#22c55e', '#3b82f6', '#eab308', '#f97316', '#ef4444'];
 
 // Custom Tooltip
-const CustomTooltip = ({ active, payload }: any) => {
+// We now accept 'total' as a prop to calculate percentage manually
+const CustomTooltip = ({ active, payload, total }: any) => {
   if (active && payload && payload.length) {
     const data = payload[0];
+    const value = data.value;
+    
+    // Manual percentage calculation (Safe & Reliable)
+    const percent = total > 0 ? ((value / total) * 100).toFixed(0) : 0;
+
     return (
       <div className="bg-white dark:bg-slate-800 p-3 border border-slate-200 dark:border-slate-700 shadow-xl rounded-lg backdrop-blur-sm bg-opacity-95 z-50">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 mb-2">
           <div 
-            className="w-3 h-3 rounded-full" 
+            className="w-3 h-3 rounded-full shadow-sm" 
             style={{ backgroundColor: data.payload.fill }} 
           />
           <p className="font-bold text-slate-800 dark:text-slate-200 text-sm">
             {data.name}
           </p>
         </div>
-        <p className="text-slate-600 dark:text-slate-300 font-medium text-xs mt-1 pl-5">
-          Count: <span className="font-bold text-slate-900 dark:text-white">{data.value}</span>
-        </p>
+        
+        <div className="pl-5 space-y-1">
+            <p className="text-slate-600 dark:text-slate-300 font-medium text-xs flex justify-between gap-4">
+            <span>Count:</span>
+            <span className="font-bold text-slate-900 dark:text-white">{value}</span>
+            </p>
+            <p className="text-slate-600 dark:text-slate-300 font-medium text-xs flex justify-between gap-4">
+            <span>Share:</span>
+            <span className="font-bold text-slate-900 dark:text-white">{percent}%</span>
+            </p>
+        </div>
       </div>
     );
   }
@@ -67,6 +81,11 @@ const ProgressGradePieChart = () => {
 
     loadChartData();
   }, []);
+
+  // Calculate total count to pass to tooltip
+  const totalCount = useMemo(() => {
+    return data.reduce((acc, curr) => acc + curr.value, 0);
+  }, [data]);
 
   if (isLoading) {
     return <div className="flex h-full items-center justify-center text-slate-400 text-xs animate-pulse">Loading Chart...</div>;
@@ -109,13 +128,7 @@ const ProgressGradePieChart = () => {
               dataKey="value"
               nameKey="name"
               labelLine={false}
-              // FIX: Explicitly typed 'entry' as 'any' to avoid 'unknown' error on 'entry.percent'
-              label={(entry: any) => {
-                  if (entry.percent > 0.05) {
-                      return `${(entry.percent * 100).toFixed(0)}%`;
-                  }
-                  return '';
-              }}
+              label={false}
             >
               {data.map((entry, index) => (
                 <Cell 
@@ -125,7 +138,8 @@ const ProgressGradePieChart = () => {
                 />
               ))}
             </Pie>
-            <Tooltip content={<CustomTooltip />} />
+            {/* Pass the totalCount explicitly to the CustomTooltip */}
+            <Tooltip content={<CustomTooltip total={totalCount} />} />
             <Legend
               layout="vertical"
               align="right"

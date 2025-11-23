@@ -33,7 +33,8 @@ const GlobalStyles = () => (
 
     /* Polka Dot Pattern */
     :root {
-      --dot-pattern-url: url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='1.5' cy='1.5' r='1.5' fill='%2394a3b8' fill-opacity='0.4'/%3E%3C/svg%3E");
+      /* UPDATED: fill-opacity='0.3' */
+      --dot-pattern-url: url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='1.5' cy='1.5' r='1.5' fill='%2394a3b8' fill-opacity='0.3'/%3E%3C/svg%3E");
     }
     html.dark {
       --dot-pattern-url: url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='1' cy='1' r='1' fill='%23cbd5e1' fill-opacity='0.1'/%3E%3C/svg%3E");
@@ -90,7 +91,8 @@ export default function MessagesPage() {
   if (!isClient) {
     return (
       <div 
-        className="flex min-h-screen flex-col items-center justify-center bg-slate-200 dark:bg-slate-950 transition-colors duration-500"
+        // UPDATED: bg-slate-200/50
+        className="flex min-h-screen flex-col items-center justify-center bg-slate-200/50 dark:bg-slate-950 transition-colors duration-500"
         style={{ backgroundImage: "var(--dot-pattern-url)" }}
       >
         <GlobalStyles />
@@ -103,7 +105,8 @@ export default function MessagesPage() {
     <>
       <GlobalStyles />
       <div 
-        className="flex h-screen w-screen overflow-hidden bg-slate-200 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-500"
+        // UPDATED: bg-slate-200/50
+        className="flex h-screen w-screen overflow-hidden bg-slate-200/50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-500"
         style={{ backgroundImage: "var(--dot-pattern-url)" }}
       >
         {/* --- 1. Left Panel (Inbox) --- */}

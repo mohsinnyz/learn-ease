@@ -75,7 +75,7 @@ export const StudyNotesPanel: React.FC<StudyNotesPanelProps> = ({ bookId, genera
               Select a topic from the book's Table of Contents to generate notes.
           </p>
           {/* Added scrollbar-hide class here */}
-          <div className="max-h-[40vh] overflow-y-auto space-y-2 pr-2 scrollbar-hide">
+          <div className="max-h-[25vh] overflow-y-auto space-y-2 pr-2 scrollbar-hide">
               {bookTopics.map((topic) => (
                   <button
                       key={topic.id}

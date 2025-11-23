@@ -108,7 +108,7 @@ export const QnAModal = ({
     doc.save(`${filename}.pdf`);
   };
 
-  const title = error
+  const titleText = error
     ? "Q&A Generation Error"
     : isGenerating
     ? "Generating Q&A..."
@@ -118,7 +118,17 @@ export const QnAModal = ({
 
   return (
     // 1. Match Width: Uses max-w-4xl to match Study Notes
-    <Modal isOpen={isOpen} onClose={onClose} title={title} maxWidth="max-w-4xl">
+    <Modal 
+      isOpen={isOpen} 
+      onClose={onClose} 
+      /* Passing the styled node as title ensures consistent Orange Gradient Heading */
+      title={
+        <span className="text-2xl font-bold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-red-500">
+          {titleText}
+        </span> as any
+      }
+      maxWidth="max-w-4xl"
+    >
        {/* CSS to hide scrollbar but allow scrolling */}
        <style>{`
         .scrollbar-hide::-webkit-scrollbar {
@@ -164,9 +174,9 @@ export const QnAModal = ({
               </div>
 
               <div className="pl-11">
-                 <div className="text-slate-700 dark:text-slate-300 leading-relaxed text-base whitespace-pre-wrap border-l-2 border-slate-200 dark:border-slate-600 pl-4 py-1">
+                  <div className="text-slate-700 dark:text-slate-300 leading-relaxed text-base whitespace-pre-wrap border-l-2 border-slate-200 dark:border-slate-600 pl-4 py-1">
                     {pair.answer}
-                 </div>
+                  </div>
               </div>
             </div>
           ))}

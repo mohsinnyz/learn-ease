@@ -39,13 +39,15 @@ import { BookMentorChat } from "@/components/BookMentorChat";
 import { StudyNotesPanel } from "@/components/StudyNotesPanel";
 
 // --- Icons & Child Components ---
-// (Assuming these paths are correct based on your imports)
 import {
   ChevronLeftIcon,
   SpinnerIcon,
   BookOpenHeroIcon,
   BeakerIcon,
   ChatBubbleOvalLeftEllipsisIcon,
+  MagnifyingGlassIcon,
+  PlusIcon,
+  MinusIcon,
 } from "@/components/book/Icons";
 import { ContextMenu } from "@/components/book/ContextMenu";
 import { SummaryModal } from "@/components/book/SummaryModal";
@@ -61,11 +63,20 @@ if (typeof window !== "undefined") {
 // --- Global Styles (Unified Design) ---
 const GlobalStyles = () => (
   <style jsx global>{`
-    /* Unified Card Style: Opaque White/Slate */
+    /* Hide Scrollbar but keep functionality */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+
+    /* Unified Card Style */
     .learn-ease-card {
       background-color: #ffffff; 
-      border-radius: 0.75rem; /* rounded-xl */
-      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+      border-radius: 0.75rem; 
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
       border: 1px solid rgba(226, 232, 240, 1);
       transition: box-shadow 0.3s ease-out, transform 0.3s ease-out;
     }
@@ -76,16 +87,17 @@ const GlobalStyles = () => (
 
     /* Polka Dot Pattern */
     :root {
-      --dot-pattern-url: url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='1.5' cy='1.5' r='1.5' fill='%2394a3b8' fill-opacity='0.4'/%3E%3C/svg%3E");
+      /* UPDATED: fill-opacity='0.3' */
+      --dot-pattern-url: url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='1.5' cy='1.5' r='1.5' fill='%2394a3b8' fill-opacity='0.3'/%3E%3C/svg%3E");
     }
     html.dark {
       --dot-pattern-url: url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='1' cy='1' r='1' fill='%23cbd5e1' fill-opacity='0.1'/%3E%3C/svg%3E");
     }
 
-    /* PDF Canvas Tweaks */
+    /* PDF Canvas Tweaks - No margin/shadow inside the canvas itself now, controlled by container */
     .react-pdf__Page__canvas {
         margin: 0 auto;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        display: block;
     }
   `}</style>
 );
@@ -102,6 +114,10 @@ export default function BookViewPage() {
   const observerRef = useRef<IntersectionObserver | null>(null);
   const pageRefs = useRef<Map<number, HTMLDivElement>>(new Map());
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  // --- Zoom & Search State ---
+  const [scale, setScale] = useState<number>(1.0);
+  const [searchQuery, setSearchQuery] = useState("");
 
   // --- Feature States ---
   const [contextMenu, setContextMenu] = useState({
@@ -216,7 +232,23 @@ export default function BookViewPage() {
     };
   }, [pdfFileUrl]);
 
-  // --- Handlers ---
+  // --- Zoom Handlers ---
+  const handleZoomIn = () => setScale((prev) => Math.min(prev + 0.1, 2.5));
+  const handleZoomOut = () => setScale((prev) => Math.max(prev - 0.1, 0.5));
+  
+  // Trackpad pinch-to-zoom simulation using Ctrl+Wheel
+  const handleWheel = useCallback((e: React.WheelEvent) => {
+    if (e.ctrlKey) {
+      e.preventDefault();
+      if (e.deltaY < 0) {
+        setScale((prev) => Math.min(prev + 0.05, 2.5));
+      } else {
+        setScale((prev) => Math.max(prev - 0.05, 0.5));
+      }
+    }
+  }, []);
+
+  // --- Action Handlers ---
   const handleRequestSummary = async (textToSummarize: string) => {
     if (!textToSummarize) {
       setSummarizeError("No text selected to summarize.");
@@ -391,28 +423,35 @@ export default function BookViewPage() {
     []
   );
 
-  const calculatedPageWidth = Math.min(
-    typeof window !== "undefined" ? window.innerWidth * 0.92 : 800,
-    800
-  );
-  const pagePlaceholderHeight = calculatedPageWidth * 1.41;
+  // --- Page Width Calculation ---
+  // Reduced base width so initially it is zoomed out (approx 3.5/4 page visibility vertical)
+  const calculatedPageWidth = useMemo(() => {
+    if (typeof window === "undefined") return 800;
+    const sidebarsAndGaps = 750; 
+    const availableWidth = window.innerWidth - sidebarsAndGaps;
+    // Reduce initial width factor to make it "zoomed out" by default
+    return Math.min(Math.max(availableWidth * 0.85, 400), 800);
+  }, []);
+  
+  const pagePlaceholderHeight = calculatedPageWidth * scale * 1.41;
 
   const pageLoadingIndicator = useMemo(
     () => (
       <div
-        style={{ width: calculatedPageWidth, height: pagePlaceholderHeight }}
+        style={{ width: calculatedPageWidth * scale, height: pagePlaceholderHeight }}
         className="flex items-center justify-center bg-slate-200/70 dark:bg-slate-700/70 text-slate-500 dark:text-slate-400 rounded-md animate-pulse"
       >
         Loading page...
       </div>
     ),
-    [calculatedPageWidth, pagePlaceholderHeight]
+    [calculatedPageWidth, scale, pagePlaceholderHeight]
   );
 
   if (isDetailsLoading)
     return (
       <div
-        className="flex min-h-screen flex-col items-center justify-center bg-slate-200 dark:bg-slate-950 transition-colors duration-500"
+        // UPDATED: bg-slate-200/50
+        className="flex min-h-screen flex-col items-center justify-center bg-slate-200/50 dark:bg-slate-950 transition-colors duration-500"
         style={{
           backgroundImage: 'var(--dot-pattern-url)',
         }}
@@ -428,7 +467,8 @@ export default function BookViewPage() {
   if (error || (!bookDetails && !isDetailsLoading) || !pdfFileUrl)
     return (
       <div
-        className="flex min-h-screen flex-col items-center justify-center bg-slate-200 dark:bg-slate-950 transition-colors duration-500 p-6"
+        // UPDATED: bg-slate-200/50
+        className="flex min-h-screen flex-col items-center justify-center bg-slate-200/50 dark:bg-slate-950 transition-colors duration-500 p-6"
         style={{
           backgroundImage: 'var(--dot-pattern-url)',
         }}
@@ -448,19 +488,20 @@ export default function BookViewPage() {
 
   return (
     <div
-      className="min-h-screen bg-slate-200 dark:bg-slate-950 flex flex-col items-center p-3 sm:p-4 lg:p-6"
+      // UPDATED: bg-slate-200/50
+      className="min-h-screen bg-slate-200/50 dark:bg-slate-950 flex flex-col items-center p-2"
       onClick={closeContextMenu}
       style={{
         backgroundImage: 'var(--dot-pattern-url)',
       }}
     >
       <GlobalStyles />
-      <div className="w-full max-w-full mx-auto flex flex-row gap-6 px-6">
+      
+      <div className="w-full max-w-full mx-auto flex flex-row gap-3 px-2">
         
-        {/* --- COLUMN 1: GLOSSARY, QUIZ, NOTES (Left) --- */}
-        <aside className="w-72 min-w-[18rem] max-w-xs h-fit sticky top-6 self-start space-y-6">
+        {/* --- COLUMN 1: LEFT SIDEBAR --- */}
+        <aside className="w-72 min-w-[18rem] max-w-xs h-fit sticky top-4 self-start space-y-3">
           {bookDetails?.status === "processing" ? (
-            // Applied 'learn-ease-card'
             <div className="learn-ease-card p-4 text-center">
               <SpinnerIcon className="w-8 h-8 text-orange-500 mx-auto mb-3" />
               <p className="text-sm text-slate-600 dark:text-slate-400">
@@ -471,7 +512,7 @@ export default function BookViewPage() {
             </div>
           ) : bookDetails?.status === "ready" ? (
             <>
-              {/* Glossary Panel - Applied 'learn-ease-card' */}
+              {/* Glossary Panel */}
               <div className="learn-ease-card p-4">
                 <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200 mb-3 pb-3 border-b border-slate-300 dark:border-slate-700 flex items-center gap-2">
                   <BookOpenHeroIcon className="w-6 h-6 text-orange-500" />
@@ -482,7 +523,7 @@ export default function BookViewPage() {
                     Page {currentPageInView}
                   </span>
                 </h3>
-                <div className="max-h-[25vh] overflow-y-auto pr-2">
+                <div className="max-h-[25vh] overflow-y-auto pr-2 no-scrollbar">
                   {isGlossaryLoading && (
                     <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300 text-sm">
                       <SpinnerIcon className="w-5 h-5 text-orange-500" />
@@ -523,7 +564,7 @@ export default function BookViewPage() {
                 </div>
               </div>
 
-              {/* Quiz Panel - Applied 'learn-ease-card' */}
+              {/* Quiz Panel */}
               <div className="learn-ease-card p-4">
                 <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200 mb-3 pb-3 border-b border-slate-300 dark:border-slate-700 flex items-center gap-2">
                   <BeakerIcon className="w-6 h-6 text-orange-500" />
@@ -543,8 +584,6 @@ export default function BookViewPage() {
                 </Link>
               </div>
 
-              {/* Study Notes Panel - Note: You may need to ensure this component internally uses 'learn-ease-card' or wrap it here */}
-              {/* If StudyNotesPanel is already refactored, this is fine. If not, wrapping it might be needed. */}
               <StudyNotesPanel
                 bookId={bookId}
                 generatingTopicId={generatingTopicId}
@@ -555,25 +594,71 @@ export default function BookViewPage() {
         </aside>
 
         {/* --- COLUMN 2: BOOK VIEWER (Center) --- */}
-        <div className="flex-1 min-w-0">
-          <div className="mb-4">
-            <Link
-              href="/dashboard"
-              className="inline-flex items-center text-orange-600 dark:text-orange-400 hover:text-red-600 dark:hover:text-red-500 transition-colors group text-sm font-medium"
-            >
-              <ChevronLeftIcon className="w-5 h-5 mr-1 transition-transform group-hover:-translate-x-0.5" />
-              Back to Dashboard
-            </Link>
-            <h1
-              className="text-3xl font-bold text-slate-800 dark:text-slate-100 mt-2 truncate"
-              title={bookDetails?.title || "Book Title"} 
-            >
-              {bookDetails?.title || "Loading..."}
-            </h1>
+        <div className="flex-1 min-w-0 flex flex-col h-[calc(100vh-1rem)]">
+          
+          {/* Header Row: Back Btn, Title, ZOOM Controls, Search */}
+          <div className="mb-2 flex items-center justify-between">
+            <div className="flex items-center gap-3 overflow-hidden">
+              <Link
+                href="/dashboard"
+                className="inline-flex items-center text-orange-600 dark:text-orange-400 hover:text-red-600 dark:hover:text-red-500 transition-colors group text-sm font-medium whitespace-nowrap"
+              >
+                <ChevronLeftIcon className="w-5 h-5 mr-1 transition-transform group-hover:-translate-x-0.5" />
+                Back to Dashboard
+              </Link>
+              
+              <span className="text-slate-300 dark:text-slate-700 text-xl font-light">|</span>
+              
+              <h1
+                className="text-xl font-bold text-slate-800 dark:text-slate-100 truncate max-w-md"
+                title={bookDetails?.title || "Book Title"} 
+              >
+                {bookDetails?.title || "Loading..."}
+              </h1>
+            </div>
+
+            {/* CONTROLS: Search & Zoom */}
+            <div className="flex items-center gap-2">
+               {/* Search Input */}
+               <div className="relative group">
+                  <MagnifyingGlassIcon className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-orange-500 transition-colors" />
+                  <input 
+                    type="text" 
+                    placeholder="Search..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-8 pr-3 py-1 text-sm bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-full focus:outline-none focus:ring-2 focus:ring-orange-500 w-32 focus:w-48 transition-all placeholder-slate-400 text-slate-700 dark:text-slate-200"
+                  />
+               </div>
+
+               {/* Zoom Buttons */}
+               <div className="flex items-center bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-md overflow-hidden">
+                 <button 
+                   onClick={handleZoomOut}
+                   className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors border-r border-slate-300 dark:border-slate-700"
+                   title="Zoom Out"
+                 >
+                   <MinusIcon className="w-4 h-4" />
+                 </button>
+                 <span className="px-2 text-xs text-slate-500 dark:text-slate-400 min-w-[3rem] text-center font-mono">
+                   {Math.round(scale * 100)}%
+                 </span>
+                 <button 
+                   onClick={handleZoomIn}
+                   className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors"
+                   title="Zoom In"
+                 >
+                   <PlusIcon className="w-4 h-4" />
+                 </button>
+               </div>
+            </div>
           </div>
+
+          {/* PDF Container */}
           <div
             ref={scrollContainerRef}
-            className="rounded-lg shadow-xl overflow-y-auto max-h-[calc(100vh-10rem)] border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50" // Added explicit bg to pdf container
+            onWheel={handleWheel}
+            className="flex-1 rounded-lg shadow-xl overflow-y-auto overflow-x-hidden border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 no-scrollbar p-0"
             onContextMenu={handleContextMenuAction}
             onClick={(e) => e.stopPropagation()}
           >
@@ -604,14 +689,16 @@ export default function BookViewPage() {
                   }}
                   data-page-number={index + 1}
                 >
+                  {/* CHANGED: Removed vertical padding completely (py-0) */}
                   <div
                     key={`page_wrapper_${index + 1}`}
-                    className="flex justify-center py-1.5 my-0.5"
+                    className="flex justify-center py-0 my-1"
                   >
                     <Page
                       key={`page_${index + 1}`}
                       pageNumber={index + 1}
                       width={calculatedPageWidth}
+                      scale={scale}
                       renderTextLayer={true}
                       renderAnnotationLayer={true}
                       className="react-pdf__Page__canvas"
@@ -624,10 +711,9 @@ export default function BookViewPage() {
           </div>
         </div>
 
-        {/* --- COLUMN 3: QUIZ & AI MENTOR (Right) --- */}
-        <aside className="w-96 min-w-[22rem] max-w-sm h-fit sticky top-6 self-start space-y-6">
+        {/* --- COLUMN 3: RIGHT SIDEBAR --- */}
+        <aside className="w-96 min-w-[22rem] max-w-sm h-fit sticky top-4 self-start space-y-3">
           {bookDetails?.status === "processing" ? (
-            // Applied 'learn-ease-card'
             <div className="learn-ease-card p-4 text-center">
               <SpinnerIcon className="w-8 h-8 text-orange-500 mx-auto mb-3" />
               <p className="text-sm text-slate-600 dark:text-slate-400">
@@ -637,8 +723,6 @@ export default function BookViewPage() {
               </p>
             </div>
           ) : bookDetails?.status === "ready" ? (
-            // Note: BookMentorChat will need its internal container to use 'learn-ease-card' if it doesn't already. 
-            // Or wrap it here:
             <div className="h-full">
                 <BookMentorChat
                     bookId={bookId}
@@ -649,7 +733,7 @@ export default function BookViewPage() {
         </aside>
       </div>
 
-      {/* --- Overlays (Context Menu and Modals) --- */}
+      {/* --- Overlays --- */}
       <ContextMenu
         visible={contextMenu.visible}
         x={contextMenu.x}
@@ -700,16 +784,6 @@ export default function BookViewPage() {
         qnaPairs={qnaPairs}
         error={qnaError}
       />
-
-      <footer className="w-full max-w-5xl mx-auto mt-8 pt-6 border-t border-slate-300/70 dark:border-slate-700/70 text-center">
-        <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center justify-center">
-          <BookOpenHeroIcon className="w-4 h-4 mr-1.5 opacity-70" />
-          <span className="ml-1">You are on the Book Viewer page.</span>
-        </p>
-        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-          &copy; {new Date().getFullYear()} Learn-Ease. All rights reserved.
-        </p>
-      </footer>
     </div>
   );
 }

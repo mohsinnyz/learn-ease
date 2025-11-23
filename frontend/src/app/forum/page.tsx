@@ -15,7 +15,8 @@ const SearchIcon = () => ( <svg xmlns="http://www.w3.org/2000/svg" fill="none" v
 const ArrowLeftIcon = () => ( <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4 mr-1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" /></svg> );
 
 // --- Styles (Updated to match global dot pattern) ---
-const lightModeDotPatternUrl = "url(\"data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='1.5' cy='1.5' r='1.5' fill='%2394a3b8' fill-opacity='0.4'/%3E%3C/svg%3E\")";
+// UPDATED: fill-opacity='0.3'
+const lightModeDotPatternUrl = "url(\"data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='1.5' cy='1.5' r='1.5' fill='%2394a3b8' fill-opacity='0.3'/%3E%3C/svg%3E\")";
 const darkModeDotPatternUrl = "url(\"data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='1' cy='1' r='1' fill='%23cbd5e1' fill-opacity='0.1'/%3E%3C/svg%3E\")";
 
 const GlobalStyles = () => (
@@ -152,7 +153,8 @@ export default function ForumPage() {
   return (
     <>
       <div 
-        className="min-h-screen text-slate-900 dark:text-slate-100 p-6 sm:p-10 bg-slate-200 dark:bg-slate-950 transition-colors duration-500"
+        // UPDATED: bg-slate-200/50
+        className="min-h-screen text-slate-900 dark:text-slate-100 p-6 sm:p-10 bg-slate-200/50 dark:bg-slate-950 transition-colors duration-500"
         style={{ backgroundImage: "var(--dot-pattern-url)" }}
       >
         <GlobalStyles />
@@ -169,7 +171,7 @@ export default function ForumPage() {
           {/* --- Hero Header --- */}
           <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-8">
             <div>
-              <h1 className="text-5xl sm:text-7xl font-extrabold tracking-tight text-slate-900 dark:text-white mb-4 drop-shadow-sm">
+              <h1 className="text-5xl sm:text-6xl font-extrabold tracking-tight text-slate-900 dark:text-white mb-4 drop-shadow-sm">
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-red-600">Study</span> Forum
               </h1>
               <p className="text-lg sm:text-xl text-slate-600 dark:text-slate-300 max-w-2xl font-medium leading-relaxed">

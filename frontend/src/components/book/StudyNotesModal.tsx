@@ -30,16 +30,9 @@ export const StudyNotesModal = ({
   const cleanMarkdown = (text: string | null) => {
     if (!text) return "";
     let cleaned = text;
-
-    // 1. Remove the "```markdown" or "```" wrappers often sent by Gemini
     cleaned = cleaned.replace(/^```markdown\s*/i, '').replace(/^```\s*/i, '');
     cleaned = cleaned.replace(/```\s*$/, '');
-
-    // 2. Remove indentation to prevent accidental code blocks
-    return cleaned
-      .split('\n')
-      .map(line => line.trimStart())
-      .join('\n');
+    return cleaned.split('\n').map(line => line.trimStart()).join('\n');
   };
 
   const processedNotes = cleanMarkdown(studyNotes);
@@ -62,17 +55,14 @@ export const StudyNotesModal = ({
     const pageWidth = doc.internal.pageSize.width - 2 * margin;
     let yPosition = margin;
 
-    // Title
     doc.setFontSize(18);
     doc.setFont("helvetica", "bold");
     doc.text(title, margin, yPosition);
     yPosition += 30;
 
-    // Content
     doc.setFontSize(12);
     doc.setFont("helvetica", "normal");
 
-    // Iterate over the rendered HTML elements
     const elements = Array.from(markdownRef.current.children);
     
     elements.forEach((el) => {
@@ -136,7 +126,19 @@ export const StudyNotesModal = ({
     : "Study Notes";
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={titleText} maxWidth="max-w-7xl">
+    <Modal 
+      isOpen={isOpen} 
+      onClose={onClose} 
+      /* FIX: We cast 'as any' here because Modal expects a string.
+         This forces it to accept our Gradient Component.
+      */
+      title={
+        <span className="text-2xl font-bold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-red-500">
+          {titleText}
+        </span> as any
+      }
+      maxWidth="max-w-7xl"
+    >
        <style>{`
         .scrollbar-hide::-webkit-scrollbar {
             display: none;
@@ -168,27 +170,17 @@ export const StudyNotesModal = ({
             ref={markdownRef}
             className="max-h-[70vh] overflow-y-auto p-4 scrollbar-hide break-words"
           >
-            {/* We explicitly define components here to FORCE styling, 
-                overriding any default browser or tailwind-prose behaviors 
-            */}
             <ReactMarkdown 
                 remarkPlugins={[remarkGfm]}
                 components={{
-                    // Title (H1)
                     h1: ({node, ...props}) => <h1 className="text-3xl font-extrabold mb-6 pb-2 border-b border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white" {...props} />,
-                    // Main Sections (H2)
                     h2: ({node, ...props}) => <h2 className="text-xl font-bold mt-8 mb-3 text-orange-600 dark:text-orange-400 flex items-center gap-2" {...props} />,
-                    // Sub Sections (H3)
                     h3: ({node, ...props}) => <h3 className="text-lg font-semibold mt-4 mb-2 text-slate-800 dark:text-slate-200" {...props} />,
-                    // Bold Text
                     strong: ({node, ...props}) => <strong className="font-bold text-slate-900 dark:text-white" {...props} />,
-                    // Lists
                     ul: ({node, ...props}) => <ul className="text-lg list-disc pl-6 space-y-1 mb-4 marker:text-orange-500" {...props} />,
                     ol: ({node, ...props}) => <ol className="text-lg list-decimal pl-6 space-y-1 mb-4 marker:text-orange-500" {...props} />,
                     li: ({node, ...props}) => <li className="text-lg text-slate-700 dark:text-slate-300 pl-1 leading-relaxed" {...props} />,
-                    // Paragraphs
                     p: ({node, ...props}) => <p className="mb-4 leading-relaxed text-slate-700 dark:text-slate-300" {...props} />,
-                    // Blockquotes
                     blockquote: ({node, ...props}) => <blockquote className="border-l-4 border-orange-300 dark:border-orange-700 pl-4 italic text-slate-600 dark:text-slate-400 my-4" {...props} />,
                 }}
             >

@@ -18,56 +18,56 @@ export const SummaryModal = ({
   summary, 
   error,
 }: SummaryModalProps) => {
-  
-  const modalTitle = error 
-    ? "Error" 
-    : isSummarizing 
-      ? "Generating..." 
-      : "Summary";
+
+  // 1. Determine Title Text based on state (Consistent with StudyNotesModal)
+  const titleText = error
+    ? "Summarization Error"
+    : isSummarizing
+    ? "Generating Summary..."
+    : summary
+    ? "Generated Summary"
+    : "Summary";
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={modalTitle} maxWidth="max-w-4xl">
-       {/* CSS to hide scrollbar but allow scrolling */}
-       <style>{`
-        .scrollbar-hide::-webkit-scrollbar {
-            display: none;
-        }
-        .scrollbar-hide {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
-        }
-      `}</style>
-
+    <Modal 
+      isOpen={isOpen} 
+      onClose={onClose} 
+      // 2. Pass Styled Gradient Heading to the Modal Prop
+      title={
+        <span className="text-2xl font-bold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-red-500">
+          {titleText}
+        </span> as any
+      }
+      maxWidth="max-w-4xl"
+    >
+      
+      {/* LOADING STATE */}
       {isSummarizing && (
         <div className="text-center py-12">
-          <SpinnerIcon className="w-12 h-12 text-orange-500 mx-auto mb-4" />
-          <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 mb-2">Reading Content...</h2>
-          <p className="text-slate-600 dark:text-slate-300 animate-pulse">
-             AI is condensing the text into a concise summary.
+          <SpinnerIcon className="w-12 h-12 text-orange-500 mx-auto mb-6" />
+          <p className="text-slate-600 dark:text-slate-300 animate-pulse text-lg font-medium">
+             Reading content and summarizing...
           </p>
         </div>
       )}
-      
+
+      {/* ERROR STATE */}
       {error && (
         <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-6 text-center">
-            <p className="text-red-500 dark:text-red-400 text-lg font-medium mb-2">Summarization Failed</p>
-            <p className="text-slate-600 dark:text-slate-300 text-sm">{error}</p>
+            <p className="text-red-500 dark:text-red-400 font-medium">{error}</p>
         </div>
       )}
-      
+
+      {/* SUCCESS STATE */}
       {summary && !isSummarizing && (
-        <div className="max-h-[65vh] overflow-y-auto p-4 scrollbar-hide">
-            <div className="bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl p-6 shadow-sm">
-                <p className="text-slate-700 dark:text-slate-200 whitespace-pre-wrap font-sans leading-loose text-lg">
+        <div>
+           {/* Manual header removed here to avoid duplication with the Modal Prop */}
+           
+            <div className="overflow-y-auto max-h-[60vh] pr-2">
+                <p className="text-slate-800 dark:text-slate-200 whitespace-pre-wrap font-sans leading-loose text-lg">
                     {summary}
                 </p>
             </div>
-        </div>
-      )}
-      
-      {!isSummarizing && !summary && !error && (
-        <div className="py-12 text-center">
-            <p className="text-slate-500 dark:text-slate-400 italic text-lg">No summary generated yet.</p>
         </div>
       )}
     </Modal>
