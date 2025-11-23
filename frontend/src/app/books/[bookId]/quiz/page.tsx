@@ -1,4 +1,3 @@
-// frontend/src/app/books/[bookId]/quiz/page.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -67,13 +66,16 @@ export default function QuizPage() {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [evaluationResult, setEvaluationResult] = useState<QuizEvaluationResponse | null>(null);
 
+  // --- Timer States ---
+  const [timeLeft, setTimeLeft] = useState(600); // 10 minutes in seconds
+  const [showTimeUpModal, setShowTimeUpModal] = useState(false);
+
   useEffect(() => {
     if (!bookId) return;
     const loadTopics = async () => {
       try {
         const fetchedTopics = await fetchBookTopics(bookId);
 
-        // --- (THIS IS THE FIX) ---
         // This regex checks if the trimmed title starts with a digit.
         const mainTopicRegex = /^\d/; 
 
@@ -82,7 +84,6 @@ export default function QuizPage() {
           // Only keep topics that start with a number.
           return mainTopicRegex.test(trimmedTitle);
         });
-        // --- END OF FIX ---
 
         setTopics(mainTopics); // Set the filtered list
         setQuizPhase("topic_selection");
@@ -94,10 +95,38 @@ export default function QuizPage() {
     loadTopics();
   }, [bookId]);
 
+  // --- Timer Logic ---
+  useEffect(() => {
+    if (quizPhase === "in_progress" && timeLeft > 0 && !showTimeUpModal) {
+      const timer = setInterval(() => {
+        setTimeLeft((prev) => prev - 1);
+      }, 1000);
+      return () => clearInterval(timer);
+    } else if (timeLeft === 0 && quizPhase === "in_progress" && !showTimeUpModal) {
+      setShowTimeUpModal(true);
+    }
+  }, [quizPhase, timeLeft, showTimeUpModal]);
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+  };
+
+  const handleTimeUpConfirm = () => {
+    setShowTimeUpModal(false);
+    handleSubmitQuiz();
+  };
+
   const handleTopicSelect = async (topicId: string, topicTitle: string) => {
     setSelectedTopicTitle(topicTitle);
     setQuizPhase("generating");
     setError(null);
+    
+    // --- Reset Timer ---
+    setTimeLeft(600); 
+    setShowTimeUpModal(false);
+
     try {
       const quiz = await generateQuizService(topicId); // Pass topicId directly
       
@@ -211,14 +240,26 @@ export default function QuizPage() {
       case "in_progress":
         if (!generatedQuiz) return <p>Something went wrong.</p>;
         const currentQuestion = generatedQuiz.questions[currentQuestionIndex];
+        
+        // Timer Color Logic
+        const isLowTime = timeLeft < 60; // Red if under 1 minute
+
         return (
-          <div className="w-full max-w-3xl mx-auto">
+          <div className="w-full max-w-3xl mx-auto relative">
+            {/* Timer Display */}
+            <div className="flex justify-between items-end mb-4">
+              <div className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                <span>Question {currentQuestionIndex + 1}</span>
+                <span className="mx-2">/</span>
+                <span>{generatedQuiz.questions.length}</span>
+              </div>
+              <div className={`px-4 py-2 rounded-lg font-mono font-bold text-lg border ${isLowTime ? 'bg-red-50 text-red-600 border-red-200 dark:bg-red-900/20 dark:text-red-400' : 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300'}`}>
+                ⏱ {formatTime(timeLeft)}
+              </div>
+            </div>
+
             {/* Progress Bar */}
             <div className="mb-8">
-              <div className="flex justify-between text-sm font-medium text-slate-500 dark:text-slate-400 mb-2">
-                <span>Question {currentQuestionIndex + 1}</span>
-                <span>{generatedQuiz.questions.length} total</span>
-              </div>
               <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2.5">
                 <div 
                   className="bg-orange-500 h-2.5 rounded-full transition-all duration-300" 
@@ -385,6 +426,31 @@ export default function QuizPage() {
           {renderContent()}
         </div>
       </div>
+
+      {/* --- NEW: Time's Up Modal --- */}
+      {showTimeUpModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-md w-full p-8 border border-slate-200 dark:border-slate-700 text-center animate-in fade-in zoom-in duration-200">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30 mb-6">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-8 h-8 text-red-600 dark:text-red-500">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">
+              Time's Up!
+            </h3>
+            <p className="text-slate-600 dark:text-slate-400 mb-8">
+              Your 10 minutes are over. Click below to submit your answers and see your results.
+            </p>
+            <button
+              onClick={handleTimeUpConfirm}
+              className="w-full px-6 py-3 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-bold text-lg shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-0.5"
+            >
+              Submit Quiz
+            </button>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
