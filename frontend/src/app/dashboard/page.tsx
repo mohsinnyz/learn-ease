@@ -10,10 +10,8 @@ import {
   GlobalProgressResponse,
 } from "@/services/progressService";
 
-// --- [NEW] ---
-// 1. Import the new GlobalRecommendationPanel
+// --- Import components ---
 import GlobalRecommendationPanel from "@/components/GlobalRecommendationPanel";
-// --- [END NEW] ---
 
 // --- Icons ---
 const UploadIcon = () => ( <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 mr-2"><path d="M9.25 13.25a.75.75 0 001.5 0V4.636l2.955 3.129a.75.75 0 001.09-1.03l-4.25-4.5a.75.75 0 00-1.09 0l-4.25 4.5a.75.75 0 101.09 1.03L9.25 4.636v8.614z" /><path d="M3.5 12.75a.75.75 0 00-1.5 0v2.5A2.75 2.75 0 004.75 18h10.5A2.75 2.75 0 0018 15.25v-2.5a.75.75 0 00-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5z" /></svg> );
@@ -58,10 +56,6 @@ const XMarkIcon = ({ className = "w-6 h-6" }: { className?: string }) => (
 );
 // --- [END ICONS] ---
 
-// --- Standardized Dot Patterns ---
-const lightModeDotPatternUrl = "url(\"data:image/svg+xml,%3Csvg width='15' height='15' viewBox='0 0 15 15' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='15' height='15' fill='none'/%3E%3Ccircle cx='7.5' cy='7.5' r='0.8' fill='%23A0AEC0' fill-opacity='0.3'/%3E%3C/svg%3E\")";
-const darkModeDotPatternUrl = "url(\"data:image/svg+xml,%3Csvg width='15' height='15' viewBox='0 0 15 15' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='15' height='15' fill='none'/%3E%3Ccircle cx='7.5' cy='7.5' r='0.8' fill='%23CBD5E0' fill-opacity='0.15'/%3E%3C/svg%3E\")";
-
 // --- Polished Modal Component ---
 interface ModalProps {
   isOpen: boolean;
@@ -75,7 +69,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, children, title }) => {
   return (
     <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-md flex items-center justify-center z-50 p-4 transition-all duration-300">
       <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-2xl transform transition-all duration-300 scale-100 border border-slate-200 dark:border-slate-800 flex flex-col max-h-[90vh] animate-fadeIn">
-        {/* Header - Updated with prominent border */}
+        {/* Header */}
         <div className="flex justify-between items-center px-8 py-6 border-b-2 border-slate-200 dark:border-slate-700 bg-gradient-to-r from-slate-50 to-white dark:from-slate-900 dark:to-slate-900 rounded-t-2xl">
           <div>
             <h2 className="text-2xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-orange-500 to-red-600">
@@ -99,6 +93,65 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, children, title }) => {
     </div>
   );
 };
+
+// --- Global Styles (Unified Design) ---
+const GlobalStyles = () => (
+    <style jsx global>{`
+      /* Unified Card Style: Opaque White/Slate */
+      .learn-ease-card {
+        background-color: #ffffff; 
+        border-radius: 0.75rem; /* rounded-xl */
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        border: 1px solid rgba(226, 232, 240, 1);
+        transition: box-shadow 0.3s ease-out, transform 0.3s ease-out;
+      }
+      html.dark .learn-ease-card {
+        background-color: rgba(30, 41, 59, 0.95);
+        border-color: rgba(51, 65, 85, 0.8);
+      }
+      
+      /* Hover effect specific to book cards */
+      .learn-ease-card-hover:hover {
+        box-shadow: 0 6px 20px -3px rgba(249, 115, 22, 0.35), /* Orange part */
+                    0 4px 30px 0px rgba(239, 68, 68, 0.25);  /* Red part */
+        transform: translateY(-2px);
+      }
+  
+      /* Polka Dot Pattern */
+      :root {
+        --dot-pattern-url: url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='1.5' cy='1.5' r='1.5' fill='%2394a3b8' fill-opacity='0.4'/%3E%3C/svg%3E");
+        
+        /* Autofill Variables */
+        --input-bg-light: #ffffff;
+        --input-text-light: #0f172a; 
+        --input-placeholder-light: #94a3b8; 
+        --input-caret-light: #0f172a;
+        --input-bg-dark: rgba(51, 65, 85, 1); 
+        --input-text-dark: #ffffff; 
+        --input-placeholder-dark: #64748b; 
+        --input-caret-dark: #ffffff;
+      }
+      html.dark {
+        --dot-pattern-url: url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='1' cy='1' r='1' fill='%23cbd5e1' fill-opacity='0.1'/%3E%3C/svg%3E");
+      }
+  
+      input, select { background-clip: padding-box !important; }
+      
+      input:-webkit-autofill, input:-webkit-autofill:hover, input:-webkit-autofill:focus, input:-webkit-autofill:active,
+      select:-webkit-autofill, select:-webkit-autofill:hover, select:-webkit-autofill:focus, select:-webkit-autofill:active {
+        -webkit-box-shadow: 0 0 0 1000px var(--input-bg-light) inset !important; 
+        -webkit-text-fill-color: var(--input-text-light) !important; 
+        caret-color: var(--input-caret-light) !important;
+      }
+      
+      html.dark input:-webkit-autofill, html.dark input:-webkit-autofill:hover, html.dark input:-webkit-autofill:focus, html.dark input:-webkit-autofill:active,
+      html.dark select:-webkit-autofill, html.dark select:-webkit-autofill:hover, html.dark select:-webkit-autofill:focus, html.dark select:-webkit-autofill:active {
+        -webkit-box-shadow: 0 0 0 1000px var(--input-bg-dark) inset !important; 
+        -webkit-text-fill-color: var(--input-text-dark) !important; 
+        caret-color: var(--input-caret-dark) !important;
+      }
+    `}</style>
+);
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -150,7 +203,6 @@ export default function DashboardPage() {
     await Promise.all([loadBooks(), loadCategories(), loadProgress()]); 
   };
 
-  // ... (All your other handler functions: loadBooks, loadCategories, handleLogout, handleFileSelect, etc. remain unchanged)
   const loadBooks = async () => { setErrorBooks(null);try {const d = await fetchUserBooks(); setBooks(d.sort((a,b)=>new Date(b.upload_date).getTime()-new Date(a.upload_date).getTime()));} catch(e){setErrorBooks(e instanceof Error?e.message:"Err loading books");setBooks([]);}finally{setIsLoadingBooks(false);}};
   const loadCategories = async () => { setErrorCategories(null);try {const d = await fetchUserCategories(); setCategories(d.sort((a,b)=>a.name.localeCompare(b.name)));} catch(e){setErrorCategories(e instanceof Error?e.message:"Err loading categories");setCategories([]);}finally{setIsLoadingCategories(false);}};
   const handleLogout = () => { if (isClient) localStorage.removeItem("authToken");router.push("/login");};
@@ -162,57 +214,11 @@ export default function DashboardPage() {
   const handleAttemptDeleteBook = (bookId: string, bookTitle: string) => { setBookToDelete({id:bookId,title:bookTitle});setDeleteBookError(null);setDeleteBookSuccess(null);setShowDeleteConfirmModal(true);};
   const handleConfirmDeleteBook = async () => { if(!bookToDelete)return;setIsDeletingBook(true);setDeleteBookError(null);setDeleteBookSuccess(null);try{await deleteBook(bookToDelete.id);setBooks(pB=>pB.filter(b=>b.id!==bookToDelete.id));setDeleteBookSuccess(`Book "${bookToDelete.title}" deleted successfully.`);setShowDeleteConfirmModal(false);setBookToDelete(null);setTimeout(()=>setDeleteBookSuccess(null),3000);}catch(e){setDeleteBookError(e instanceof Error?e.message:"Failed to delete book.");}finally{setIsDeletingBook(false);}};
 
-
-  const GlobalStyles = () => (
-    <style jsx global>{`
-      :root { 
-        --dot-pattern-url: ${lightModeDotPatternUrl}; 
-        --input-bg-light: rgba(255, 255, 255, 0.7); 
-        --input-text-light: #0f172a; 
-        --input-placeholder-light: #94a3b8; 
-        --input-caret-light: #0f172a;
-        --input-bg-dark: rgba(51, 65, 85, 0.8); 
-        --input-text-dark: #ffffff; 
-        --input-placeholder-dark: #64748b; 
-        --input-caret-dark: #ffffff;
-      }
-      html.dark { --dot-pattern-url: ${darkModeDotPatternUrl}; }
-
-    .learn-ease-card {
-      background-color: rgba(255, 255, 255, 0.85); /* Light mode default */
-      backdrop-filter: blur(6px); 
-      border-radius: 0.75rem; 
-      box-shadow: 0 10px 15px -3px rgba(0,0,0,0.07), 0 4px 6px -2px rgba(0,0,0,0.05);
-      transition: box-shadow 0.3s ease-out, transform 0.3s ease-out;
-      border-width: 1px;
-      border-color: rgba(203, 213, 225, 0.5); /* Light mode border slate-300/50 */
-    }
-    html.dark .learn-ease-card { /* <--- FOCUS ON THIS RULE */
-      background-color: rgba(30, 41, 59, 0.85); /* Dark mode: slate-800 with 85% opacity */
-      border-color: rgba(51, 65, 85, 0.8); /* Dark mode border: slate-700 with 80% opacity */
-    }
-    .learn-ease-card-hover:hover {
-      box-shadow: 0 6px 20px -3px rgba(249, 115, 22, 0.35), /* Orange part */
-                0 4px 30px 0px rgba(239, 68, 68, 0.25);  /* Red part */
-      transform: translateY(-2px);
-    }
-    input, select { background-clip: padding-box !important; }
-    input:-webkit-autofill, input:-webkit-autofill:hover, input:-webkit-autofill:focus, input:-webkit-autofill:active,
-    select:-webkit-autofill, select:-webkit-autofill:hover, select:-webkit-autofill:focus, select:-webkit-autofill:active {
-      -webkit-box-shadow: 0 0 0 1000px var(--input-bg-light) inset !important; -webkit-text-fill-color: var(--input-text-light) !important; caret-color: var(--input-caret-light) !important;
-    }
-    html.dark input:-webkit-autofill, html.dark input:-webkit-autofill:hover, html.dark input:-webkit-autofill:focus, html.dark input:-webkit-autofill:active,
-    html.dark select:-webkit-autofill, html.dark select:-webkit-autofill:hover, html.dark select:-webkit-autofill:focus, html.dark select:-webkit-autofill:active {
-      -webkit-box-shadow: 0 0 0 1000px var(--input-bg-dark) inset !important; -webkit-text-fill-color: var(--input-text-dark) !important; caret-color: var(--input-caret-dark) !important;
-    }
-    `}</style>
-  );
-
   if (!isClient || isLoadingBooks || isLoadingCategories || isLoadingProgress) { 
     return (
       <div 
-        className="flex min-h-screen flex-col items-center justify-center bg-slate-100 dark:bg-slate-900 transition-colors duration-500" 
-        style={{ backgroundImage: `var(--dot-pattern-url, ${lightModeDotPatternUrl})` }}
+        className="flex min-h-screen flex-col items-center justify-center bg-slate-200 dark:bg-slate-950 transition-colors duration-500" 
+        style={{ backgroundImage: 'var(--dot-pattern-url)' }}
       >
         <GlobalStyles /> 
         <div className="flex flex-col items-center">
@@ -231,12 +237,12 @@ export default function DashboardPage() {
 
   return (
     <div 
-      className="min-h-screen text-slate-900 dark:text-slate-100 p-4 sm:p-6 lg:p-8 bg-slate-100 dark:bg-slate-900 transition-colors duration-500" 
-      style={{ backgroundImage: `var(--dot-pattern-url, ${lightModeDotPatternUrl})` }}
+      className="min-h-screen text-slate-900 dark:text-slate-100 p-4 sm:p-6 lg:p-8 bg-slate-200 dark:bg-slate-950 transition-colors duration-500" 
+      style={{ backgroundImage: 'var(--dot-pattern-url)' }}
     >
       <GlobalStyles />
 
-<header className="pb-6 border-b border-slate-300/70 dark:border-slate-700/70 flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
+      <header className="pb-6 border-b border-slate-300/70 dark:border-slate-700/70 flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
         <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight mb-4 sm:mb-0 whitespace-nowrap text-left self-start sm:self-auto"> 
           <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-500 via-red-500 to-red-600">
             Learn-Ease
@@ -245,7 +251,7 @@ export default function DashboardPage() {
         </h1>
         <nav className="flex items-center space-x-3 mt-4 sm:mt-0 self-start sm:self-center">
           
-          {/* --- [NEW] --- */}
+          {/* Links */}
           <Link 
             href="/messages"
             className="flex items-center px-4 py-2.5 bg-sky-600 text-white rounded-lg shadow-lg hover:bg-sky-700 focus:outline-none focus:ring-2 ring-offset-2 dark:ring-offset-slate-900 ring-sky-500 transition-all duration-150 ease-in-out text-sm font-medium transform hover:scale-105 active:scale-95"
@@ -258,7 +264,6 @@ export default function DashboardPage() {
           >
             <ForumIcon /> Forum
           </Link>
-          {/* --- [END NEW] --- */}
 
           <button 
             onClick={() => { setShowUploadModal(true); setUploadError(null); setUploadSuccess(null); setSelectedFile(null); setUploadTargetCategoryId(null); if (document.getElementById("bookFile")) (document.getElementById("bookFile") as HTMLInputElement).value = ""; }} 
@@ -290,12 +295,10 @@ export default function DashboardPage() {
 
       <main className="space-y-8">
 
-        {/* --- [NEW] ---
-          2. Create the new 2-column grid layout
-        */}
+        {/* --- 2-Column Grid Layout --- */}
         <section className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           
-          {/* --- Column 1: Global Progress (Restyled) --- */}
+          {/* --- Column 1: Global Progress --- */}
           <section className="learn-ease-card p-6 h-full flex flex-col">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 pb-4 border-b border-slate-300 dark:border-slate-700">
               <h2 className="text-3xl font-semibold text-slate-800 dark:text-slate-100 mb-2 sm:mb-0">
@@ -314,7 +317,6 @@ export default function DashboardPage() {
               <div className="text-center py-10 text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30 p-4 rounded-lg flex-grow flex items-center justify-center"><strong>Error loading progress:</strong> {errorProgress}</div>
             )}
             {globalProgress && !isLoadingProgress && !errorProgress && (
-              // --- 3. This is the restyled vertical layout ---
               <div className="flex flex-col space-y-4 flex-grow">
                 <div className="learn-ease-card p-4 bg-white/50 dark:bg-slate-800/50">
                   <h4 className="text-sm font-medium text-slate-500 dark:text-slate-400">Total Quizzes Taken</h4>
@@ -336,15 +338,8 @@ export default function DashboardPage() {
 
           {/* --- Column 2: Global Recommendations --- */}
           <GlobalRecommendationPanel /> 
-          {/* --- 4. That's it! The new panel is added --- */}
 
         </section>
-        {/* --- [END NEW] --- */}
-
-
-        {/* --- [DELETED] ---
-          5. The old "Filter by Category" card (lines 316-324) is REMOVED from here.
-        */}
         
         {errorCategories && !isLoadingCategories && ( <div className="my-4 p-4 text-sm text-red-700 bg-red-100 dark:bg-red-900/50 dark:text-red-300 rounded-lg border border-red-300 dark:border-red-700"><strong>Category Error:</strong> {errorCategories}</div> )}
 
@@ -356,9 +351,6 @@ export default function DashboardPage() {
             <span className="text-sm text-slate-500 dark:text-slate-400 self-end sm:self-center bg-slate-100 dark:bg-slate-700 px-3 py-1 rounded-full">{filteredBooks.length} book(s)</span>
           </div>
 
-          {/* --- [NEW] ---
-            6. The "Filter by Category" block is PASTED here, inside the "All Your Books" card.
-          */}
           {(!isLoadingCategories || categories.length > 0 || activeFilter !== 'all') && ( 
             <div className="mb-6 pb-6 border-b border-slate-300 dark:border-slate-700">
               <h3 className="text-xl font-semibold text-slate-700 dark:text-slate-200 mb-4">Filter by Category</h3>
@@ -369,7 +361,6 @@ export default function DashboardPage() {
               </div>
             </div>
           )}
-          {/* --- [END NEW] --- */}
 
           {deleteBookSuccess && <div className="mb-4 p-3 text-sm text-green-600 bg-green-100 dark:bg-green-900/50 dark:text-green-300 rounded-lg border border-green-300 dark:border-green-700">{deleteBookSuccess}</div>}
 

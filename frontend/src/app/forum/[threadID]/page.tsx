@@ -1,3 +1,4 @@
+// frontend/src/app/forum/[threadID]/page.tsx
 "use client";
 
 import { useEffect, useState, FormEvent, useRef, useMemo } from 'react';
@@ -27,14 +28,29 @@ const ListIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 
 const CodeIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4"><path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0l4.6-4.6-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/></svg>);
 const LinkIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/></svg>);
 
-// Styles
-const lightModeDotPatternUrl = "url(\"data:image/svg+xml,%3Csvg width='24' height='24' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='2' cy='2' r='1.5' fill='%2394a3b8' fill-opacity='0.2'/%3E%3C/svg%3E\")";
-const darkModeDotPatternUrl = "url(\"data:image/svg+xml,%3Csvg width='24' height='24' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='2' cy='2' r='1.5' fill='%23334155' fill-opacity='0.6'/%3E%3C/svg%3E\")";
-
+// --- Global Styles (Unified Design) ---
 const GlobalStyles = () => (
   <style jsx global>{`
-    :root { --dot-pattern-url: ${lightModeDotPatternUrl}; }
-    html.dark { --dot-pattern-url: ${darkModeDotPatternUrl}; }
+    /* Unified Card Style */
+    .learn-ease-card {
+      background-color: #ffffff; 
+      border-radius: 1rem;
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+      border: 1px solid rgba(226, 232, 240, 1);
+    }
+    html.dark .learn-ease-card {
+      background-color: rgba(30, 41, 59, 0.95);
+      border-color: rgba(51, 65, 85, 0.8);
+    }
+
+    /* Polka Dot Pattern */
+    :root {
+      --dot-pattern-url: url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='1.5' cy='1.5' r='1.5' fill='%2394a3b8' fill-opacity='0.4'/%3E%3C/svg%3E");
+    }
+    html.dark {
+      --dot-pattern-url: url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='1' cy='1' r='1' fill='%23cbd5e1' fill-opacity='0.1'/%3E%3C/svg%3E");
+    }
+
     html { scroll-behavior: smooth; }
   `}</style>
 );
@@ -167,7 +183,7 @@ export default function ThreadDetailPage() {
 
     return (
       <>
-        {/* 1. Main Question (Unified Card) */}
+        {/* 1. Main Question */}
         <section className="mb-8 animate-fadeIn">
           <div className="relative z-10">
               {/* MODIFIED: Added currentUserId prop here */}
@@ -179,8 +195,8 @@ export default function ThreadDetailPage() {
           </div>
         </section>
 
-        {/* 2. Post a Reply Form */}
-        <section className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-2xl border border-slate-200 dark:border-slate-700 p-6 sm:p-8 mb-8 shadow-sm" ref={replyFormRef}>
+        {/* 2. Post a Reply Form - Applied 'learn-ease-card' */}
+        <section className="learn-ease-card p-6 sm:p-8 mb-8" ref={replyFormRef}>
           <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-6">Post a Reply</h3>
           
           {/* "Replying to" Indicator */}
@@ -195,9 +211,9 @@ export default function ThreadDetailPage() {
           )}
 
           <form onSubmit={handlePostReply}>
-            <div className="border-2 border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden shadow-sm bg-white dark:bg-slate-900 focus-within:border-orange-500/50 focus-within:ring-4 focus-within:ring-orange-500/10 transition-all">
+            <div className="border border-slate-300 dark:border-slate-600 rounded-xl overflow-hidden shadow-sm bg-slate-50 dark:bg-slate-900 focus-within:border-orange-500 focus-within:ring-1 focus-within:ring-orange-500 transition-all">
                 {/* Toolbar */}
-                <div className="flex items-center gap-1 p-2 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
+                <div className="flex items-center gap-1 p-2 border-b border-slate-300 dark:border-slate-600 bg-slate-100 dark:bg-slate-800">
                     <button type="button" onClick={() => insertMarkdown('**', '**')} className="p-2 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 transition-colors" title="Bold"><BoldIcon /></button>
                     <button type="button" onClick={() => insertMarkdown('*', '*')} className="p-2 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 transition-colors" title="Italic"><ItalicIcon /></button>
                     <div className="w-px h-5 bg-slate-300 dark:bg-slate-600 mx-2"></div>
@@ -237,8 +253,8 @@ export default function ThreadDetailPage() {
           </form>
         </section>
 
-        {/* 3. Replies List */}
-        <section className="bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm rounded-2xl border border-slate-200 dark:border-slate-700 p-6 sm:p-8 shadow-sm">
+        {/* 3. Replies List - Applied 'learn-ease-card' */}
+        <section className="learn-ease-card p-6 sm:p-8">
           <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-8 border-b border-slate-200 dark:border-slate-700 pb-4 flex items-center gap-2">
               <span className="bg-slate-100 dark:bg-slate-700 px-3 py-1 rounded-lg text-slate-700 dark:text-slate-200">{posts.length}</span>
               {posts.length === 1 ? 'Reply' : 'Replies'}
@@ -266,7 +282,10 @@ export default function ThreadDetailPage() {
   };
 
   return (
-    <div className="min-h-screen text-slate-900 dark:text-slate-100 p-6 sm:p-10 bg-slate-100 dark:bg-slate-950 transition-colors duration-500" style={{ backgroundImage: "var(--dot-pattern-url)" }}>
+    <div 
+      className="min-h-screen bg-slate-200 dark:bg-slate-950 text-slate-900 dark:text-slate-100 p-6 sm:p-10 transition-colors duration-500"
+      style={{ backgroundImage: "var(--dot-pattern-url)" }}
+    >
       <GlobalStyles />
       <main className="max-w-7xl mx-auto">
         <div className="mb-8">

@@ -1,3 +1,4 @@
+// frontend/src/app/books/[bookId]/page.tsx
 "use client";
 
 import {
@@ -37,8 +38,8 @@ import {
 import { BookMentorChat } from "@/components/BookMentorChat";
 import { StudyNotesPanel } from "@/components/StudyNotesPanel";
 
-// --- NEW: Refactored Components ---
-import { GlobalStyles, lightModeDotPatternUrl } from "@/components/book/GlobalStyles";
+// --- Icons & Child Components ---
+// (Assuming these paths are correct based on your imports)
 import {
   ChevronLeftIcon,
   SpinnerIcon,
@@ -56,6 +57,38 @@ import { QnAModal } from "@/components/book/QnAModal";
 if (typeof window !== "undefined") {
   pdfjs.GlobalWorkerOptions.workerSrc = `/js/pdf.worker.min.mjs`;
 }
+
+// --- Global Styles (Unified Design) ---
+const GlobalStyles = () => (
+  <style jsx global>{`
+    /* Unified Card Style: Opaque White/Slate */
+    .learn-ease-card {
+      background-color: #ffffff; 
+      border-radius: 0.75rem; /* rounded-xl */
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+      border: 1px solid rgba(226, 232, 240, 1);
+      transition: box-shadow 0.3s ease-out, transform 0.3s ease-out;
+    }
+    html.dark .learn-ease-card {
+      background-color: rgba(30, 41, 59, 0.95);
+      border-color: rgba(51, 65, 85, 0.8);
+    }
+
+    /* Polka Dot Pattern */
+    :root {
+      --dot-pattern-url: url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='1.5' cy='1.5' r='1.5' fill='%2394a3b8' fill-opacity='0.4'/%3E%3C/svg%3E");
+    }
+    html.dark {
+      --dot-pattern-url: url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='1' cy='1' r='1' fill='%23cbd5e1' fill-opacity='0.1'/%3E%3C/svg%3E");
+    }
+
+    /* PDF Canvas Tweaks */
+    .react-pdf__Page__canvas {
+        margin: 0 auto;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    }
+  `}</style>
+);
 
 export default function BookViewPage() {
   const router = useRouter();
@@ -379,9 +412,9 @@ export default function BookViewPage() {
   if (isDetailsLoading)
     return (
       <div
-        className="flex min-h-screen flex-col items-center justify-center bg-slate-100 dark:bg-slate-900 transition-colors duration-500"
+        className="flex min-h-screen flex-col items-center justify-center bg-slate-200 dark:bg-slate-950 transition-colors duration-500"
         style={{
-          backgroundImage: `var(--dot-pattern-url, ${lightModeDotPatternUrl})`,
+          backgroundImage: 'var(--dot-pattern-url)',
         }}
       >
         <GlobalStyles />
@@ -395,9 +428,9 @@ export default function BookViewPage() {
   if (error || (!bookDetails && !isDetailsLoading) || !pdfFileUrl)
     return (
       <div
-        className="flex min-h-screen flex-col items-center justify-center bg-slate-100 dark:bg-slate-900 transition-colors duration-500 p-6"
+        className="flex min-h-screen flex-col items-center justify-center bg-slate-200 dark:bg-slate-950 transition-colors duration-500 p-6"
         style={{
-          backgroundImage: `var(--dot-pattern-url, ${lightModeDotPatternUrl})`,
+          backgroundImage: 'var(--dot-pattern-url)',
         }}
       >
         <GlobalStyles />
@@ -415,10 +448,10 @@ export default function BookViewPage() {
 
   return (
     <div
-      className="min-h-screen bg-slate-100 dark:bg-slate-900 flex flex-col items-center p-3 sm:p-4 lg:p-6"
+      className="min-h-screen bg-slate-200 dark:bg-slate-950 flex flex-col items-center p-3 sm:p-4 lg:p-6"
       onClick={closeContextMenu}
       style={{
-        backgroundImage: `var(--dot-pattern-url, ${lightModeDotPatternUrl})`,
+        backgroundImage: 'var(--dot-pattern-url)',
       }}
     >
       <GlobalStyles />
@@ -427,7 +460,8 @@ export default function BookViewPage() {
         {/* --- COLUMN 1: GLOSSARY, QUIZ, NOTES (Left) --- */}
         <aside className="w-72 min-w-[18rem] max-w-xs h-fit sticky top-6 self-start space-y-6">
           {bookDetails?.status === "processing" ? (
-            <div className="bg-white/80 dark:bg-slate-800/80 rounded-xl shadow-md p-4 border border-slate-200 dark:border-slate-700 text-center">
+            // Applied 'learn-ease-card'
+            <div className="learn-ease-card p-4 text-center">
               <SpinnerIcon className="w-8 h-8 text-orange-500 mx-auto mb-3" />
               <p className="text-sm text-slate-600 dark:text-slate-400">
                 Analyzing book...
@@ -437,8 +471,8 @@ export default function BookViewPage() {
             </div>
           ) : bookDetails?.status === "ready" ? (
             <>
-              {/* Glossary Panel */}
-              <div className="bg-white/80 dark:bg-slate-800/80 rounded-xl shadow-md p-4 border border-slate-200 dark:border-slate-700">
+              {/* Glossary Panel - Applied 'learn-ease-card' */}
+              <div className="learn-ease-card p-4">
                 <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200 mb-3 pb-3 border-b border-slate-300 dark:border-slate-700 flex items-center gap-2">
                   <BookOpenHeroIcon className="w-6 h-6 text-orange-500" />
                   <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-red-500">
@@ -489,8 +523,8 @@ export default function BookViewPage() {
                 </div>
               </div>
 
-              {/* Quiz Panel */}
-              <div className="bg-white/80 dark:bg-slate-800/80 rounded-xl shadow-md p-4 border border-slate-200 dark:border-slate-700">
+              {/* Quiz Panel - Applied 'learn-ease-card' */}
+              <div className="learn-ease-card p-4">
                 <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200 mb-3 pb-3 border-b border-slate-300 dark:border-slate-700 flex items-center gap-2">
                   <BeakerIcon className="w-6 h-6 text-orange-500" />
                   <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-red-500">
@@ -509,7 +543,8 @@ export default function BookViewPage() {
                 </Link>
               </div>
 
-              {/* Study Notes Panel */}
+              {/* Study Notes Panel - Note: You may need to ensure this component internally uses 'learn-ease-card' or wrap it here */}
+              {/* If StudyNotesPanel is already refactored, this is fine. If not, wrapping it might be needed. */}
               <StudyNotesPanel
                 bookId={bookId}
                 generatingTopicId={generatingTopicId}
@@ -531,16 +566,14 @@ export default function BookViewPage() {
             </Link>
             <h1
               className="text-3xl font-bold text-slate-800 dark:text-slate-100 mt-2 truncate"
-              // FIX 1: Add ?. here
               title={bookDetails?.title || "Book Title"} 
             >
-              {/* FIX 2: Add ?. here */}
               {bookDetails?.title || "Loading..."}
             </h1>
           </div>
           <div
             ref={scrollContainerRef}
-            className="rounded-lg shadow-xl overflow-y-auto max-h-[calc(100vh-10rem)] border border-slate-300 dark:border-slate-700"
+            className="rounded-lg shadow-xl overflow-y-auto max-h-[calc(100vh-10rem)] border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50" // Added explicit bg to pdf container
             onContextMenu={handleContextMenuAction}
             onClick={(e) => e.stopPropagation()}
           >
@@ -556,7 +589,7 @@ export default function BookViewPage() {
                 );
               }}
               loading={
-                <div className="text-center p-10">Loading document...</div>
+                <div className="text-center p-10 text-slate-600 dark:text-slate-400">Loading document...</div>
               }
             >
               {Array.from(new Array(numPages || 0), (el, index) => (
@@ -594,7 +627,8 @@ export default function BookViewPage() {
         {/* --- COLUMN 3: QUIZ & AI MENTOR (Right) --- */}
         <aside className="w-96 min-w-[22rem] max-w-sm h-fit sticky top-6 self-start space-y-6">
           {bookDetails?.status === "processing" ? (
-            <div className="bg-white/80 dark:bg-slate-800/80 rounded-xl shadow-md p-4 border border-slate-200 dark:border-slate-700 text-center">
+            // Applied 'learn-ease-card'
+            <div className="learn-ease-card p-4 text-center">
               <SpinnerIcon className="w-8 h-8 text-orange-500 mx-auto mb-3" />
               <p className="text-sm text-slate-600 dark:text-slate-400">
                 Preparing AI Mentor...
@@ -603,10 +637,14 @@ export default function BookViewPage() {
               </p>
             </div>
           ) : bookDetails?.status === "ready" ? (
-            <BookMentorChat
-              bookId={bookId}
-              ChatIcon={ChatBubbleOvalLeftEllipsisIcon}
-            />
+            // Note: BookMentorChat will need its internal container to use 'learn-ease-card' if it doesn't already. 
+            // Or wrap it here:
+            <div className="h-full">
+                <BookMentorChat
+                    bookId={bookId}
+                    ChatIcon={ChatBubbleOvalLeftEllipsisIcon}
+                />
+            </div>
           ) : null}
         </aside>
       </div>

@@ -1,7 +1,32 @@
-// In frontend/src/app/page.tsx
+// frontend/src/app/page.tsx
 "use client"; 
 
 import Link from 'next/link';
+
+// --- Global Styles (Matching Progress Page) ---
+const GlobalStyles = () => (
+  <style jsx global>{`
+    /* Unified Card Style: Opaque White */
+    .learn-ease-card {
+      background-color: #ffffff; 
+      border-radius: 0.75rem; /* rounded-xl */
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); /* shadow-2xl */
+      border: 1px solid rgba(226, 232, 240, 1);
+    }
+    html.dark .learn-ease-card {
+      background-color: rgba(30, 41, 59, 0.95);
+      border-color: rgba(51, 65, 85, 0.8);
+    }
+    
+    /* Polka Dot Pattern */
+    :root {
+      --dot-pattern-url: url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='1.5' cy='1.5' r='1.5' fill='%2394a3b8' fill-opacity='0.4'/%3E%3C/svg%3E");
+    }
+    html.dark {
+      --dot-pattern-url: url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='1' cy='1' r='1' fill='%23cbd5e1' fill-opacity='0.1'/%3E%3C/svg%3E");
+    }
+  `}</style>
+);
 
 export default function HomePage() {
   const coreFeatures = [
@@ -13,27 +38,16 @@ export default function HomePage() {
     "Progress Tracking & Analytics"
   ];
 
-  // Define the SVG pattern URLs
-  const lightModeDotPatternUrl = "url(\"data:image/svg+xml,%3Csvg width='15' height='15' viewBox='0 0 15 15' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='15' height='15' fill='none'/%3E%3Ccircle cx='7.5' cy='7.5' r='0.8' fill='%23A0AEC0' fill-opacity='0.3'/%3E%3C/svg%3E\")";
-  const darkModeDotPatternUrl = "url(\"data:image/svg+xml,%3Csvg width='15' height='15' viewBox='0 0 15 15' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='15' height='15' fill='none'/%3E%3Ccircle cx='7.5' cy='7.5' r='0.8' fill='%23CBD5E0' fill-opacity='0.1'/%3E%3C/svg%3E\")";
-
   return (
     <main 
-      className="flex min-h-screen flex-col items-center justify-center bg-slate-100 dark:bg-slate-900 p-6 sm:p-12 lg:p-24 transition-colors duration-500"
+      className="flex min-h-screen flex-col items-center justify-center bg-slate-200 dark:bg-slate-950 p-6 sm:p-12 lg:p-24 transition-colors duration-500 text-slate-900 dark:text-slate-100"
       style={{ 
-        backgroundImage: 'var(--dot-pattern-url)', // Use CSS variable for the pattern
-        // The base background colors (bg-slate-100 dark:bg-slate-900) will show underneath
+        backgroundImage: 'var(--dot-pattern-url)', 
       }}
     >
-      {/* Define CSS variables for the dot patterns based on theme */}
-      <style jsx global>{`
-        :root { --dot-pattern-url: ${lightModeDotPatternUrl}; }
-        /* Assuming your Tailwind dark mode is class-based */
-        html.dark { --dot-pattern-url: ${darkModeDotPatternUrl}; } 
-        /* If using media-based dark mode in Tailwind, you might need a different approach or to set this in globals.css */
-      `}</style>
+      <GlobalStyles />
 
-      <div className="w-full max-w-6xl mx-auto bg-transparent"> {/* Ensure content containers have transparent background if needed */}
+      <div className="w-full max-w-6xl mx-auto bg-transparent"> 
         <div className="grid lg:grid-cols-2 gap-12 items-center">
           {/* Left Side: Project Intro */}
           <div className="text-center lg:text-left">
@@ -48,8 +62,8 @@ export default function HomePage() {
           </div>
 
           {/* Right Side: Core Features & Get Started */}
-          {/* Added a slight background to the card for better readability over the pattern */}
-          <div className="bg-white/80 dark:bg-slate-800/90 backdrop-blur-sm p-8 sm:p-10 rounded-xl shadow-2xl">
+          {/* Applied 'learn-ease-card' class for consistent styling */}
+          <div className="learn-ease-card p-8 sm:p-10">
             <h2 className="text-2xl sm:text-3xl font-bold text-orange-600 dark:text-orange-500 mb-6 text-center">
               Core Features
             </h2>
