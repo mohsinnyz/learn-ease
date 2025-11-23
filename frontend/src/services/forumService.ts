@@ -261,3 +261,27 @@ export async function deleteForumPost(postId: string): Promise<void> {
   }
   return;
 }
+
+/**
+ * Deletes an existing thread.
+ */
+export async function deleteForumThread(threadId: string): Promise<void> {
+  const token = getAuthToken();
+  if (!token) throw new Error("Authentication token not found.");
+
+  const response = await fetch(`${API_BASE_URL}/forum/threads/${threadId}`, {
+    method: 'DELETE',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+
+  if (response.status === 204) {
+    return;
+  }
+
+  if (!response.ok) {
+    await handleApiError(response, 'Failed to delete thread.');
+  }
+  return;
+}

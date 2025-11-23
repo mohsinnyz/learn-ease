@@ -1,4 +1,3 @@
-// frontend/src/components/GroupSettingsModal.tsx
 "use client";
 
 import { useState, FormEvent, useEffect } from 'react';
@@ -18,7 +17,6 @@ const SpinnerIcon = ({ className = "h-5 w-5 text-white" }: { className?: string 
   <svg className={`animate-spin ${className}`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
 );
 
-// Flexible XMarkIcon to match other components
 const XMarkIcon = ({ className = "w-6 h-6" }: { className?: string }) => (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
     <path fillRule="evenodd" d="M5.47 5.47a.75.75 0 011.06 0L12 10.94l5.47-5.47a.75.75 0 111.06 1.06L13.06 12l5.47 5.47a.75.75 0 11-1.06 1.06L12 13.06l-5.47 5.47a.75.75 0 01-1.06-1.06L10.94 12 5.47 6.53a.75.75 0 010-1.06z" clipRule="evenodd" />
@@ -30,7 +28,7 @@ const ShieldCheckIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" viewBox="
 const TrashIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4"><path fillRule="evenodd" d="M16.5 4.478v.227a48.816 48.816 0 013.878.512.75.75 0 11-.49 1.478l-.56-.058a46.645 46.645 0 00-1.058 10.454H5.83a46.648 46.648 0 00-1.058-10.454l-.56.058a.75.75 0 11-.49-1.478 48.567 48.567 0 013.878-.512V4.478a2.25 2.25 0 012.25-2.25h3.75a2.25 2.25 0 012.25 2.25zM5.09 19.75a45.034 45.034 0 01-.67-9.954h15.16c-.18 3.409-.42 6.725-.67 9.954a2.25 2.25 0 01-2.26 2.07h-9.3a2.25 2.25 0 01-2.26-2.07z" clipRule="evenodd" /></svg>);
 const LogOutIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path fillRule="evenodd" d="M7.5 3.75A1.5 1.5 0 006 5.25v13.5a1.5 1.5 0 001.5 1.5h6a1.5 1.5 0 001.5-1.5V15a.75.75 0 011.5 0v3.75a3 3 0 01-3 3h-6a3 3 0 01-3-3V5.25a3 3 0 013-3h6a3 3 0 013 3V9A.75.75 0 0115 9V5.25a1.5 1.5 0 00-1.5-1.5h-6zm10.72 4.72a.75.75 0 011.06 0l3 3a.75.75 0 010 1.06l-3 3a.75.75 0 11-1.06-1.06l1.72-1.72H9a.75.75 0 010-1.5h10.94l-1.72-1.72a.75.75 0 010-1.06z" clipRule="evenodd" /></svg>);
 
-// --- Modal Component ---
+// --- Modal Component (Reusable) ---
 interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -43,7 +41,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, children, title }) => {
   return (
     <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-md flex items-center justify-center z-50 p-4 transition-all duration-300">
       <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-3xl transform transition-all duration-300 scale-100 border border-slate-200 dark:border-slate-800 flex flex-col max-h-[190vh] animate-fadeIn">
-        {/* Header - Updated with prominent border */}
+        {/* Header */}
         <div className="flex justify-between items-center px-8 py-6 border-b-2 border-slate-200 dark:border-slate-700 bg-gradient-to-r from-slate-50 to-white dark:from-slate-900 dark:to-slate-900 rounded-t-2xl">
           <div>
             <h2 className="text-3xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-orange-500 to-red-600">
@@ -69,6 +67,82 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, children, title }) => {
   );
 };
 
+// --- Confirmation Modal (For Kick/Transfer/Leave) ---
+// UPDATED: Matches ForumThreadCard.tsx style exactly
+interface ConfirmModalProps {
+    isOpen: boolean;
+    onClose: () => void;
+    onConfirm: () => void;
+    title: string;
+    message: React.ReactNode;
+    confirmText: string;
+    isDanger: boolean;
+    isLoading: boolean;
+    error: string | null;
+}
+
+const ConfirmationModal: React.FC<ConfirmModalProps> = ({ isOpen, onClose, onConfirm, title, message, confirmText, isDanger, isLoading, error }) => {
+    if (!isOpen) return null;
+    return (
+        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-md flex items-center justify-center z-[60] p-4 transition-all duration-300">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-2xl transform transition-all duration-300 scale-100 border border-slate-200 dark:border-slate-800 animate-scaleIn">
+                 {/* Header - Matches Main Modal Header Style */}
+                <div className="flex justify-between items-center px-8 py-6 border-b-2 border-slate-200 dark:border-slate-700 bg-gradient-to-r from-slate-50 to-white dark:from-slate-900 dark:to-slate-900 rounded-t-2xl">
+                    <div>
+                        <h2 className="text-2xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-orange-500 to-red-600">
+                            {title}
+                        </h2>
+                    </div>
+                    <button onClick={onClose} className="text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 transition-colors p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800">
+                        <XMarkIcon className="w-6 h-6"/>
+                    </button>
+                </div>
+
+                {/* Body - Matches ForumThreadCard Content Layout */}
+                <div className="p-8">
+                     <div className="space-y-6">
+                        {error && (
+                            <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl flex items-center gap-3 animate-pulse">
+                                <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                                <p className="text-sm font-bold text-red-600 dark:text-red-400">{error}</p>
+                            </div>
+                        )}
+                        
+                        <div className="p-4 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800">
+                            <div className="text-lg font-medium text-slate-700 dark:text-slate-300 leading-relaxed">
+                                {message}
+                            </div>
+                        </div>
+
+                        {/* Footer Buttons */}
+                        <div className="flex justify-end gap-3 pt-2">
+                            <button 
+                                onClick={onClose}
+                                disabled={isLoading}
+                                className="px-6 py-3 text-lg font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 transition-all"
+                            >
+                                Cancel
+                            </button>
+                            <button 
+                                onClick={onConfirm} 
+                                disabled={isLoading}
+                                className={`px-6 py-3 text-lg font-bold text-white rounded-xl shadow-lg flex items-center justify-center transition-all transform hover:-translate-y-0.5 disabled:opacity-50 ${
+                                    isDanger 
+                                    ? "bg-red-600 hover:bg-red-700 shadow-red-500/30 hover:shadow-red-500/50" 
+                                    : "bg-blue-600 hover:bg-blue-700 shadow-blue-500/30 hover:shadow-blue-500/50"
+                                }`}
+                            >
+                                {isLoading ? <SpinnerIcon /> : confirmText}
+                            </button>
+                        </div>
+                     </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+
 // --- Main Component ---
 interface GroupSettingsModalProps {
   isOpen: boolean;
@@ -87,7 +161,20 @@ const GroupSettingsModal = ({ isOpen, onClose, group, currentUser }: GroupSettin
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [inviteSuccess, setInviteSuccess] = useState<string | null>(null);
 
-  const [isLeaving, setIsLeaving] = useState(false);
+  // --- Confirmation State ---
+  const [confirmConfig, setConfirmConfig] = useState<{
+    isOpen: boolean;
+    type: 'kick' | 'transfer' | 'leave' | null;
+    member?: GroupMemberPublic;
+    title: string;
+    message: React.ReactNode;
+    confirmText: string;
+    isDanger: boolean;
+  }>({
+     isOpen: false, type: null, title: '', message: '', confirmText: '', isDanger: false
+  });
+  const [isActionLoading, setIsActionLoading] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const loadMembers = async () => {
     setIsLoading(true);
@@ -126,185 +213,224 @@ const GroupSettingsModal = ({ isOpen, onClose, group, currentUser }: GroupSettin
     }
   };
 
-  const handleKick = async (member: GroupMemberPublic) => {
-    if (!window.confirm(`Are you sure you want to kick ${member.firstname} ${member.lastname}?`)) return;
-    setError(null);
-    try {
-      await kickMember(group.id, member.id);
-      loadMembers();
-    } catch (err: any) {
-      setError(err.message);
-    }
+  // --- New Handlers (Open Modal) ---
+  const confirmKick = (member: GroupMemberPublic) => {
+    setActionError(null);
+    setConfirmConfig({
+        isOpen: true,
+        type: 'kick',
+        member,
+        title: 'Remove Member',
+        message: <span>Are you sure you want to remove <span className="font-bold text-slate-900 dark:text-white">{member.firstname} {member.lastname}</span> from the group?</span>,
+        confirmText: 'Yes, Remove',
+        isDanger: true
+    });
   };
 
-  const handleTransfer = async (member: GroupMemberPublic) => {
-    if (!window.confirm(`Make ${member.firstname} ${member.lastname} the new admin?`)) return;
-    setError(null);
-    try {
-      await transferOwnership(group.id, member.id);
-      onClose();
-    } catch (err: any) {
-      setError(err.message);
-    }
+  const confirmTransfer = (member: GroupMemberPublic) => {
+    setActionError(null);
+    setConfirmConfig({
+        isOpen: true,
+        type: 'transfer',
+        member,
+        title: 'Transfer Ownership',
+        message: <span>Are you sure you want to make <span className="font-bold text-slate-900 dark:text-white">{member.firstname} {member.lastname}</span> the new admin? <br/><br/><span className="text-sm font-bold text-red-500 uppercase">You will lose your admin privileges.</span></span>,
+        confirmText: 'Transfer Admin',
+        isDanger: false // Blue button for transfer
+    });
   };
 
-  const handleLeaveGroup = async () => {
-    const isUserAdmin = currentUser.id === group.admin_id;
-    const confirmMessage = isUserAdmin
-      ? "You are the admin. You must transfer ownership before leaving. Continue?"
-      : "Are you sure you want to leave this group?";
-    if (!window.confirm(confirmMessage)) return;
-
-    setIsLeaving(true);
-    setError(null);
-    try {
-      await leaveGroup(group.id);
-      onClose();
-      window.location.reload();
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setIsLeaving(false);
-    }
+  const confirmLeave = () => {
+    setActionError(null);
+    setConfirmConfig({
+        isOpen: true,
+        type: 'leave',
+        title: 'Leave Group',
+        message: <span>Are you sure you want to leave this group? <br/><span className="text-sm text-slate-500 mt-2 font-bold uppercase tracking-wide block">You will lose access to group chats.</span></span>,
+        confirmText: 'Leave Group',
+        isDanger: true
+    });
   };
+
+  // --- Action Execution ---
+  const handleActionConfirm = async () => {
+     if (!confirmConfig.type) return;
+     
+     setIsActionLoading(true);
+     setActionError(null);
+
+     try {
+        if (confirmConfig.type === 'kick' && confirmConfig.member) {
+            await kickMember(group.id, confirmConfig.member.id);
+            await loadMembers();
+            setConfirmConfig(prev => ({...prev, isOpen: false}));
+        } 
+        else if (confirmConfig.type === 'transfer' && confirmConfig.member) {
+            await transferOwnership(group.id, confirmConfig.member.id);
+            onClose(); // Close settings as current user is likely no longer admin
+            window.location.reload(); 
+        } 
+        else if (confirmConfig.type === 'leave') {
+            await leaveGroup(group.id);
+            onClose();
+            window.location.reload();
+        }
+     } catch (err: any) {
+        setActionError(err.message || "Action failed");
+     } finally {
+        setIsActionLoading(false);
+     }
+  };
+
 
   const isUserAdmin = currentUser.id === group.admin_id;
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Group Settings">
-      <div className="space-y-8">
+    <>
+        <Modal isOpen={isOpen} onClose={onClose} title="Group Settings">
+        <div className="space-y-8">
 
-        
-        <section className="space-y-3">
-          <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100">Add New Member</h3>
-          <form onSubmit={handleInvite} className="flex gap-3">
-             <div className="relative flex-grow">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
-                    <MailIcon />
-                </div>
-                <input 
-                    type="email"
-                    value={inviteEmail}
-                    onChange={(e) => setInviteEmail(e.target.value)}
-                    placeholder="Enter student email..."
-                    className="block w-full pl-12 pr-4 py-4 bg-slate-100 dark:bg-slate-900 border-2 border-transparent rounded-xl focus:bg-white dark:focus:bg-slate-950 focus:border-orange-500 outline-none text-slate-900 dark:text-white placeholder-slate-400 transition-all font-medium"
-                    required
-                />
-            </div>
-            <button
-              type="submit"
-              disabled={isInviting}
-              className="px-6 py-4 bg-gradient-to-br from-orange-500 to-red-600 text-white font-bold rounded-xl shadow-lg shadow-orange-500/20 hover:shadow-orange-500/40 hover:-translate-y-0.5 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isInviting ? <SpinnerIcon /> : "Invite"}
-            </button>
-          </form>
-          
-          {/* Feedback Messages */}
-          {inviteError && (
-              <div className="p-3 rounded-xl bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm font-bold flex items-center gap-2 animate-fadeIn">
-                  <div className="w-2 h-2 rounded-full bg-red-500"></div>
-                  {inviteError}
-              </div>
-          )}
-          {inviteSuccess && (
-              <div className="p-3 rounded-xl bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 text-sm font-bold flex items-center gap-2 animate-fadeIn">
-                  <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                  {inviteSuccess}
-              </div>
-          )}
-        </section>
-
-        {/* 2. Member List Section */}
-        <section className="space-y-3">
-          <div className="flex items-center justify-between">
-             <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100">Members ({members.length})</h3>
-          </div>
-          
-          <div className="bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden max-h-180 overflow-y-auto custom-scrollbar p-2">
-            {isLoading ? (
-              <div className="flex justify-center p-8">
-                <SpinnerIcon className="w-8 h-8 text-orange-500" />
-              </div>
-            ) : (
-              <ul className="space-y-1">
-                {members.map(member => (
-                  <li key={member.id} className="group flex items-center justify-between p-3 rounded-xl hover:bg-white dark:hover:bg-slate-800 transition-all border border-transparent hover:border-slate-200 dark:hover:border-slate-700 hover:shadow-sm">
-                    
-                    {/* User Info */}
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-400 to-red-500 text-white flex items-center justify-center text-sm font-bold shadow-sm">
-                        {member.firstname[0]}{member.lastname[0]}
-                      </div>
-                      <div>
-                        <p className="text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
-                           {member.firstname} {member.lastname}
-                           {member.id === currentUser.id && (
-                               <span className="text-[10px] font-extrabold uppercase text-slate-400 bg-slate-200 dark:bg-slate-800 px-1.5 py-0.5 rounded">You</span>
-                           )}
-                        </p>
-                        <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
-                            {member.id === group.admin_id ? (
-                                <span className="flex items-center gap-1 text-orange-600 dark:text-orange-400 font-bold">
-                                    <ShieldCheckIcon /> Admin
-                                </span>
-                            ) : "Member"}
-                        </p>
-                      </div>
+            {/* 1. Invite Section */}
+            <section className="space-y-3">
+            <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100">Add New Member</h3>
+            <form onSubmit={handleInvite} className="flex gap-3">
+                <div className="relative flex-grow">
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
+                        <MailIcon />
                     </div>
-
-                    {/* Admin Actions */}
-                    {isUserAdmin && member.id !== currentUser.id && (
-                      <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button
-                          onClick={() => handleTransfer(member)}
-                          className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
-                          title="Transfer Ownership"
-                        >
-                           <ShieldCheckIcon />
-                        </button>
-                        <button
-                          onClick={() => handleKick(member)}
-                          className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
-                          title="Kick User"
-                        >
-                           <TrashIcon />
-                        </button>
-                      </div>
-                    )}
-                  </li>
-                ))}
-              </ul>
+                    <input 
+                        type="email"
+                        value={inviteEmail}
+                        onChange={(e) => setInviteEmail(e.target.value)}
+                        placeholder="Enter student email..."
+                        className="block w-full pl-12 pr-4 py-4 bg-slate-100 dark:bg-slate-900 border-2 border-transparent rounded-xl focus:bg-white dark:focus:bg-slate-950 focus:border-orange-500 outline-none text-slate-900 dark:text-white placeholder-slate-400 transition-all font-medium"
+                        required
+                    />
+                </div>
+                <button
+                type="submit"
+                disabled={isInviting}
+                className="px-6 py-4 bg-gradient-to-br from-orange-500 to-red-600 text-white font-bold rounded-xl shadow-lg shadow-orange-500/20 hover:shadow-orange-500/40 hover:-translate-y-0.5 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                {isInviting ? <SpinnerIcon /> : "Invite"}
+                </button>
+            </form>
+            
+            {/* Feedback Messages */}
+            {inviteError && (
+                <div className="p-3 rounded-xl bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm font-bold flex items-center gap-2 animate-fadeIn">
+                    <div className="w-2 h-2 rounded-full bg-red-500"></div>
+                    {inviteError}
+                </div>
             )}
-          </div>
-          {error && <p className="text-sm font-bold text-red-600">{error}</p>}
-        </section>
+            {inviteSuccess && (
+                <div className="p-3 rounded-xl bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 text-sm font-bold flex items-center gap-2 animate-fadeIn">
+                    <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                    {inviteSuccess}
+                </div>
+            )}
+            </section>
 
-        {/* 3. Danger Zone (Leave Group) */}
-        <section className="pt-6 border-t border-slate-100 dark:border-slate-800">
-           <div className="bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/30 rounded-xl p-4 flex items-center justify-between">
-               <div>
-                   <h3 className="text-base font-bold text-red-700 dark:text-red-400">Leave Group</h3>
-                   <p className="text-xs text-red-600/70 dark:text-red-400/70 mt-0.5">
+            {/* 2. Member List Section */}
+            <section className="space-y-3">
+            <div className="flex items-center justify-between">
+                <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100">Members ({members.length})</h3>
+            </div>
+            
+            <div className="bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden max-h-180 overflow-y-auto custom-scrollbar p-2">
+                {isLoading ? (
+                <div className="flex justify-center p-8">
+                    <SpinnerIcon className="w-8 h-8 text-orange-500" />
+                </div>
+                ) : (
+                <ul className="space-y-1">
+                    {members.map(member => (
+                    <li key={member.id} className="group flex items-center justify-between p-3 rounded-xl hover:bg-white dark:hover:bg-slate-800 transition-all border border-transparent hover:border-slate-200 dark:hover:border-slate-700 hover:shadow-sm">
+                        
+                        {/* User Info */}
+                        <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-400 to-red-500 text-white flex items-center justify-center text-sm font-bold shadow-sm">
+                            {member.firstname[0]}{member.lastname[0]}
+                        </div>
+                        <div>
+                            <p className="text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                            {member.firstname} {member.lastname}
+                            {member.id === currentUser.id && (
+                                <span className="text-[10px] font-extrabold uppercase text-slate-400 bg-slate-200 dark:bg-slate-800 px-1.5 py-0.5 rounded">You</span>
+                            )}
+                            </p>
+                            <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                                {member.id === group.admin_id ? (
+                                    <span className="flex items-center gap-1 text-orange-600 dark:text-orange-400 font-bold">
+                                        <ShieldCheckIcon /> Admin
+                                    </span>
+                                ) : "Member"}
+                            </p>
+                        </div>
+                        </div>
+
+                        {/* Admin Actions */}
+                        {isUserAdmin && member.id !== currentUser.id && (
+                        <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button
+                            onClick={() => confirmTransfer(member)}
+                            className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
+                            title="Transfer Ownership"
+                            >
+                            <ShieldCheckIcon />
+                            </button>
+                            <button
+                            onClick={() => confirmKick(member)}
+                            className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
+                            title="Kick User"
+                            >
+                            <TrashIcon />
+                            </button>
+                        </div>
+                        )}
+                    </li>
+                    ))}
+                </ul>
+                )}
+            </div>
+            {error && <p className="text-sm font-bold text-red-600">{error}</p>}
+            </section>
+
+            {/* 3. Danger Zone (Leave Group) */}
+            <section className="pt-6 border-t border-slate-100 dark:border-slate-800">
+            <div className="bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/30 rounded-xl p-4 flex items-center justify-between">
+                <div>
+                    <h3 className="text-base font-bold text-red-700 dark:text-red-400">Leave Group</h3>
+                    <p className="text-xs text-red-600/70 dark:text-red-400/70 mt-0.5">
                         {isUserAdmin ? "Transfer ownership to another member first." : "You will lose access to group chats."}
-                   </p>
-               </div>
-               <button
-                onClick={handleLeaveGroup}
-                disabled={isLeaving || isUserAdmin}
-                className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-900 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 text-sm font-bold rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-               >
-                  {isLeaving ? <SpinnerIcon className="w-4 h-4 text-red-600" /> : (
-                      <>
-                        <LogOutIcon /> Leave
-                      </>
-                  )}
-               </button>
-           </div>
-        </section>
+                    </p>
+                </div>
+                <button
+                    onClick={confirmLeave}
+                    disabled={isUserAdmin}
+                    className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-900 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 text-sm font-bold rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                    <LogOutIcon /> Leave
+                </button>
+            </div>
+            </section>
 
-      </div>
-    </Modal>
+        </div>
+        </Modal>
+
+        {/* Confirmation Modal Overlay */}
+        <ConfirmationModal 
+            isOpen={confirmConfig.isOpen}
+            onClose={() => setConfirmConfig(prev => ({...prev, isOpen: false}))}
+            onConfirm={handleActionConfirm}
+            title={confirmConfig.title}
+            message={confirmConfig.message}
+            confirmText={confirmConfig.confirmText}
+            isDanger={confirmConfig.isDanger}
+            isLoading={isActionLoading}
+            error={actionError}
+        />
+    </>
   );
 };
 

@@ -787,57 +787,48 @@ async def generate_study_notes_from_text(text_to_generate_from: str) -> str:
         print("WARN: AI Service - Input text for study notes is too short.")
         return "Input text is too short to generate effective study notes."
 
-    # <<< (NEW, ADVANCED PROMPT) >>>
+    # <<< (NEW, CLEANER MARKDOWN PROMPT) >>>
     prompt = f"""
-You are an expert academic instructor.  
+You are an expert academic instructor. 
 Generate **comprehensive, well-structured, deeply detailed study notes** from the input text.
 
-## OUTPUT FORMAT (MANDATORY)
+## OUTPUT FORMAT RULES (STRICT MARKDOWN)
+- Use standard Markdown headers (`#`, `##`, `###`).
+- **DO NOT** write "H1", "H2", "H3", "Title", or "Overview" as labels inside the text unless they are the actual headers.
+- **DO NOT** number the sections (e.g., avoid "1. Overview"). Use headers instead.
 
-### 1. Title  
-- Create a clear academic title.
+## STRUCTURE
 
-### 2. Overview  
-Write 4–6 sentences covering:
-- What the text explains  
-- Why it matters  
-- Main themes  
+# [Create an Academic Title Here]
 
-### 3. Key Concepts  
-- Bullet list of all major terms, ideas, and concepts.
+## Overview
+[Write 4–6 sentences explaining the text's significance and themes]
 
-### 4. Detailed Notes (Main Body)  
-Use this exact hierarchy:
+## Key Concepts 
+- [Concept 1]
+- [Concept 2]
 
-## H2 — Main Topic  
-- Full in-depth explanation in your own words.  
-- Key points:  
-  - Bullet 1  
-  - Bullet 2  
-  - Bullet 3  
-- Include examples if present.
+## Detailed Notes
+(Structure the body using clear Markdown headers)
 
-### H3 — Subtopic  
-- Clear explanation.  
-- Supporting bullet points.
+### [Main Idea 1]
+- Full explanation...
 
-#### H4 — (Optional)  
-- Short clarifications or definitions when needed.
+#### [Sub-point or Component]
+- Details...
 
-Repeat for **all major ideas** in the text.  
-Notes must be **thorough, logically ordered, rewritten academically, and cover 100% of the content**.
+### [Main Idea 2]
+...
 
-### 5. Conclusion  
-Write 5–7 bullet points summarizing:
-- Core ideas to remember  
-- Exam-relevant takeaways  
-- Key conceptual relationships  
+## Conclusion
+- [Summary point 1]
+...
 
 ## WRITING STYLE
-- Use academic but simple language.  
-- No fluff.  
-- No repeated sentences.  
-- Do not copy text; rewrite everything clearly.  
+- Use academic but simple language.
+- No fluff.
+- No repeated sentences.
+- Rewrite everything clearly.
 - Output all content in **one markdown block**.
 
 ---
@@ -863,7 +854,7 @@ Write 5–7 bullet points summarizing:
         gemini_model = genai.GenerativeModel(GEMINI_MODEL_NAME)
         generation_config = genai.types.GenerationConfig(
             temperature=0.5,
-            max_output_tokens=4096 # <<< Increased token limit for this complex prompt
+            max_output_tokens=4096 
         )
 
         response = gemini_model.generate_content(prompt, generation_config=generation_config)
@@ -1036,8 +1027,8 @@ async def get_rag_answer(book_id: str, query: str) -> ChatResponse:
     1. Synthesize a direct and helpful answer from the CONTEXT.
     2. Do not use any external knowledge. Your world is limited to the CONTEXT provided.
     3. If the CONTEXT does not contain enough information to fully answer the QUESTION, do the following:
-       - First, provide whatever partial answer you *can* form from the text.
-       - Then, in a single, concluding sentence, state that the context does not provide further details or a complete comparison.
+        - First, provide whatever partial answer you *can* form from the text.
+        - Then, in a single, concluding sentence, state that the context does not provide further details or a complete comparison.
     4. **Do not repeat** that the information is missing from the context for every point you make. State it only once at the very end, and only if necessary.
     5. Be concise and clear.
 

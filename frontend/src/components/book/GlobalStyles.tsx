@@ -1,7 +1,7 @@
 "use client";
 
-export const lightModeDotPatternUrl = "url(\"data:image/svg+xml,%3Csvg width='15' height='15' viewBox='0 0 15 15' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='15' height='15' fill='none'/%3E%3Ccircle cx='7.5' cy='7.5' r='0.8' fill='%23A0AEC0' fill-opacity='0.3'/%3E%3C/svg%3E\")";
-export const darkModeDotPatternUrl = "url(\"data:image/svg+xml,%3Csvg width='15' height='15' viewBox='0 0 15 15' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='15' height='15' fill='none'/%3E%3Ccircle cx='7.5' cy='7.5' r='0.8' fill='%23CBD5E0' fill-opacity='0.15'/%3E%3C/svg%3E\")";
+export const lightModeDotPatternUrl = "url(\"data:image/svg+xml,%3Csvg width='15' height='15' viewBox='0 0 15 15' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='15' height='15' fill='none'/%3E%3Ccircle cx='7.5' cy='7.5' r='0.8' fill='%2394a3b8' fill-opacity='0.4'/%3E%3C/svg%3E\")";
+export const darkModeDotPatternUrl = "url(\"data:image/svg+xml,%3Csvg width='15' height='15' viewBox='0 0 15 15' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='15' height='15' fill='none'/%3E%3Ccircle cx='7.5' cy='7.5' r='0.8' fill='%23cbd5e1' fill-opacity='0.2'/%3E%3C/svg%3E\")";
 
 export const GlobalStyles = () => (
   <style jsx global>{`
@@ -12,20 +12,30 @@ export const GlobalStyles = () => (
       --dot-pattern-url: ${darkModeDotPatternUrl};
     }
 
+    /* --- 1. Modern Glass Card --- */
     .learn-ease-card {
-      background-color: rgba(255, 255, 255, 0.85);
-      backdrop-filter: blur(6px);
-      border-radius: 0.75rem;
-      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.07),
-        0 4px 6px -2px rgba(0, 0, 0, 0.05);
-      transition: box-shadow 0.3s ease-out, transform 0.3s ease-out;
-      border-width: 1px;
-      border-color: rgba(203, 213, 225, 0.5);
+      background-color: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(12px);
+      border-radius: 0.5rem;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+      border: 1px solid #cbd5e1;
+      transition: all 0.3s ease-out;
     }
 
     html.dark .learn-ease-card {
-      background-color: rgba(30, 41, 59, 0.85);
-      border-color: rgba(51, 65, 85, 0.8);
+      background-color: rgba(30, 41, 59, 0.95);
+      border-color: #475569;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    }
+
+    /* --- 2. Animations --- */
+    @keyframes fadeIn {
+      from { opacity: 0; transform: scale(0.98); }
+      to { opacity: 1; transform: scale(1); }
+    }
+    
+    .animate-fadeIn {
+      animation: fadeIn 0.2s ease-out forwards;
     }
 
     @keyframes bookViewModalShowAnimation {
@@ -40,6 +50,7 @@ export const GlobalStyles = () => (
       animation: bookViewModalShowAnimation 0.3s forwards;
     }
 
+    /* --- 3. PDF Cleanup --- */
     .react-pdf__Page__canvas {
       border-radius: 0.375rem;
     }
@@ -47,43 +58,33 @@ export const GlobalStyles = () => (
       border-radius: 0.375rem;
     }
     
-    /* Flip Animation Styles */
-    .flip-container {
+    /* --- 4. Flashcard 3D Utilities --- */
+    .perspective-1000 {
       perspective: 1000px;
     }
-    .flip-inner {
-      position: relative;
-      width: 100%;
-      height: 100%;
-      transition: transform 0.6s;
+    
+    .transform-style-3d {
       transform-style: preserve-3d;
-      will-change: transform;
     }
-    .flip-inner.flipped {
-      transform: rotateY(180deg);
-    }
-    .flip-front,
-    .flip-back {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
+    
+    .backface-hidden {
       backface-visibility: hidden;
-      -webkit-backface-visibility: hidden; /* Safari */
-      transform: translateZ(0);
-      border-radius: 0.75rem;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between; 
-      align-items: flex-start;
-      z-index: 1;
+      -webkit-backface-visibility: hidden;
     }
-    .flip-front {
-      z-index: 2; /* Ensure front is on top initially */
-    }
-    .flip-back {
+    
+    .rotate-y-180 {
       transform: rotateY(180deg);
     }
+
+    /* --- 5. Hidden Scrollbar (Functionality Preserved) --- */
+    .custom-scrollbar {
+      -ms-overflow-style: none;  /* IE and Edge */
+      scrollbar-width: none;  /* Firefox */
+    }
+    
+    .custom-scrollbar::-webkit-scrollbar {
+      display: none; /* Chrome, Safari and Opera */
+    }
+
   `}</style>
 );

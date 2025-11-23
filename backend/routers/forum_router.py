@@ -67,6 +67,20 @@ async def get_single_thread(
     """
     return await forum_service.get_thread_by_id(db, thread_id, user.id)
 
+@router.delete("/threads/{thread_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_thread(
+    thread_id: PyObjectId,
+    db: Annotated[AsyncIOMotorDatabase, Depends(get_database)],
+    user: Annotated[UserInDB, Depends(get_current_user)]
+):
+    """
+    Delete a thread. Only the author can do this.
+    """
+    success = await forum_service.delete_thread(db, thread_id, user.id)
+    if not success:
+        raise HTTPException(status_code=500, detail="Thread deletion failed")
+    return None
+
 @router.post("/threads/{thread_id}/vote", response_model=dict)
 async def vote_on_thread(
     thread_id: PyObjectId,

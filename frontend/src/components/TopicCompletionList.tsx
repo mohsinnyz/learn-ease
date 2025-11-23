@@ -116,7 +116,7 @@ const TopicCompletionList = ({ bookId }: TopicCompletionListProps) => {
 
       {/* HEADER with Legend */}
       <div className="p-4 sm:p-6 pb-0 shrink-0">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 pb-4 border-b border-slate-300 dark:border-slate-700 gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-0 pb-3.5 border-b border-slate-300 dark:border-slate-700 gap-4">
           <h2 className="text-2xl font-bold tracking-tight text-slate-800 dark:text-slate-100">
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-red-500">
               Topic Breakdown

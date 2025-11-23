@@ -11,6 +11,7 @@ EXCLUDE_DIRS = {
     'dist',
     'build',
     '.pytest_cache'
+    '.next'
 }
 
 # Add any files you want to skip

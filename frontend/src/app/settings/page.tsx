@@ -1,3 +1,4 @@
+// frontend/src/app/settings/page.tsx
 "use client";
 
 import { useEffect, useState, FormEvent, ChangeEvent } from "react";
@@ -5,20 +6,20 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 import { 
-    Category, 
-    fetchUserCategories, 
-    createCategory, 
-    updateCategoryName, 
-    deleteCategory 
+    Category, 
+    fetchUserCategories, 
+    createCategory, 
+    updateCategoryName, 
+    deleteCategory 
 } from "@/services/categoryService";
 
 import { 
-    UserPublic, 
-    UserUpdatePayload, 
-    fetchUserProfile, 
-    updateUserProfile,
-    UserPasswordChangePayload,
-    changePassword
+    UserPublic, 
+    UserUpdatePayload, 
+    fetchUserProfile, 
+    updateUserProfile,
+    UserPasswordChangePayload,
+    changePassword
 } from "@/services/authService"; 
 
 // --- Icons ---
@@ -77,10 +78,83 @@ const SettingsAppIcon = (props: React.SVGProps<SVGSVGElement>) => (
         <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
     </svg>
 );
+const XMarkIcon = ({ className = "w-6 h-6" }: { className?: string }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
+      <path fillRule="evenodd" d="M5.47 5.47a.75.75 0 011.06 0L12 10.94l5.47-5.47a.75.75 0 111.06 1.06L13.06 12l5.47 5.47a.75.75 0 11-1.06 1.06L12 13.06l-5.47 5.47a.75.75 0 01-1.06-1.06L10.94 12 5.47 6.53a.75.75 0 010-1.06z" clipRule="evenodd" />
+    </svg>
+);
 
-// --- Standardized Dot Patterns ---
-const lightModeDotPatternUrl = "url(\"data:image/svg+xml,%3Csvg width='15' height='15' viewBox='0 0 15 15' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='15' height='15' fill='none'/%3E%3Ccircle cx='7.5' cy='7.5' r='0.8' fill='%23A0AEC0' fill-opacity='0.5'/%3E%3C/svg%3E\")";
-const darkModeDotPatternUrl = "url(\"data:image/svg+xml,%3Csvg width='15' height='15' viewBox='0 0 15 15' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='15' height='15' fill='none'/%3E%3Ccircle cx='7.5' cy='7.5' r='0.8' fill='%23CBD5E0' fill-opacity='0.15'/%3E%3C/svg%3E\")";
+// --- Global Styles (Unified Design) ---
+const GlobalStyles = () => (
+  <style jsx global>{`
+    /* Unified Card Style */
+    .learn-ease-card {
+      background-color: #ffffff; 
+      border-radius: 1rem;
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+      border: 1px solid rgba(226, 232, 240, 1);
+      transition: box-shadow 0.3s ease-out, transform 0.3s ease-out;
+    }
+    html.dark .learn-ease-card {
+      background-color: rgba(30, 41, 59, 0.95);
+      border-color: rgba(51, 65, 85, 0.8);
+    }
+    .learn-ease-card-hover:hover {
+        box-shadow: 0 6px 20px -3px rgba(249, 115, 22, 0.35),
+                    0 4px 30px 0px rgba(239, 68, 68, 0.25);
+        transform: translateY(-2px);
+    }
+
+    /* Polka Dot Pattern */
+    :root {
+      --dot-pattern-url: url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='1.5' cy='1.5' r='1.5' fill='%2394a3b8' fill-opacity='0.4'/%3E%3C/svg%3E");
+      
+      /* Autofill Variables */
+      --input-bg-light: #ffffff;
+      --input-text-light: #0f172a; 
+      --input-placeholder-light: #94a3b8; 
+      --input-caret-light: #0f172a;
+      --input-bg-dark: rgba(51, 65, 85, 1); 
+      --input-text-dark: #ffffff; 
+      --input-placeholder-dark: #64748b; 
+      --input-caret-dark: #ffffff;
+    }
+    html.dark {
+      --dot-pattern-url: url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='1' cy='1' r='1' fill='%23cbd5e1' fill-opacity='0.1'/%3E%3C/svg%3E");
+    }
+
+    input, select, textarea { background-clip: padding-box !important; }
+    
+    input:-webkit-autofill, input:-webkit-autofill:hover, input:-webkit-autofill:focus, input:-webkit-autofill:active,
+    select:-webkit-autofill, select:-webkit-autofill:hover, select:-webkit-autofill:focus, select:-webkit-autofill:active,
+    textarea:-webkit-autofill, textarea:-webkit-autofill:hover, textarea:-webkit-autofill:focus, textarea:-webkit-autofill:active {
+      -webkit-box-shadow: 0 0 0 1000px var(--input-bg-light) inset !important; 
+      -webkit-text-fill-color: var(--input-text-light) !important; 
+      caret-color: var(--input-caret-light) !important;
+    }
+    
+    html.dark input:-webkit-autofill, html.dark input:-webkit-autofill:hover, html.dark input:-webkit-autofill:focus, html.dark input:-webkit-autofill:active,
+    html.dark select:-webkit-autofill, html.dark select:-webkit-autofill:hover, html.dark select:-webkit-autofill:focus, html.dark select:-webkit-autofill:active,
+    html.dark textarea:-webkit-autofill, html.dark textarea:-webkit-autofill:hover, html.dark textarea:-webkit-autofill:focus, html.dark textarea:-webkit-autofill:active {
+      -webkit-box-shadow: 0 0 0 1000px var(--input-bg-dark) inset !important; 
+      -webkit-text-fill-color: var(--input-text-dark) !important; 
+      caret-color: var(--input-caret-dark) !important;
+    }
+
+    /* Subtle animation for cards */
+    @keyframes cardEnterAnimation {
+        from { opacity: 0; transform: translateY(15px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-card-enter {
+        opacity: 0; 
+        animation: cardEnterAnimation 0.4s cubic-bezier(0.25, 0.8, 0.25, 1) forwards;
+    }
+    .settings-card-1 { animation-delay: 0.1s; }
+    .settings-card-2 { animation-delay: 0.2s; }
+    .settings-card-3 { animation-delay: 0.3s; }
+  `}</style>
+);
 
 const passwordRequirements = [
   { id: 'length', text: 'At least 8 characters', regex: /.{8,}/ },
@@ -91,14 +165,14 @@ const passwordRequirements = [
 ];
 
 interface PasswordValidationStatus {
-  length: boolean;
-  uppercase: boolean;
-  lowercase: boolean;
-  number: boolean;
-  special: boolean;
+  length: boolean;
+  uppercase: boolean;
+  lowercase: boolean;
+  number: boolean;
+  special: boolean;
 }
 
-// --- Modal component (Styled for Learn-Ease) ---
+// --- Unified Modal Component ---
 interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -108,82 +182,77 @@ interface ModalProps {
 const Modal: React.FC<ModalProps> = ({ isOpen, onClose, children, title }) => {
   if (!isOpen) return null;
   return (
-    <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center z-50 p-4 transition-opacity duration-300 ease-in-out">
-      <div className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-md p-6 sm:p-8 rounded-xl shadow-2xl w-full max-w-lg transform transition-all duration-300 ease-in-out scale-95 opacity-0 animate-modalShow border border-slate-200/80 dark:border-slate-700/70">
-        <div className="flex justify-between items-center mb-6 pb-3 border-b border-slate-300 dark:border-slate-700">
-          <h2 className="text-2xl font-semibold text-slate-800 dark:text-slate-100">
-            {title}
-          </h2>
+    <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-md flex items-center justify-center z-50 p-4 transition-all duration-300">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-lg transform transition-all duration-300 scale-100 border border-slate-200 dark:border-slate-800 flex flex-col animate-card-enter">
+        <div className="flex justify-between items-center px-8 py-6 border-b-2 border-slate-200 dark:border-slate-700 bg-gradient-to-r from-slate-50 to-white dark:from-slate-900 dark:to-slate-900 rounded-t-2xl">
+          <div>
+            <h2 className="text-xl sm:text-2xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-orange-500 to-red-600">
+               {title}
+            </h2>
+          </div>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-orange-500 dark:text-slate-500 dark:hover:text-orange-400 text-3xl transition-colors rounded-full p-1 leading-none flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-700"
+            className="text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 transition-colors p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"
             aria-label="Close modal"
           >
-            &times;
+            <XMarkIcon className="w-6 h-6" />
           </button>
         </div>
-        {children}
+        <div className="p-8 overflow-y-auto custom-scrollbar">
+           {children}
+        </div>
       </div>
-      <style jsx global>{`
-        @keyframes modalShow { 
-          0% { transform: scale(0.95) translateY(20px); opacity: 0; }
-          100% { transform: scale(1) translateY(0); opacity: 1; } 
-        }
-        .animate-modalShow { 
-          animation: modalShow 0.35s cubic-bezier(0.25, 0.8, 0.25, 1) forwards; 
-        }
-      `}</style>
     </div>
   );
 };
 
 export default function SettingsPage() {
-  const router = useRouter();
-  const [isClient, setIsClient] = useState(false);
-  const [profile, setProfile] = useState<UserPublic | null>(null);
-  const [editableProfile, setEditableProfile] = useState<UserUpdatePayload>({});
-  const [isLoadingProfile, setIsLoadingProfile] = useState(true);
-  const [errorProfile, setErrorProfile] = useState<string | null>(null);
-  const [isEditingProfile, setIsEditingProfile] = useState(false);
-  const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
-  const [updateProfileSuccess, setUpdateProfileSuccess] = useState<string | null>(null);
+  const router = useRouter();
+  const [isClient, setIsClient] = useState(false);
+  const [profile, setProfile] = useState<UserPublic | null>(null);
+  const [editableProfile, setEditableProfile] = useState<UserUpdatePayload>({});
+  const [isLoadingProfile, setIsLoadingProfile] = useState(true);
+  const [errorProfile, setErrorProfile] = useState<string | null>(null);
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
+  const [updateProfileSuccess, setUpdateProfileSuccess] = useState<string | null>(null);
 
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [isLoadingCategories, setIsLoadingCategories] = useState(true);
-  const [errorCategories, setErrorCategories] = useState<string | null>(null);
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [newCategoryName, setNewCategoryName] = useState("");
-  const [isCreatingCategory, setIsCreatingCategory] = useState(false);
-  const [createCategoryError, setCreateCategoryError] = useState<string | null>(null);
-  const [showRenameModal, setShowRenameModal] = useState(false);
-  const [categoryToRename, setCategoryToRename] = useState<Category | null>(null);
-  const [renamedCategoryName, setRenamedCategoryName] = useState("");
-  const [isRenaming, setIsRenaming] = useState(false);
-  const [renameError, setRenameError] = useState<string | null>(null);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [isLoadingCategories, setIsLoadingCategories] = useState(true);
+  const [errorCategories, setErrorCategories] = useState<string | null>(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [isCreatingCategory, setIsCreatingCategory] = useState(false);
+  const [createCategoryError, setCreateCategoryError] = useState<string | null>(null);
+  const [showRenameModal, setShowRenameModal] = useState(false);
+  const [categoryToRename, setCategoryToRename] = useState<Category | null>(null);
+  const [renamedCategoryName, setRenamedCategoryName] = useState("");
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [renameError, setRenameError] = useState<string | null>(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmNewPassword, setConfirmNewPassword] = useState("");
-  const [isChangingPassword, setIsChangingPassword] = useState(false);
-  const [changePasswordError, setChangePasswordError] = useState<string | null>(null);
-  const [changePasswordSuccess, setChangePasswordSuccess] = useState<string | null>(null);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmNewPassword, setConfirmNewPassword] = useState("");
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [changePasswordError, setChangePasswordError] = useState<string | null>(null);
+  const [changePasswordSuccess, setChangePasswordSuccess] = useState<string | null>(null);
   const [newPasswordValidation, setNewPasswordValidation] = useState<PasswordValidationStatus>({
-    length: false,
-    uppercase: false,
-    lowercase: false,
-    number: false,
-    special: false,
+    length: false,
+    uppercase: false,
+    lowercase: false,
+    number: false,
+    special: false,
   });
   const [isNewPasswordFocused, setIsNewPasswordFocused] = useState(false);
   const allNewPasswordRequirementsMet = Object.values(newPasswordValidation).every(Boolean);
 
   useEffect(() => {
-    setIsClient(true); 
-  }, []);
+    setIsClient(true); 
+  }, []);
 
   useEffect(() => {
     if (isClient) { 
@@ -198,48 +267,47 @@ export default function SettingsPage() {
   }, [isClient, router]);
 
   useEffect(() => {
-    const newValidationStatus: PasswordValidationStatus = {
-      length: passwordRequirements.find(r => r.id === 'length')!.regex.test(newPassword),
-      uppercase: passwordRequirements.find(r => r.id === 'uppercase')!.regex.test(newPassword),
-      lowercase: passwordRequirements.find(r => r.id === 'lowercase')!.regex.test(newPassword),
-      number: passwordRequirements.find(r => r.id === 'number')!.regex.test(newPassword),
-      special: passwordRequirements.find(r => r.id === 'special')!.regex.test(newPassword),
-    };
-    setNewPasswordValidation(newValidationStatus);
-  }, [newPassword]); // This effect depends on the 'newPassword' state
+    const newValidationStatus: PasswordValidationStatus = {
+      length: passwordRequirements.find(r => r.id === 'length')!.regex.test(newPassword),
+      uppercase: passwordRequirements.find(r => r.id === 'uppercase')!.regex.test(newPassword),
+      lowercase: passwordRequirements.find(r => r.id === 'lowercase')!.regex.test(newPassword),
+      number: passwordRequirements.find(r => r.id === 'number')!.regex.test(newPassword),
+      special: passwordRequirements.find(r => r.id === 'special')!.regex.test(newPassword),
+    };
+    setNewPasswordValidation(newValidationStatus);
+  }, [newPassword]); 
 
 
-  const loadUserProfile = async () => { 
-    setErrorProfile(null);
+  const loadUserProfile = async () => { 
+    setErrorProfile(null);
     setIsLoadingProfile(true);
-    try { 
-      const userProfileData = await fetchUserProfile(); 
-      setProfile(userProfileData); 
-      setEditableProfile({ 
+    try { 
+      const userProfileData = await fetchUserProfile(); 
+      setProfile(userProfileData); 
+      setEditableProfile({ 
         firstname: userProfileData.firstname,
         lastname: userProfileData.lastname,
         age: userProfileData.age,
         university_name: userProfileData.university_name,
-      // image property is no longer set here
       });
-    } catch (err: unknown) { 
-      setErrorProfile(err instanceof Error ? err.message : "Failed to load profile."); 
-    } finally { 
-      setIsLoadingProfile(false); 
-    }
-  };
+    } catch (err: unknown) { 
+      setErrorProfile(err instanceof Error ? err.message : "Failed to load profile."); 
+    } finally { 
+      setIsLoadingProfile(false); 
+    }
+  };
 
-  const handleProfileInputChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => { 
-    const { name, value } = e.target;
-    setEditableProfile(prev => ({ ...prev, [name]: name === 'age' ? (value === '' ? undefined : parseInt(value, 10)) : value }));
-  };
+  const handleProfileInputChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => { 
+    const { name, value } = e.target;
+    setEditableProfile(prev => ({ ...prev, [name]: name === 'age' ? (value === '' ? undefined : parseInt(value, 10)) : value }));
+  };
 
-  const handleProfileUpdateSubmit = async (event: FormEvent<HTMLFormElement>) => { 
-    event.preventDefault(); 
-    setIsUpdatingProfile(true); 
-    setErrorProfile(null); 
-    setUpdateProfileSuccess(null);
-    try { 
+  const handleProfileUpdateSubmit = async (event: FormEvent<HTMLFormElement>) => { 
+    event.preventDefault(); 
+    setIsUpdatingProfile(true); 
+    setErrorProfile(null); 
+    setUpdateProfileSuccess(null);
+    try { 
       const payloadToSend: UserUpdatePayload = {
           firstname: editableProfile.firstname,
           lastname: editableProfile.lastname,
@@ -255,179 +323,111 @@ export default function SettingsPage() {
       if (editableProfile.university_name !== undefined) {
           payloadToSend.university_name = editableProfile.university_name;
 }
-      const updatedProfileData = await updateUserProfile(payloadToSend); 
-      setProfile(updatedProfileData); 
+      const updatedProfileData = await updateUserProfile(payloadToSend); 
+      setProfile(updatedProfileData); 
       setEditableProfile({ 
         firstname: updatedProfileData.firstname,
         lastname: updatedProfileData.lastname,
         age: updatedProfileData.age,
         university_name: updatedProfileData.university_name,
       });
-      setIsEditingProfile(false); 
-      setUpdateProfileSuccess("Profile updated successfully!");
-      setTimeout(() => setUpdateProfileSuccess(null), 3000); 
-    } catch (err: unknown) { 
-      setErrorProfile(err instanceof Error ? err.message : "Failed to update profile.");
-    } finally { 
-      setIsUpdatingProfile(false); 
-    }
-  };
-  const loadUserCategories = async () => {  
-    setIsLoadingCategories(true);
-    setErrorCategories(null); 
-    try {
-      const userCategories = await fetchUserCategories();
-      setCategories(userCategories.sort((a, b) => a.name.localeCompare(b.name)));
-    } catch (err: unknown) {
-      setErrorCategories(err instanceof Error ? err.message : "Failed to load categories."); 
-    } finally {
-      setIsLoadingCategories(false);
-    }
-  };
+      setIsEditingProfile(false); 
+      setUpdateProfileSuccess("Profile updated successfully!");
+      setTimeout(() => setUpdateProfileSuccess(null), 3000); 
+    } catch (err: unknown) { 
+      setErrorProfile(err instanceof Error ? err.message : "Failed to update profile.");
+    } finally { 
+      setIsUpdatingProfile(false); 
+    }
+  };
+  const loadUserCategories = async () => {  
+    setIsLoadingCategories(true);
+    setErrorCategories(null); 
+    try {
+      const userCategories = await fetchUserCategories();
+      setCategories(userCategories.sort((a, b) => a.name.localeCompare(b.name)));
+    } catch (err: unknown) {
+      setErrorCategories(err instanceof Error ? err.message : "Failed to load categories."); 
+    } finally {
+      setIsLoadingCategories(false);
+    }
+  };
 
-  const handleOpenCreateModal = () => { setNewCategoryName(""); setCreateCategoryError(null); setShowCreateModal(true); };
-  
-  const handleCreateCategory = async (event: FormEvent<HTMLFormElement>) => {  
-    event.preventDefault(); if (!newCategoryName.trim()) { setCreateCategoryError("Category name cannot be empty."); return; }
-    setIsCreatingCategory(true); setCreateCategoryError(null); 
-    try { 
-      const newCat = await createCategory({ name: newCategoryName }); 
-      setCategories(prev => [...prev, newCat].sort((a, b) => a.name.localeCompare(b.name))); 
-      setShowCreateModal(false); 
-      setNewCategoryName(""); 
-    }
-    catch (err: unknown) { setCreateCategoryError(err instanceof Error ? err.message : "An unknown error occurred."); }
-    finally { setIsCreatingCategory(false); }
-  };
-  
-  const handleOpenRenameModal = (category: Category) => { setCategoryToRename(category); setRenamedCategoryName(category.name); setRenameError(null); setShowRenameModal(true);};
-  
-  const handleRenameCategory = async (event: FormEvent<HTMLFormElement>) => { 
-    event.preventDefault(); if (!categoryToRename || !renamedCategoryName.trim()) { setRenameError("Category name cannot be empty."); return; }
-    setIsRenaming(true); setRenameError(null);
-    try { 
-      const updatedCategory = await updateCategoryName(categoryToRename.id, { name: renamedCategoryName }); 
-      setCategories(prev => prev.map(cat => cat.id === updatedCategory.id ? updatedCategory : cat).sort((a, b) => a.name.localeCompare(b.name))); 
-      setShowRenameModal(false); 
-      setCategoryToRename(null); 
-    }
-    catch (err: unknown) { setRenameError(err instanceof Error ? err.message : "An unknown error occurred."); }
-    finally { setIsRenaming(false); }
-  };
+  const handleOpenCreateModal = () => { setNewCategoryName(""); setCreateCategoryError(null); setShowCreateModal(true); };
+  
+  const handleCreateCategory = async (event: FormEvent<HTMLFormElement>) => {  
+    event.preventDefault(); if (!newCategoryName.trim()) { setCreateCategoryError("Category name cannot be empty."); return; }
+    setIsCreatingCategory(true); setCreateCategoryError(null); 
+    try { 
+      const newCat = await createCategory({ name: newCategoryName }); 
+      setCategories(prev => [...prev, newCat].sort((a, b) => a.name.localeCompare(b.name))); 
+      setShowCreateModal(false); 
+      setNewCategoryName(""); 
+    }
+    catch (err: unknown) { setCreateCategoryError(err instanceof Error ? err.message : "An unknown error occurred."); }
+    finally { setIsCreatingCategory(false); }
+  };
+  
+  const handleOpenRenameModal = (category: Category) => { setCategoryToRename(category); setRenamedCategoryName(category.name); setRenameError(null); setShowRenameModal(true);};
+  
+  const handleRenameCategory = async (event: FormEvent<HTMLFormElement>) => { 
+    event.preventDefault(); if (!categoryToRename || !renamedCategoryName.trim()) { setRenameError("Category name cannot be empty."); return; }
+    setIsRenaming(true); setRenameError(null);
+    try { 
+      const updatedCategory = await updateCategoryName(categoryToRename.id, { name: renamedCategoryName }); 
+      setCategories(prev => prev.map(cat => cat.id === updatedCategory.id ? updatedCategory : cat).sort((a, b) => a.name.localeCompare(b.name))); 
+      setShowRenameModal(false); 
+      setCategoryToRename(null); 
+    }
+    catch (err: unknown) { setRenameError(err instanceof Error ? err.message : "An unknown error occurred."); }
+    finally { setIsRenaming(false); }
+  };
 
-  const handleOpenDeleteModal = (category: Category) => { setCategoryToDelete(category); setDeleteError(null); setShowDeleteModal(true);};
-  
-  const handleConfirmDeleteCategory = async () => {  
-    if (!categoryToDelete) return; 
-    setIsDeleting(true); setDeleteError(null);
-    try { 
-      await deleteCategory(categoryToDelete.id); 
-      setCategories(prev => prev.filter(cat => cat.id !== categoryToDelete.id)); 
-      setShowDeleteModal(false); 
-      setCategoryToDelete(null); 
-    }
-    catch (err: unknown) { setDeleteError(err instanceof Error ? err.message : "An unknown error occurred."); }
-    finally { setIsDeleting(false); }
-  };
+  const handleOpenDeleteModal = (category: Category) => { setCategoryToDelete(category); setDeleteError(null); setShowDeleteModal(true);};
+  
+  const handleConfirmDeleteCategory = async () => {  
+    if (!categoryToDelete) return; 
+    setIsDeleting(true); setDeleteError(null);
+    try { 
+      await deleteCategory(categoryToDelete.id); 
+      setCategories(prev => prev.filter(cat => cat.id !== categoryToDelete.id)); 
+      setShowDeleteModal(false); 
+      setCategoryToDelete(null); 
+    }
+    catch (err: unknown) { setDeleteError(err instanceof Error ? err.message : "An unknown error occurred."); }
+    finally { setIsDeleting(false); }
+  };
 
-  const handleChangePasswordSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (newPassword !== confirmNewPassword) {
-      setChangePasswordError("New passwords do not match.");
-      return;
-    }
+  const handleChangePasswordSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (newPassword !== confirmNewPassword) {
+      setChangePasswordError("New passwords do not match.");
+      return;
+    }
     if (!allNewPasswordRequirementsMet) {
       setChangePasswordError("New password does not meet all requirements. Please check the criteria.");
-      setIsNewPasswordFocused(true); // Ensure checklist is visible
+      setIsNewPasswordFocused(true); 
       return;
     }
     if (newPassword.length < 8 || !/[A-Z]/.test(newPassword) || !/[a-z]/.test(newPassword) || !/[0-9]/.test(newPassword) || !/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/.test(newPassword) ) {
         setChangePasswordError("Password must be at least 8 characters and include uppercase, lowercase, number, and special character.");
         return;
     }
-    setIsChangingPassword(true);
-    setChangePasswordError(null);
-    setChangePasswordSuccess(null);
-    const payload: UserPasswordChangePayload = { current_password: currentPassword, new_password: newPassword, confirm_new_password: confirmNewPassword };
-    try {
-      await changePassword(payload); 
-      setChangePasswordSuccess("Password changed successfully!");
-      setCurrentPassword(""); setNewPassword(""); setConfirmNewPassword("");
-      setTimeout(() => setChangePasswordSuccess(null), 3000);
-    } catch (err: unknown) {
-      setChangePasswordError(err instanceof Error ? err.message : "Failed to change password.");
-    } finally {
-      setIsChangingPassword(false);
-    }
-  };
-
-
-  const GlobalStyles = () => (
-    <style jsx global>{`
-      :root { 
-        --dot-pattern-url: ${lightModeDotPatternUrl}; 
-        --input-bg-light: rgba(255, 255, 255, 0.8);
-        --input-text-light: #1e293b; 
-        --input-placeholder-light: #94a3b8;
-        --input-caret-light: #f97316; 
-        
-        --input-bg-dark: rgba(51, 65, 85, 0.8); 
-        --input-text-dark: #e2e8f0; 
-        --input-placeholder-dark: #64748b; 
-        --input-caret-dark: #fb923c; 
-      }
-      html.dark { --dot-pattern-url: ${darkModeDotPatternUrl}; }
-
-      .learn-ease-card {
-        background-color: rgba(255, 255, 255, 0.85); 
-        backdrop-filter: blur(6px); 
-        border-radius: 0.75rem; 
-        box-shadow: 0 10px 15px -3px rgba(0,0,0,0.07), 0 4px 6px -2px rgba(0,0,0,0.05);
-        transition: box-shadow 0.3s ease-out, transform 0.3s ease-out;
-        border-width: 1px;
-        border-color: rgba(203, 213, 225, 0.5); 
-      }
-      html.dark .learn-ease-card {
-        background-color: rgba(30, 41, 59, 0.85); 
-        border-color: rgba(51, 65, 85, 0.8); 
-      }
-      .learn-ease-card-hover:hover {
-        box-shadow: 0 6px 20px -3px rgba(249, 115, 22, 0.35),
-                    0 4px 30px 0px rgba(239, 68, 68, 0.25);
-        transform: translateY(-2px);
-      }
-      input, select, textarea { background-clip: padding-box !important; }
-      input:-webkit-autofill, input:-webkit-autofill:hover, input:-webkit-autofill:focus, input:-webkit-autofill:active,
-      select:-webkit-autofill, select:-webkit-autofill:hover, select:-webkit-autofill:focus, select:-webkit-autofill:active,
-      textarea:-webkit-autofill, textarea:-webkit-autofill:hover, textarea:-webkit-autofill:focus, textarea:-webkit-autofill:active {
-        -webkit-box-shadow: 0 0 0 1000px var(--input-bg-light) inset !important; -webkit-text-fill-color: var(--input-text-light) !important; caret-color: var(--input-caret-light) !important;
-      }
-      html.dark input:-webkit-autofill, html.dark input:-webkit-autofill:hover, html.dark input:-webkit-autofill:focus, html.dark input:-webkit-autofill:active,
-      html.dark select:-webkit-autofill, html.dark select:-webkit-autofill:hover, html.dark select:-webkit-autofill:focus, html.dark select:-webkit-autofill:active,
-      html.dark textarea:-webkit-autofill, html.dark textarea:-webkit-autofill:hover, html.dark textarea:-webkit-autofill:focus, html.dark textarea:-webkit-autofill:active {
-        -webkit-box-shadow: 0 0 0 1000px var(--input-bg-dark) inset !important; -webkit-text-fill-color: var(--input-text-dark) !important; caret-color: var(--input-caret-dark) !important;
-      }
-      /* Subtle animation for cards */
-      @keyframes cardEnterAnimation {
-        from {
-          opacity: 0;
-          transform: translateY(15px);
-        }
-        to {
-          opacity: 1;
-          transform: translateY(0);
-        }
-      }
-      .animate-card-enter {
-        opacity: 0; /* Initial state before animation */
-        animation: cardEnterAnimation 0.4s cubic-bezier(0.25, 0.8, 0.25, 1) forwards;
-      }
-      /* Staggered delay for cards */
-      .settings-card-1 { animation-delay: 0.1s; }
-      .settings-card-2 { animation-delay: 0.2s; }
-      .settings-card-3 { animation-delay: 0.3s; }
-    `}</style>
-  );
+    setIsChangingPassword(true);
+    setChangePasswordError(null);
+    setChangePasswordSuccess(null);
+    const payload: UserPasswordChangePayload = { current_password: currentPassword, new_password: newPassword, confirm_new_password: confirmNewPassword };
+    try {
+      await changePassword(payload); 
+      setChangePasswordSuccess("Password changed successfully!");
+      setCurrentPassword(""); setNewPassword(""); setConfirmNewPassword("");
+      setTimeout(() => setChangePasswordSuccess(null), 3000);
+    } catch (err: unknown) {
+      setChangePasswordError(err instanceof Error ? err.message : "Failed to change password.");
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
 
   // Helper component for Profile Info Item
   const ProfileInfoItem = ({ icon: Icon, label, value }: { icon: React.ElementType, label: string, value: string | number | null | undefined | React.ReactNode }) => (
@@ -443,23 +443,23 @@ export default function SettingsPage() {
   );
 
 
-  if (!isClient || isLoadingProfile || isLoadingCategories) {
-    return (
+  if (!isClient || isLoadingProfile || isLoadingCategories) {
+    return (
       <div 
-        className="flex min-h-screen flex-col items-center justify-center bg-slate-100 dark:bg-slate-900 transition-colors duration-500" 
-        style={{ backgroundImage: `var(--dot-pattern-url, ${lightModeDotPatternUrl})` }}
+        className="flex min-h-screen flex-col items-center justify-center bg-slate-200 dark:bg-slate-950 transition-colors duration-500" 
+        style={{ backgroundImage: 'var(--dot-pattern-url)' }}
       >
         <GlobalStyles />
         <SpinnerIcon className="h-12 w-12 text-orange-500" />
         <p className="text-lg text-slate-600 dark:text-slate-300 mt-4">Loading settings...</p>
       </div>
     );
-  }
+  }
 
-  return (
-    <div 
-      className="min-h-screen bg-slate-100 dark:bg-slate-900 p-4 sm:p-6 lg:p-8 transition-colors duration-500 text-left"
-      style={{ backgroundImage: `var(--dot-pattern-url, ${lightModeDotPatternUrl})` }}
+  return (
+    <div 
+      className="min-h-screen bg-slate-200 dark:bg-slate-950 p-4 sm:p-6 lg:p-8 transition-colors duration-500 text-left"
+      style={{ backgroundImage: 'var(--dot-pattern-url)' }}
     >
       <GlobalStyles />
       <div className="mb-6"> 
@@ -474,12 +474,11 @@ export default function SettingsPage() {
           <span className="text-slate-800 dark:text-slate-200"> Settings</span>
       </h1>
       
-      {/* Card container with max-w-4xl for a moderately wider look */}
-      <div className="max-w-4xl mx-auto space-y-6"> 
+      <div className="max-w-4xl mx-auto space-y-6"> 
         {/* Section 1: Profile Details */}
         <section id="profile-details" className="learn-ease-card learn-ease-card-hover p-4 sm:p-6 text-left animate-card-enter settings-card-1">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
-            <h2 className="text-3xl font-semibold text-slate-800 dark:text-slate-100 mb-3 sm:mb-0">Profile Details</h2> {/* Increased font size */}
+            <h2 className="text-3xl font-semibold text-slate-800 dark:text-slate-100 mb-3 sm:mb-0">Profile Details</h2> 
             {!isEditingProfile && profile && (
               <button 
                 onClick={() => {
@@ -539,23 +538,22 @@ export default function SettingsPage() {
 
           {isEditingProfile && profile && ( 
             <form onSubmit={handleProfileUpdateSubmit} className="space-y-4 text-left">
-              {/* ... Edit form content (same as before) ... */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label htmlFor="firstname" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">First Name</label>
-                  <input type="text" name="firstname" id="firstname" value={editableProfile.firstname || ''} onChange={handleProfileInputChange} className="mt-1 block w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm focus:ring-1 focus:ring-orange-500 focus:border-orange-500 sm:text-sm bg-white/80 dark:bg-slate-700/80 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500" />
+                  <input type="text" name="firstname" id="firstname" value={editableProfile.firstname || ''} onChange={handleProfileInputChange} className="mt-1 block w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm focus:ring-1 focus:ring-orange-500 focus:border-orange-500 sm:text-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500" />
                 </div>
                 <div>
                   <label htmlFor="lastname" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Last Name</label>
-                  <input type="text" name="lastname" id="lastname" value={editableProfile.lastname || ''} onChange={handleProfileInputChange} className="mt-1 block w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm focus:ring-1 focus:ring-orange-500 focus:border-orange-500 sm:text-sm bg-white/80 dark:bg-slate-700/80 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500" />
+                  <input type="text" name="lastname" id="lastname" value={editableProfile.lastname || ''} onChange={handleProfileInputChange} className="mt-1 block w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm focus:ring-1 focus:ring-orange-500 focus:border-orange-500 sm:text-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500" />
                 </div>
                 <div>
                   <label htmlFor="age" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Age</label>
-                  <input type="number" name="age" id="age" value={editableProfile.age ?? ''} onChange={handleProfileInputChange} className="mt-1 block w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm focus:ring-1 focus:ring-orange-500 focus:border-orange-500 sm:text-sm bg-white/80 dark:bg-slate-700/80 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500" />
+                  <input type="number" name="age" id="age" value={editableProfile.age ?? ''} onChange={handleProfileInputChange} className="mt-1 block w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm focus:ring-1 focus:ring-orange-500 focus:border-orange-500 sm:text-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500" />
                 </div>
                 <div>
                   <label htmlFor="university_name" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">University Name</label>
-                  <input type="text" name="university_name" id="university_name" value={editableProfile.university_name || ''} onChange={handleProfileInputChange} className="mt-1 block w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm focus:ring-1 focus:ring-orange-500 focus:border-orange-500 sm:text-sm bg-white/80 dark:bg-slate-700/80 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500" />
+                  <input type="text" name="university_name" id="university_name" value={editableProfile.university_name || ''} onChange={handleProfileInputChange} className="mt-1 block w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm focus:ring-1 focus:ring-orange-500 focus:border-orange-500 sm:text-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500" />
                 </div>
               </div>
               <div className="flex justify-end space-x-3 pt-1">
@@ -568,8 +566,8 @@ export default function SettingsPage() {
           )}
         </section>
 
-        {/* Section 2: Manage Categories - Modernized */}
-        <section id="manage-categories" className="learn-ease-card learn-ease-card-hover p-4 sm:p-6 mb-6 text-left animate-card-enter settings-card-2">
+        {/* Section 2: Manage Categories */}
+        <section id="manage-categories" className="learn-ease-card learn-ease-card-hover p-4 sm:p-6 text-left animate-card-enter settings-card-2">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-5">
             <h2 className="text-3xl font-semibold text-slate-800 dark:text-slate-100 mb-3 sm:mb-0">Manage Your Categories</h2>
             <button onClick={handleOpenCreateModal} className="flex items-center px-4 py-2 bg-gradient-to-r from-orange-500 to-red-500 text-white text-sm font-medium rounded-lg shadow-md hover:from-orange-600 hover:to-red-600 focus:outline-none focus:ring-2 ring-offset-2 dark:ring-offset-slate-800 ring-red-500 transition-all self-start sm:self-center"> 
@@ -625,22 +623,18 @@ export default function SettingsPage() {
           {changePasswordError && <div className="p-3 text-sm text-red-700 bg-red-100 dark:bg-red-900/60 dark:text-red-300 rounded-md mb-4 border border-red-300 dark:border-red-700">{changePasswordError}</div>}
           {changePasswordSuccess && <div className="p-3 text-sm text-green-700 bg-green-100 dark:bg-green-900/60 dark:text-green-300 rounded-md mb-4 border border-green-300 dark:border-green-700">{changePasswordSuccess}</div>}
           <form onSubmit={handleChangePasswordSubmit} className="space-y-4">
-            {/* ... Input fields (same as before) ... */}
             <div>
               <label htmlFor="currentPassword" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Current Password</label>
-              <input type="password" name="currentPassword" id="currentPassword" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm focus:ring-1 focus:ring-orange-500 focus:border-orange-500 sm:text-sm bg-white/80 dark:bg-slate-700/80 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500" required />
+              <input type="password" name="currentPassword" id="currentPassword" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm focus:ring-1 focus:ring-orange-500 focus:border-orange-500 sm:text-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500" required />
             </div>
-            {/* === INSERT THIS BLOCK FOR "NEW PASSWORD" (Single-line attribute format) === */}
             <div>
               <label htmlFor="newPassword" className="block text-sm font-medium text-slate-700 dark:text-slate-300">New Password</label>
               <div className="relative mt-1"> 
-                <input id="newPassword" name="newPassword" type="password" autoComplete="new-password" required className="block w-full px-4 py-2.5 pr-10 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm focus:ring-1 focus:ring-orange-500 focus:border-orange-500 sm:text-sm bg-white/80 dark:bg-slate-700/80 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500"  value={newPassword} onChange={(e) => setNewPassword(e.target.value)} onFocus={() => setIsNewPasswordFocused(true)} />
-                {/* Show checkmark if all requirements are met for the new password */}
+                <input id="newPassword" name="newPassword" type="password" autoComplete="new-password" required className="block w-full px-4 py-2.5 pr-10 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm focus:ring-1 focus:ring-orange-500 focus:border-orange-500 sm:text-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500"  value={newPassword} onChange={(e) => setNewPassword(e.target.value)} onFocus={() => setIsNewPasswordFocused(true)} />
                 {newPassword.length > 0 && allNewPasswordRequirementsMet && ( <span className="absolute inset-y-0 right-0 pr-3 flex items-center text-green-500 dark:text-green-400 pointer-events-none"> <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"> <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /> </svg> </span> )}
               </div>
             </div>
 
-            {/* Requirements checklist UI, adapted for 'newPassword' state */}
             {(isNewPasswordFocused || (newPassword.length > 0 && !allNewPasswordRequirementsMet)) && (
               <div className="mt-2 p-3 bg-slate-100 dark:bg-slate-700/70 rounded-md border border-slate-200 dark:border-slate-600">
                 <p className="text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">New password must include:</p>
@@ -657,13 +651,11 @@ export default function SettingsPage() {
                 </ul>
               </div>
             )}
-            {/* === END OF INSERTED BLOCK === */}
-            {/* === REPLACE your current "Confirm New Password" block with THIS === */}
+            
             <div>
               <label htmlFor="confirmNewPassword" className="block text-sm font-medium text-slate-700 dark:text-slate-300">Confirm New Password</label>
               <div className="relative mt-1"> 
-                <input id="confirmNewPassword" name="confirmNewPassword" type="password" autoComplete="new-password" required className="mt-1 block w-full px-4 py-2.5 pr-10 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm focus:ring-1 focus:ring-orange-500 focus:border-orange-500 sm:text-sm bg-white/80 dark:bg-slate-700/80 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500" value={confirmNewPassword} onChange={(e) => setConfirmNewPassword(e.target.value)} />
-                {/* Logic to show match/mismatch icon */}
+                <input id="confirmNewPassword" name="confirmNewPassword" type="password" autoComplete="new-password" required className="mt-1 block w-full px-4 py-2.5 pr-10 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm focus:ring-1 focus:ring-orange-500 focus:border-orange-500 sm:text-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500" value={confirmNewPassword} onChange={(e) => setConfirmNewPassword(e.target.value)} />
                 {confirmNewPassword.length > 0 && newPassword.length > 0 && ( 
                   <span className={`absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none ${newPassword === confirmNewPassword ? 'text-green-500 dark:text-green-400' : 'text-red-500 dark:text-red-400'}`}> 
                     {newPassword === confirmNewPassword ? ( 
@@ -675,7 +667,6 @@ export default function SettingsPage() {
                 )}
               </div>
             </div>
-            {/* === END OF REPLACEMENT BLOCK === */}
             <div className="flex justify-end pt-1">
               <button type="submit" disabled={isChangingPassword} className="flex items-center justify-center px-4 py-2 text-sm bg-gradient-to-r from-orange-500 to-red-500 text-white font-medium rounded-lg shadow-md hover:from-orange-600 hover:to-red-600 focus:outline-none focus:ring-2 ring-offset-2 dark:ring-offset-slate-800 ring-red-500 disabled:opacity-60">
                 {isChangingPassword ? <><SpinnerIcon className="h-4 w-4 mr-2"/>Changing...</> : "Change Password"}
@@ -685,8 +676,7 @@ export default function SettingsPage() {
         </section>
       </div>
 
-      {/* Modals (styles already updated) */}
-      {/* ... Modals JSX (same as before) ... */}
+      {/* Modals */}
        <Modal isOpen={showCreateModal} onClose={() => setShowCreateModal(false)} title="Create New Category"> 
           <form onSubmit={handleCreateCategory} className="space-y-4">
             <input 
@@ -694,7 +684,7 @@ export default function SettingsPage() {
               value={newCategoryName} 
               onChange={(e) => setNewCategoryName(e.target.value)} 
               placeholder="Category Name" 
-              className="block w-full px-3 py-2.5 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm focus:ring-1 focus:ring-orange-500 focus:border-orange-500 sm:text-sm bg-white/80 dark:bg-slate-700/80 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500" 
+              className="block w-full px-3 py-2.5 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm focus:ring-1 focus:ring-orange-500 focus:border-orange-500 sm:text-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500" 
               required 
             />
             {createCategoryError && <p className="text-red-600 dark:text-red-400 text-sm text-left">{createCategoryError}</p>}
@@ -716,7 +706,7 @@ export default function SettingsPage() {
                 value={renamedCategoryName} 
                 onChange={(e) => setRenamedCategoryName(e.target.value)} 
                 placeholder="New Category Name" 
-                className="block w-full px-3 py-2.5 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm focus:ring-1 focus:ring-orange-500 focus:border-orange-500 sm:text-sm bg-white/80 dark:bg-slate-700/80 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500" 
+                className="block w-full px-3 py-2.5 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm focus:ring-1 focus:ring-orange-500 focus:border-orange-500 sm:text-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500" 
                 required 
               />
               {renameError && <p className="text-red-600 dark:text-red-400 text-sm text-left">{renameError}</p>}
@@ -754,8 +744,6 @@ export default function SettingsPage() {
           </Modal>
         )}
 
-
-      {/* Footer Added */}
       <footer className="mt-12 pt-6 border-t border-slate-300/70 dark:border-slate-700/70 text-center">
         <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center justify-center">
           <SettingsAppIcon className="w-4 h-4 mr-1.5" />
@@ -765,6 +753,6 @@ export default function SettingsPage() {
           &copy; {new Date().getFullYear()} Learn-Ease. All rights reserved.
         </p>
       </footer>
-    </div>
-  );
+    </div>
+  );
 }
