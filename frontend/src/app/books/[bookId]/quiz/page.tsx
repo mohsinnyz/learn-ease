@@ -1,3 +1,4 @@
+// frontend/src/app/books/[bookId]/quiz/page.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -43,7 +44,8 @@ const GlobalStyles = () => (
 
     /* Polka Dot Pattern */
     :root {
-      --dot-pattern-url: url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='1.5' cy='1.5' r='1.5' fill='%2394a3b8' fill-opacity='0.4'/%3E%3C/svg%3E");
+      /* UPDATED: fill-opacity='0.3' */
+      --dot-pattern-url: url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='1.5' cy='1.5' r='1.5' fill='%2394a3b8' fill-opacity='0.3'/%3E%3C/svg%3E");
     }
     html.dark {
       --dot-pattern-url: url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='1' cy='1' r='1' fill='%23cbd5e1' fill-opacity='0.1'/%3E%3C/svg%3E");
@@ -405,7 +407,8 @@ export default function QuizPage() {
 
   return (
     <main 
-      className="min-h-screen flex flex-col items-center p-4 sm:p-6 text-slate-900 dark:text-slate-100 bg-slate-200 dark:bg-slate-950 transition-colors duration-500"
+      // UPDATED: bg-slate-200/50
+      className="min-h-screen flex flex-col items-center p-4 sm:p-6 text-slate-900 dark:text-slate-100 bg-slate-200/50 dark:bg-slate-950 transition-colors duration-500"
       style={{ backgroundImage: 'var(--dot-pattern-url)' }}
     >
       <GlobalStyles />

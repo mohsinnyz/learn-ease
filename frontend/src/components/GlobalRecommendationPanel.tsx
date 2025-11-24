@@ -131,8 +131,11 @@ export const GlobalRecommendationPanel: React.FC = () => {
 
   return (
     <section className="learn-ease-card p-6 h-full flex flex-col">
-      <h2 className="text-3xl font-semibold text-slate-800 dark:text-slate-100 mb-4 pb-4 border-b border-slate-300 dark:border-slate-700 flex items-center">
-        Recommendations
+      {/* Updated Heading: Orange Gradient + Line Separator */}
+      <h2 className="text-3xl font-bold tracking-tight mb-4 pb-4 border-b border-slate-300 dark:border-slate-700 flex items-center">
+        <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-red-500">
+           Recommendations
+        </span>
       </h2>
       {renderContent()}
     </section>

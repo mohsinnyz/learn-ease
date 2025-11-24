@@ -107,7 +107,8 @@ const GlobalStyles = () => (
 
     /* Polka Dot Pattern */
     :root {
-      --dot-pattern-url: url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='1.5' cy='1.5' r='1.5' fill='%2394a3b8' fill-opacity='0.4'/%3E%3C/svg%3E");
+      /* UPDATED: fill-opacity='0.3' */
+      --dot-pattern-url: url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='1.5' cy='1.5' r='1.5' fill='%2394a3b8' fill-opacity='0.3'/%3E%3C/svg%3E");
       
       /* Autofill Variables */
       --input-bg-light: #ffffff;
@@ -446,7 +447,8 @@ export default function SettingsPage() {
   if (!isClient || isLoadingProfile || isLoadingCategories) {
     return (
       <div 
-        className="flex min-h-screen flex-col items-center justify-center bg-slate-200 dark:bg-slate-950 transition-colors duration-500" 
+        // UPDATED: bg-slate-200/50
+        className="flex min-h-screen flex-col items-center justify-center bg-slate-200/50 dark:bg-slate-950 transition-colors duration-500" 
         style={{ backgroundImage: 'var(--dot-pattern-url)' }}
       >
         <GlobalStyles />
@@ -458,7 +460,8 @@ export default function SettingsPage() {
 
   return (
     <div 
-      className="min-h-screen bg-slate-200 dark:bg-slate-950 p-4 sm:p-6 lg:p-8 transition-colors duration-500 text-left"
+      // UPDATED: bg-slate-200/50
+      className="min-h-screen bg-slate-200/50 dark:bg-slate-950 p-4 sm:p-6 lg:p-8 transition-colors duration-500 text-left"
       style={{ backgroundImage: 'var(--dot-pattern-url)' }}
     >
       <GlobalStyles />

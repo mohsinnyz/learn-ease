@@ -113,13 +113,13 @@ const GlobalStyles = () => (
       /* Hover effect specific to book cards */
       .learn-ease-card-hover:hover {
         box-shadow: 0 6px 20px -3px rgba(249, 115, 22, 0.35), /* Orange part */
-                    0 4px 30px 0px rgba(239, 68, 68, 0.25);  /* Red part */
+                  0 4px 30px 0px rgba(239, 68, 68, 0.25);  /* Red part */
         transform: translateY(-2px);
       }
   
       /* Polka Dot Pattern */
       :root {
-        --dot-pattern-url: url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='1.5' cy='1.5' r='1.5' fill='%2394a3b8' fill-opacity='0.4'/%3E%3C/svg%3E");
+        --dot-pattern-url: url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='1.5' cy='1.5' r='1.5' fill='%2394a3b8' fill-opacity='0.3'/%3E%3C/svg%3E");
         
         /* Autofill Variables */
         --input-bg-light: #ffffff;
@@ -217,7 +217,8 @@ export default function DashboardPage() {
   if (!isClient || isLoadingBooks || isLoadingCategories || isLoadingProgress) { 
     return (
       <div 
-        className="flex min-h-screen flex-col items-center justify-center bg-slate-200 dark:bg-slate-950 transition-colors duration-500" 
+        // UPDATED: sweet spot background
+        className="flex min-h-screen flex-col items-center justify-center bg-slate-200/50 dark:bg-slate-900 transition-colors duration-500" 
         style={{ backgroundImage: 'var(--dot-pattern-url)' }}
       >
         <GlobalStyles /> 
@@ -237,7 +238,8 @@ export default function DashboardPage() {
 
   return (
     <div 
-      className="min-h-screen text-slate-900 dark:text-slate-100 p-4 sm:p-6 lg:p-8 bg-slate-200 dark:bg-slate-950 transition-colors duration-500" 
+      // UPDATED: sweet spot background
+      className="min-h-screen text-slate-900 dark:text-slate-100 p-4 sm:p-6 lg:p-8 bg-slate-200/50 dark:bg-slate-900 transition-colors duration-500" 
       style={{ backgroundImage: 'var(--dot-pattern-url)' }}
     >
       <GlobalStyles />
@@ -300,9 +302,12 @@ export default function DashboardPage() {
           
           {/* --- Column 1: Global Progress --- */}
           <section className="learn-ease-card p-6 h-full flex flex-col">
+              {/* Updated Heading: Orange Gradient + Line Separator */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 pb-4 border-b border-slate-300 dark:border-slate-700">
-              <h2 className="text-3xl font-semibold text-slate-800 dark:text-slate-100 mb-2 sm:mb-0">
-                My Global Progress
+              <h2 className="text-3xl font-bold tracking-tight mb-2 sm:mb-0">
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-red-500">
+                  My Global Progress
+                </span>
               </h2>
               <Link href="/progress" className="flex items-center px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg shadow-lg hover:shadow-xl hover:from-blue-600 hover:to-indigo-700 focus:outline-none focus:ring-2 ring-offset-2 dark:ring-offset-slate-900 ring-indigo-500 transition-all duration-150 ease-in-out text-sm font-medium transform hover:scale-105 active:scale-95">
                 View Full Report
@@ -344,9 +349,12 @@ export default function DashboardPage() {
         {errorCategories && !isLoadingCategories && ( <div className="my-4 p-4 text-sm text-red-700 bg-red-100 dark:bg-red-900/50 dark:text-red-300 rounded-lg border border-red-300 dark:border-red-700"><strong>Category Error:</strong> {errorCategories}</div> )}
 
         <section className="learn-ease-card learn-ease-card-hover p-6">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
-            <h2 className="text-3xl font-semibold text-slate-800 dark:text-slate-100 mb-2 sm:mb-0"> 
-              {activeFilter === 'all' ? 'All Your Books' : activeFilter === 'uncategorized' ? 'Uncategorized Books' : <><span className="text-slate-500 dark:text-slate-400">Books in: </span><span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-red-500">{getCategoryNameById(activeFilter)}</span></>}
+          {/* Updated Heading: Orange Gradient + Line Separator */}
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 pb-4 border-b border-slate-300 dark:border-slate-700">
+            <h2 className="text-3xl font-bold tracking-tight mb-2 sm:mb-0"> 
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-red-500">
+                {activeFilter === 'all' ? 'All Your Books' : activeFilter === 'uncategorized' ? 'Uncategorized Books' : `Books in: ${getCategoryNameById(activeFilter)}`}
+              </span>
             </h2>
             <span className="text-sm text-slate-500 dark:text-slate-400 self-end sm:self-center bg-slate-100 dark:bg-slate-700 px-3 py-1 rounded-full">{filteredBooks.length} book(s)</span>
           </div>
