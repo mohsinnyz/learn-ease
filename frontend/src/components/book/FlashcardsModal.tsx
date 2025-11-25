@@ -107,7 +107,11 @@ export const FlashcardsModal = ({
                     >
                       
                       {/* FRONT FACE */}
-                      <div className={`${cardBase} bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 z-20`}>
+                      <div 
+                        className={`${cardBase} bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 z-20`}
+                        // FIX: Explicit transform required for Firefox to handle backface-visibility correctly
+                        style={{ transform: "rotateY(0deg)" }}
+                      >
                         <div className="flex items-center justify-between">
                           {/* UPDATED: Simple Numbering */}
                           <span className="text-xl font-black text-orange-500/40">
@@ -130,12 +134,16 @@ export const FlashcardsModal = ({
                       </div>
 
                       {/* BACK FACE */}
-                      <div className={`${cardBase} bg-slate-900 border-orange-500/40 rotate-y-180 z-10`}>
-                         <div className="flex items-center justify-between">
-                          <span className="text-xs font-extrabold tracking-widest text-green-400 uppercase border border-green-400/30 px-2 py-1 rounded bg-green-400/10">
-                            Answer
-                          </span>
-                        </div>
+                      <div 
+                        className={`${cardBase} bg-slate-900 border-orange-500/40 rotate-y-180 z-10`}
+                        // Explicit style to ensure consistency
+                        style={{ transform: "rotateY(180deg)" }}
+                      >
+                          <div className="flex items-center justify-between">
+                           <span className="text-xs font-extrabold tracking-widest text-green-400 uppercase border border-green-400/30 px-2 py-1 rounded bg-green-400/10">
+                             Answer
+                           </span>
+                         </div>
 
                         <div className="flex-1 flex items-center justify-center text-center my-2 overflow-y-auto custom-scrollbar">
                           <p className="text-lg text-slate-200 leading-relaxed font-medium">
@@ -143,7 +151,7 @@ export const FlashcardsModal = ({
                           </p>
                         </div>
 
-                         <div className="w-full pt-4 mt-2 border-t border-slate-700/50">
+                          <div className="w-full pt-4 mt-2 border-t border-slate-700/50">
                            <div className="w-full flex items-center justify-center gap-2 text-slate-500 text-sm font-medium hover:text-white transition-colors">
                               <FlipIcon /> Back to Question
                            </div>

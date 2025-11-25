@@ -1,4 +1,3 @@
-//C:\Users\mohsi\Projects\learn-ease-fyp\frontend\src\components\BookMentorChat.tsx
 "use client";
 
 import { useState, useRef, useEffect, FormEvent } from "react";
@@ -26,7 +25,7 @@ const SpinnerIcon = ({ className = "h-5 w-5 text-white" }: { className?: string 
 
 interface BookMentorChatProps {
     bookId: string;
-    ChatIcon: React.ComponentType<React.SVGProps<SVGSVGElement>>; // Use the icon from the parent
+    ChatIcon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
 }
 
 export const BookMentorChat: React.FC<BookMentorChatProps> = ({ bookId, ChatIcon }) => {
@@ -67,6 +66,7 @@ export const BookMentorChat: React.FC<BookMentorChatProps> = ({ bookId, ChatIcon
 
     return (
         <div className="bg-white/80 dark:bg-slate-800/80 rounded-xl shadow-md p-4 border border-slate-200 dark:border-slate-700 flex flex-col h-[calc(100vh-1rem)] max-h-[95rem]">
+            {/* Header */}
             <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200 mb-3 pb-3 border-b border-slate-300 dark:border-slate-700 flex items-center gap-2">
                 <ChatIcon className="w-6 h-6 text-orange-500" />
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-red-500">
@@ -74,43 +74,63 @@ export const BookMentorChat: React.FC<BookMentorChatProps> = ({ bookId, ChatIcon
                 </span>
             </h3>
 
-            <div className="flex-1 overflow-y-auto pr-2 space-y-4 mb-3">
-                {messages.map((msg, index) => (
-                    <div key={index} className={`flex items-start gap-3 ${msg.sender === 'user' ? 'justify-end' : ''}`}>
-                        {msg.sender === 'ai' && <MentorIcon />}
-                        <div className={`max-w-[85%] rounded-lg p-3 ${msg.sender === 'user' ? 'bg-orange-500 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200'}`}>
-                            <div className="prose prose-sm dark:prose-invert max-w-none">
-                                <ReactMarkdown>{msg.text}</ReactMarkdown>
-                            </div>
-                            {msg.sender === 'ai' && msg.sources && msg.sources.length > 0 && (
-                                <details className="mt-2">
-                                    <summary className="text-xs cursor-pointer text-slate-500 dark:text-slate-400">Sources</summary>
-                                    <div className="mt-1 space-y-2 border-t border-slate-300 dark:border-slate-600 pt-2">
-                                        {msg.sources.map((source, i) => (
-                                            <p key={i} className="text-xs text-slate-500 dark:text-slate-400 border-l-2 border-orange-400 pl-2 italic">
-                                                "{source.slice(0, 100)}..."
-                                            </p>
-                                        ))}
-                                    </div>
-                                </details>
-                            )}
+            {/* Content Area */}
+            <div className="flex-1 overflow-y-auto pr-2 mb-3">
+                {/* EMPTY STATE: Only shows when no messages exist */}
+                {messages.length === 0 ? (
+                    <div className="h-full flex flex-col items-center justify-center text-center p-6 opacity-80 animate-in fade-in duration-500">
+                        <div className="bg-orange-100 dark:bg-orange-500/10 p-6 rounded-full mb-6">
+                            <ChatIcon className="w-12 h-12 text-orange-500" />
                         </div>
-                        {msg.sender === 'user' && <UserIcon />}
+                        <h4 className="text-xl font-bold text-slate-700 dark:text-slate-200 mb-2">
+                            Need help understanding this book?
+                        </h4>
+                        <p className="text-sm text-slate-500 dark:text-slate-400 max-w-[240px] leading-relaxed">
+                            i have read every page. Ask me to explain complex concepts and clear up your doubts
+                        </p>
                     </div>
-                ))}
-                {isLoading && (
-                    <div className="flex items-start gap-3">
-                        <MentorIcon />
-                        <div className="max-w-[85%] rounded-lg p-3 bg-slate-200 dark:bg-slate-700 flex items-center">
-                            <SpinnerIcon className="w-5 h-5 text-orange-500" />
-                        </div>
+                ) : (
+                    /* MESSAGES LIST */
+                    <div className="space-y-4">
+                        {messages.map((msg, index) => (
+                            <div key={index} className={`flex items-start gap-3 ${msg.sender === 'user' ? 'justify-end' : ''}`}>
+                                {msg.sender === 'ai' && <MentorIcon />}
+                                <div className={`max-w-[85%] rounded-lg p-3 ${msg.sender === 'user' ? 'bg-orange-500 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200'}`}>
+                                    <div className="prose prose-sm dark:prose-invert max-w-none">
+                                        <ReactMarkdown>{msg.text}</ReactMarkdown>
+                                    </div>
+                                    {msg.sender === 'ai' && msg.sources && msg.sources.length > 0 && (
+                                        <details className="mt-2">
+                                            <summary className="text-xs cursor-pointer text-slate-500 dark:text-slate-400">Sources</summary>
+                                            <div className="mt-1 space-y-2 border-t border-slate-300 dark:border-slate-600 pt-2">
+                                                {msg.sources.map((source, i) => (
+                                                    <p key={i} className="text-xs text-slate-500 dark:text-slate-400 border-l-2 border-orange-400 pl-2 italic">
+                                                        "{source.slice(0, 100)}..."
+                                                    </p>
+                                                ))}
+                                            </div>
+                                        </details>
+                                    )}
+                                </div>
+                                {msg.sender === 'user' && <UserIcon />}
+                            </div>
+                        ))}
+                        {isLoading && (
+                            <div className="flex items-start gap-3">
+                                <MentorIcon />
+                                <div className="max-w-[85%] rounded-lg p-3 bg-slate-200 dark:bg-slate-700 flex items-center">
+                                    <SpinnerIcon className="w-5 h-5 text-orange-500" />
+                                </div>
+                            </div>
+                        )}
+                        <div ref={messagesEndRef} />
                     </div>
                 )}
-                <div ref={messagesEndRef} />
             </div>
 
             {error && <p className="text-red-500 text-sm mb-2 px-1">{error}</p>}
 
+            {/* Input Form */}
             <form onSubmit={handleSubmit} className="flex items-center gap-2 border-t border-slate-300 dark:border-slate-700 pt-3">
                 <input
                     type="text"

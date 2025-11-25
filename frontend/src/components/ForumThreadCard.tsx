@@ -183,8 +183,20 @@ const ForumThreadCard = ({ thread, hideContent = false, isDetailView = false, cu
                 <div className={`text-base sm:text-lg text-slate-600 dark:text-slate-300 leading-relaxed font-normal prose prose-slate dark:prose-invert max-w-none prose-p:my-2 prose-headings:text-base prose-headings:my-2 ${isDetailView ? '' : 'line-clamp-2'}`}>
                     <ReactMarkdown 
                       remarkPlugins={[remarkGfm]}
-                      components={isDetailView ? undefined : {
-                        a: ({node, ...props}) => <span className="text-orange-500" {...props} />
+                      components={{
+                        // Handle links explicitly
+                        a: ({node, ...props}) => {
+                          // Define common Blue and Underlined style
+                          const linkStyle = "text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 underline decoration-blue-300 dark:decoration-blue-500 hover:decoration-blue-800 dark:hover:decoration-blue-300 transition-all font-medium";
+                          
+                          if (isDetailView) {
+                            // In Detail View: Real clickable link
+                            return <a target="_blank" rel="noopener noreferrer" className={linkStyle} {...props} />;
+                          } else {
+                            // In List View: Span mimicking link (avoids hydration error)
+                            return <span className={linkStyle} {...props} />;
+                          }
+                        }
                       }}
                     >
                       {thread.content}
