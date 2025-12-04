@@ -1,33 +1,87 @@
-# learn-ease-fyp/backend/routers/ai_router.py
-#C:\Users\mohsi\Projects\learn-ease-fyp\backend\routers\ai_router.py
+# backend/routers/ai_router.py
 
 from fastapi import APIRouter, Depends, HTTPException, status
-# from typing import Annotated # Not used if current_user is only in router dependencies
+from pydantic import BaseModel
+from typing import List, Dict
+from motor.motor_asyncio import AsyncIOMotorDatabase
 
+from core.db import get_database
+from core.security import get_current_user
+from services import ai_service, book_service
+from models.user_schemas import UserInDB
 from models.ai_schemas import (
     TextForSummarization,
     SummarizationResponse,
     TextForFlashcards,
     FlashcardsResponse,
     TextForStudyNotes,
-    StudyNotesResponse
+    StudyNotesResponse,
+    TextForQuestionAnswer,
+    QuestionAnswerResponse,
+    QuizGenerationRequest,
+    GeneratedQuiz,
+    QuizEvaluationRequest,
+    QuizEvaluationResponse,
+    GlossaryTerm,
+    ChatRequest,
+    ChatResponse
 )
-from services import ai_service
-from core.security import get_current_user
-from models.user_schemas import UserInDB 
+
+# --- Temp storage for Quizzes ---
+temp_quiz_storage: Dict[str, GeneratedQuiz] = {}
 
 router = APIRouter(
-    prefix="/ai", 
+    prefix="/ai",
     tags=["AI Features"],
-    dependencies=[Depends(get_current_user)] 
+    dependencies=[Depends(get_current_user)]
 )
+
+# =========================================================================
+# --- NEW ROUTE FOR AI MENTOR CHAT (Module 8) ---
+# =========================================================================
+
+@router.post("/chat/{book_id}", response_model=ChatResponse)
+async def http_chat_with_book(
+    book_id: str,
+    request: ChatRequest,
+    db: AsyncIOMotorDatabase = Depends(get_database),
+    current_user: UserInDB = Depends(get_current_user),
+):
+    """
+    Handles a chat query for a specific book using the RAG pipeline.
+    """
+    # 1. Verify user has access to the book
+    book = await book_service.get_book_by_id_for_user(
+        db=db, book_id_str=book_id, user_id=current_user.id
+    )
+    if not book:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Book not found or you do not have permission to access it."
+        )
+
+    # 2. Call the AI service to get the RAG-based answer
+    try:
+        response = await ai_service.get_rag_answer(book_id, request.query)
+        return response
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        print(f"ERROR: API (/ai/chat/{book_id}) - Unexpected error: {type(e).__name__} - {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An unexpected error occurred while processing your chat request."
+        )
+
+# =========================================================================
+# --- EXISTING ROUTES (Summarization, Flashcards, Study Notes, Q&A) ---
+# =========================================================================
 
 @router.post("/summarize-text", response_model=SummarizationResponse)
 async def http_summarize_text(
     request_data: TextForSummarization,
 ):
-    # This line should use the corrected variable names
-    if not ai_service.model_summarize or not ai_service.tokenizer_summarize: 
+    if not ai_service.model_summarize or not ai_service.tokenizer_summarize:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Summarization service is currently unavailable. Model not loaded."
@@ -36,14 +90,10 @@ async def http_summarize_text(
         summary = await ai_service.generate_summary(request_data.text_to_summarize)
         return SummarizationResponse(summary=summary)
     except Exception as e:
-        # If ai_service was not imported correctly, it would be an issue here too,
-        # but the primary error (AttributeError) happens before this block is entered.
-        # The NameError you're seeing now within this block means the AttributeError
-        # is still the first problem, and then this logging line also fails.
-        print(f"Error in /summarize-text endpoint: {e}") 
+        print(f"Error in /summarize-text endpoint: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to generate summary: {str(e)}" 
+            detail=f"Failed to generate summary: {str(e)}"
         )
 
 @router.post("/generate-flashcards", response_model=FlashcardsResponse)
@@ -53,7 +103,7 @@ async def http_generate_flashcards(
     try:
         flashcards_list = await ai_service.generate_flashcards_from_text(request_data.text_to_generate_from)
         return FlashcardsResponse(flashcards=flashcards_list)
-    except HTTPException as he: 
+    except HTTPException as he:
         raise he
     except Exception as e:
         print(f"ERROR: /generate-flashcards endpoint - Unexpected error: {type(e).__name__} - {e}")
@@ -62,12 +112,12 @@ async def http_generate_flashcards(
             detail="An unexpected error occurred while generating flashcards. Please try again later."
         )
 
-# --- New Endpoint for Study Notes Generation ---
 @router.post("/generate-study-notes", response_model=StudyNotesResponse)
 async def http_generate_study_notes(
     request_data: TextForStudyNotes,
 ):
     """
+    (DEPRECATED - use /topic)
     Receives text input and generates structured study notes using the AI service.
     """
     try:
@@ -76,8 +126,136 @@ async def http_generate_study_notes(
     except HTTPException as he:
         raise he
     except Exception as e:
-        print(f"ERROR: /generate-study-notes endpoint - Unexpected error: {type(e)._name_} - {e}")
+        print(f"ERROR: /generate-study-notes endpoint - Unexpected error: {type(e).__name__} - {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An unexpected error occurred while generating study notes."
             )
+
+# --- (NEW) ENDPOINT FOR TOPIC-BASED NOTES ---
+
+class TopicStudyNotesRequest(BaseModel):
+    """Request model for generating notes from a topic ID."""
+    topic_id: str
+
+@router.post("/generate-study-notes/topic", response_model=StudyNotesResponse)
+async def http_generate_study_notes_from_topic(
+    request_data: TopicStudyNotesRequest,
+    db: AsyncIOMotorDatabase = Depends(get_database),
+    current_user: UserInDB = Depends(get_current_user)
+):
+    """
+    Generates study notes from a specific, user-selected topic ID
+    by fetching the topic's content from the database.
+    """
+    try:
+        notes_content = await ai_service.generate_study_notes_from_topic(
+            db=db,
+            topic_id_str=request_data.topic_id,
+            user_id=current_user.id
+        )
+        return StudyNotesResponse(study_notes=notes_content)
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        print(f"ERROR: /generate-study-notes/topic endpoint - Unexpected error: {type(e).__name__} - {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An unexpected error occurred while generating study notes from the topic."
+        )
+
+# --- END OF NEW CODE ---
+
+
+@router.post("/generate-qna", response_model=QuestionAnswerResponse)
+async def http_generate_question_answers(
+    request_data: TextForQuestionAnswer,
+):
+    """
+    Receives text input and generates question and answer pairs.
+    """
+    try:
+        qna_pairs_list = await ai_service.generate_qna_from_text(request_data.text_to_generate_from)
+        return QuestionAnswerResponse(qna_pairs=qna_pairs_list)
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        print(f"ERROR: /generate-qna endpoint - Unexpected error: {type(e).__name__} - {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An unexpected error occurred while generating questions and answers."
+        )
+
+# =========================================================================
+# --- ROUTES FOR QUIZ GENERATION AND EVALUATION (Module 4) ---
+# =========================================================================
+
+# --- (MODIFIED) This endpoint now requires db and user ---
+@router.post("/quiz/generate", response_model=GeneratedQuiz)
+async def http_generate_quiz(
+    request: QuizGenerationRequest,
+    db: AsyncIOMotorDatabase = Depends(get_database),
+    current_user: UserInDB = Depends(get_current_user)
+):
+    """
+    Generates the quiz from a topic_id and stores it temporarily.
+    """
+    print(f"INFO: API - Received quiz generation request for topic: {request.topic_id}")
+    try:
+        # --- (MODIFIED) Pass db and user_id to the service ---
+        generated_quiz = await ai_service.generate_quiz_from_text(
+            request=request,
+            db=db,
+            user_id=current_user.id
+        )
+
+        global temp_quiz_storage
+        temp_quiz_storage[generated_quiz.quiz_id] = generated_quiz
+
+        print(f"INFO: API - Quiz generated and stored with ID: {generated_quiz.quiz_id}")
+        return generated_quiz
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        print(f"ERROR: API (/ai/quiz/generate) - Unexpected error: {type(e).__name__} - {str(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to generate quiz: {str(e)}")
+# --- End of modification ---
+
+
+@router.post("/quiz/evaluate", response_model=QuizEvaluationResponse)
+async def http_evaluate_quiz(
+    request: QuizEvaluationRequest,
+    db: AsyncIOMotorDatabase = Depends(get_database),
+    current_user: UserInDB = Depends(get_current_user)
+):
+    """
+    Evaluates the user's attempt and saves the result to the database.
+    """
+    global temp_quiz_storage
+
+    quiz_id = request.quiz_id
+    if quiz_id not in temp_quiz_storage:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Quiz session with ID '{quiz_id}' not found or has expired. Please generate a new quiz."
+        )
+
+    generated_quiz = temp_quiz_storage[quiz_id]
+
+    try:
+        evaluation_result = await ai_service.evaluate_quiz_attempt(
+            request=request,
+            generated_quiz=generated_quiz,
+            db=db,
+            user_id=current_user.id
+        )
+
+        del temp_quiz_storage[quiz_id]
+        print(f"INFO: API - Quiz ID {quiz_id} evaluated and removed from temporary storage.")
+
+        return evaluation_result
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        print(f"ERROR: API (/ai/quiz/evaluate) - Unexpected error: {type(e).__name__} - {str(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to evaluate quiz: {str(e)}")

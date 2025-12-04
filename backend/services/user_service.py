@@ -1,10 +1,10 @@
-# backend/services/user_service.py
+# learn-ease-fyp/backend/services/user_service.py
 from motor.motor_asyncio import AsyncIOMotorDatabase
-from typing import Optional
+from typing import Optional, List
 from models.user_schemas import UserCreate, UserInDB, UserPublic, UserUpdate, PyObjectId, UserPasswordChange 
 from core.security import get_password_hash, verify_password
 from fastapi import HTTPException, status
-# from pydantic import HttpUrl # Not directly used in this file, but might be in schemas
+import re
 
 USERS_COLLECTION = "users" 
 
@@ -128,3 +128,31 @@ async def change_user_password(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         detail="Could not update password due to an unexpected issue."
     )
+
+# ... (at the end of the file) ...
+async def search_users(db: AsyncIOMotorDatabase, name_query: str, current_user_id: PyObjectId) -> List[UserPublic]:
+    """
+    Searches for users by first or last name, excluding the current user.
+    """
+    if not name_query:
+        return []
+
+    # Case-insensitive regex search
+    query_regex = re.compile(f".*{re.escape(name_query)}.*", re.IGNORECASE)
+    
+    # Search in both firstname and lastname
+    search_filter = {
+        "_id": {"$ne": current_user_id}, # Exclude self
+        "$or": [
+            {"firstname": {"$regex": query_regex}},
+            {"lastname": {"$regex": query_regex}}
+        ]
+    }
+    
+    users_cursor = db[USERS_COLLECTION].find(search_filter).limit(10) # Limit to 10 results
+    
+    users = []
+    async for user_doc in users_cursor:
+        users.append(UserPublic.from_user_in_db(UserInDB(**user_doc)))
+        
+    return users

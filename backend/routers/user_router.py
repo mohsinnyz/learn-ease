@@ -1,7 +1,7 @@
+#learn-ease-fyp\backend\routers\user_router.py
 from fastapi import APIRouter, Depends, HTTPException, status
-from typing import Annotated 
+from typing import Annotated, List
 from motor.motor_asyncio import AsyncIOMotorDatabase
-
 from models.user_schemas import UserPublic, UserUpdate, UserInDB, UserPasswordChange # UserInDB for current_user type
 from services import user_service
 from core.db import get_database
@@ -77,3 +77,19 @@ async def update_current_user_password(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An unexpected error occurred while changing the password."
         )
+    
+    # ... (at the end of the file) ...
+@router.get("/search", response_model=List[UserPublic])
+async def search_for_users(
+    q: str, # The search query
+    db: Annotated[AsyncIOMotorDatabase, Depends(get_database)],
+    current_user: Annotated[UserInDB, Depends(get_current_user)]
+):
+    """
+    Search for users by name to start a new chat.
+    """
+    if len(q) < 2:
+        # Don't search for just one letter
+        return []
+        
+    return await user_service.search_users(db, q, current_user.id)
