@@ -151,11 +151,18 @@ Learn-Ease/
 
 This project is currently under active development. For investment opportunities, technical inquiries, or demo requests, please contact:
 
-**[Your Name]**
+**[Mohsin Niaz]**
 
   * **Role:** Lead Developer / Founder
-  * **Email:** [Your Email]
-  * **LinkedIn:** [Your LinkedIn Profile]
+  * **Email:** [mohsin.nyz@gmail.com]
+  * **LinkedIn:** [linkedin.com/in/mohsinnyz]
+
+  **[Talal Amjad]**
+
+  * **Role:** Lead Developer / Co-Founder
+  * **Email:** [mohsin.nyz@gmail.com]
+  * **LinkedIn:** [linkedin.com/in/mohsinnyz]
+
 
 -----
 
