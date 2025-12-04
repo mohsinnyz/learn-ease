@@ -96,15 +96,53 @@ We are currently in the **MVP (Minimum Viable Product)** phase. Our development 
 
 ```text
 Learn-Ease/
-├── backend/               # FastAPI Server & AI Logic
-│   ├── core/              # Config & Security
-│   ├── routers/           # API Endpoints
-│   ├── services/          # AI, Quiz, & Vector Services
-│   └── user-book-files/   # Secure Storage for User Assets
-├── frontend/              # Next.js Client Application
-│   ├── src/app/           # Routes & Pages
-│   └── src/components/    # UI Components
-└── requirements.txt       # Dependencies
+├── backend/                             # Python FastAPI Microservice
+│   ├── core/                            # Core Infrastructure
+│   │   ├── config.py                    # Environment & App Config
+│   │   ├── db.py                        # MongoDB Connection Handler
+│   │   ├── security.py                  # JWT Auth & Hashing
+│   │   └── websocket_manager.py         # Socket.IO Manager for Real-time Chat
+│   ├── models/                          # Pydantic Schemas (Data Validation)
+│   │   ├── ai_schemas.py                # LLM Request/Response models
+│   │   ├── quiz_schemas.py              # Quiz Generation & Grading models
+│   │   ├── user_schemas.py              # Auth & Profile models
+│   │   └── ... (book, chat, forum, progress schemas)
+│   ├── routers/                         # API Controllers (REST Endpoints)
+│   │   ├── ai_router.py                 # RAG & Content Generation Endpoints
+│   │   ├── auth_router.py               # Login/Signup Routes
+│   │   ├── chat_router.py               # RAG Chatbot Routes
+│   │   └── ... (books, forum, study_groups routes)
+│   ├── services/                        # Business Logic Layer
+│   │   ├── ai_service.py                # LLM Integration (Gemini/Groq/HF)
+│   │   ├── vector_service.py            # FAISS Indexing & Retrieval Logic
+│   │   ├── quiz_service.py              # Semantic Evaluation Algorithms
+│   │   └── ... (user, chat, notification services)
+│   └── user-book-files/                 # Local Data Lake
+│       ├── books/                       # Raw PDF Storage
+│       ├── extracted-texts/             # Processed Text Chunks
+│       └── vector-stores/               # Serialized FAISS Indices (.faiss/.pkl)
+│
+├── frontend/                            # Next.js 14 Client (App Router)
+│   ├── src/
+│   │   ├── app/                         # Pages & Routing
+│   │   │   ├── (auth)/                  # Authentication Group
+│   │   │   ├── books/[bookId]/          # Dynamic Book Pages
+│   │   │   │   └── quiz/                # Quiz Interface
+│   │   │   ├── dashboard/               # Student Analytics Dashboard
+│   │   │   ├── forum/[threadID]/        # Discussion Threads
+│   │   │   ├── messages/                # Real-time Chat Interface
+│   │   │   └── progress/                # Visual Analytics Page
+│   │   ├── components/                  # UI Design System
+│   │   │   ├── BookMentorChat.tsx       # RAG Chat Interface
+│   │   │   ├── ProgressLineChart.tsx    # Recharts Analytics
+│   │   │   ├── ForumThreadCard.tsx      # Community Components
+│   │   │   └── ... (Modals, Badges, Inputs)
+│   │   ├── lib/                         # Utilities (Date parsing, Formatting)
+│   │   └── services/                    # API Client (Axios Wrappers)
+│   └── public/                          # Static Assets
+│
+├── requirements.txt                     # Backend Dependencies
+├── package.json                         # Frontend Dependencies
 ```
 
 -----
@@ -123,5 +161,4 @@ This project is currently under active development. For investment opportunities
 
 *© 2025 Learn-Ease. All Rights Reserved. Proprietary Software.*
 
-```
 ```
