@@ -153,15 +153,15 @@ This project is currently under active development. For investment opportunities
 
 **[Mohsin Niaz]**
 
-  * **Role:** Lead Developer / Founder
+  * **Role:** Lead Developer / Co-Founder
   * **Email:** [mohsin.nyz@gmail.com]
   * **LinkedIn:** [linkedin.com/in/mohsinnyz]
 
   **[Talal Amjad]**
 
   * **Role:** Lead Developer / Co-Founder
-  * **Email:** [mohsin.nyz@gmail.com]
-  * **LinkedIn:** [linkedin.com/in/mohsinnyz]
+  * **Email:** [talalamjad47@gmail.com]
+  * **LinkedIn:** [linkedin.com/in/talalam23]
 
 
 -----
