@@ -192,7 +192,7 @@ async def generate_qna_from_text(text_to_generate_from: str) -> List[QuestionAns
         raise HTTPException(status_code=400, detail="Text too short for Q/A generation.")
 
     prompt = f"""
-    Generate 5 unique Question-Answer pairs based strictly on the text provided below.
+    Generate 10 unique Question-Answer pairs based strictly on the text provided below.
     
     Output strictly a JSON array of objects with keys "question" and "answer".
     Example: [{{"question": "...", "answer": "..."}}]
@@ -437,7 +437,7 @@ async def generate_flashcards_from_text(text: str) -> List[Dict[str, str]]:
         return []
     
     prompt = f"""
-    Generate 3-5 flashcards (front/back) from the text below.
+    Generate 3 flashcards (front/back) from the text below.
     Output JSON Array ONLY: [{{"front": "...", "back": "..."}}]
     
     Text:
