@@ -81,11 +81,7 @@ async def http_chat_with_book(
 async def http_summarize_text(
     request_data: TextForSummarization,
 ):
-    if not ai_service.model_summarize or not ai_service.tokenizer_summarize:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Summarization service is currently unavailable. Model not loaded."
-        )
+    # --- MODIFIED: Removed checks for local models (using Cohere now) ---
     try:
         summary = await ai_service.generate_summary(request_data.text_to_summarize)
         return SummarizationResponse(summary=summary)

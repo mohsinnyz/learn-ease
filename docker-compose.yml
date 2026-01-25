@@ -1,0 +1,42 @@
+
+version: '3.8'
+
+services:
+  backend:
+    build: ./backend
+    container_name: learn-ease-backend
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./backend/.env
+    depends_on:
+      - mongo-db
+    volumes:
+      - ./backend:/app
+      - /app/__pycache__
+      - /app/venv
+    environment:
+      - DATABASE_URL=mongodb://mongo-db:27017
+
+  frontend:
+    build: ./frontend
+    container_name: learn-ease-frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000 
+      # Note: Client-side calls to localhost refer to the user's browser, which is correct for public APIs.
+      # Server-side calls might need internal networking if implemented.
+
+  mongo-db:
+    image: mongo:latest
+    container_name: learn-ease-mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+volumes:
+  mongo_data:

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-// Ensure XMarkIcon is in your Icons file or defined locally
+import jsPDF from "jspdf";
 import { SpinnerIcon, XMarkIcon } from "./Icons"; 
 import { Flashcard } from "@/services/bookService";
 
@@ -11,6 +11,7 @@ interface FlashcardsModalProps {
   isGenerating: boolean;
   flashcards: Flashcard[] | null;
   error: string | null;
+  bookTitle?: string;
 }
 
 const FlipIcon = () => (
@@ -25,6 +26,7 @@ export const FlashcardsModal = ({
   isGenerating,
   flashcards,
   error,
+  bookTitle,
 }: FlashcardsModalProps) => {
   const [flippedCards, setFlippedCards] = useState<Record<number, boolean>>({});
 
@@ -38,6 +40,75 @@ export const FlashcardsModal = ({
 
   const toggleFlip = (index: number) => {
     setFlippedCards((prev) => ({ ...prev, [index]: !prev[index] }));
+  };
+
+  const handleExportFlashcardsAsPDF = () => {
+    if (!flashcards || flashcards.length === 0) {
+      alert("No flashcards available to export.");
+      return;
+    }
+
+    const doc = new jsPDF({
+      orientation: "portrait",
+      unit: "pt",
+      format: "a4",
+    });
+
+    const title = bookTitle ? `Flashcards - ${bookTitle}` : "Flashcards";
+    const margin = 40;
+    const pageHeight = doc.internal.pageSize.height - 2 * margin;
+    const pageWidth = doc.internal.pageSize.width - 2 * margin;
+    let yPosition = margin;
+
+    // -- Title --
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    doc.text(title, margin, yPosition);
+    yPosition += 30;
+
+    // -- Cards --
+    doc.setFontSize(12);
+    
+    flashcards.forEach((card, index) => {
+      // Check space for the new block (Card # + Q + A)
+      // Estimate block height approx 80-100pt, if low on space, add page
+      if (yPosition > pageHeight - 60) {
+        doc.addPage();
+        yPosition = margin;
+      }
+
+      // Card Number Header
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(249, 115, 22); // Orange color (RGB)
+      doc.text(`Card #${index + 1}`, margin, yPosition);
+      yPosition += 15;
+      doc.setTextColor(0, 0, 0); // Reset to black
+
+      // Question (Front)
+      doc.setFont("helvetica", "bold");
+      doc.text("Q:", margin, yPosition);
+      
+      doc.setFont("helvetica", "normal");
+      const questionLines = doc.splitTextToSize(card.front, pageWidth - 30);
+      doc.text(questionLines, margin + 20, yPosition);
+      yPosition += questionLines.length * 14 + 5;
+
+      // Answer (Back)
+      doc.setFont("helvetica", "bold");
+      doc.text("A:", margin, yPosition);
+
+      doc.setFont("helvetica", "normal");
+      const answerLines = doc.splitTextToSize(card.back, pageWidth - 30);
+      doc.text(answerLines, margin + 20, yPosition);
+      yPosition += answerLines.length * 14 + 15; // Extra spacing after card
+
+      // Divider line
+      doc.setDrawColor(200, 200, 200);
+      doc.line(margin, yPosition - 5, pageWidth + margin, yPosition - 5);
+      yPosition += 15;
+    });
+
+    doc.save(`${bookTitle || "Flashcards"}.pdf`);
   };
 
   return (
@@ -58,12 +129,29 @@ export const FlashcardsModal = ({
                 Flashcards
               </h2>
            </div>
-           <button 
-              onClick={onClose}
-              className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors backdrop-blur-md"
-            >
-              <XMarkIcon className="w-8 h-8" />
-            </button>
+           
+           <div className="flex items-center gap-4">
+             {/* PDF Export Button */}
+             {!isGenerating && flashcards && (
+               <button
+                 onClick={handleExportFlashcardsAsPDF}
+                 className="hidden md:flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg backdrop-blur-md transition-all border border-white/10 hover:border-white/20 font-medium text-sm"
+               >
+                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                   <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                 </svg>
+                 Save PDF
+               </button>
+             )}
+
+             {/* Close Button */}
+             <button 
+               onClick={onClose}
+               className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors backdrop-blur-md"
+             >
+               <XMarkIcon className="w-8 h-8" />
+             </button>
+           </div>
         </div>
 
         {/* Content Area - Centered */}
@@ -91,7 +179,7 @@ export const FlashcardsModal = ({
 
           {/* THE CARDS */}
           {!isGenerating && flashcards && (
-            <div className="w-[95vw] max-w-[1800px] grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-10">
+            <div className="w-[95vw] max-w-[1800px] grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-10 pb-20 pt-20">
               {flashcards.map((card, index) => {
                 const isFlipped = flippedCards[index];
                 const cardBase = "absolute inset-0 backface-hidden rounded-2xl p-8 shadow-2xl flex flex-col justify-between border transition-colors duration-300";
@@ -143,7 +231,7 @@ export const FlashcardsModal = ({
                            <span className="text-xs font-extrabold tracking-widest text-green-400 uppercase border border-green-400/30 px-2 py-1 rounded bg-green-400/10">
                              Answer
                            </span>
-                         </div>
+                          </div>
 
                         <div className="flex-1 flex items-center justify-center text-center my-2 overflow-y-auto custom-scrollbar">
                           <p className="text-lg text-slate-200 leading-relaxed font-medium">

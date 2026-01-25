@@ -1,19 +1,22 @@
 # backend/routers/book_router.py
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status, Path, Form, BackgroundTasks, Query
-from fastapi.responses import FileResponse
+# <<< CHANGED: Import StreamingResponse instead of FileResponse >>>
+from fastapi.responses import StreamingResponse 
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from typing import List, Annotated, Optional
 from pydantic import BaseModel
 import os
-from typing import List, Dict
-# <<< MODIFIED IMPORT: Added BookTopicPublic >>>
+
 from models.book_schemas import BookPublic, BookCategoryUpdate, BookTopicPublic
 from models.user_schemas import UserInDB
 from services import book_service, ai_service
 from core.db import get_database
 from core.security import get_current_user
 from models.ai_schemas import GlossaryTerm 
+
+# <<< NEW: Import S3 Client for streaming downloads >>>
+from core.s3_client import s3_client
 
 router = APIRouter(
     prefix="/books",
@@ -44,12 +47,13 @@ async def api_upload_book(
             category_id_str=category_id
         )
 
+        # <<< CHANGED: Updated argument names to match the new service definition >>>
         background_tasks.add_task(
             book_service.process_book_in_background,
             db=db,
             book_id=book_db_obj.id,
-            pdf_path=book_db_obj.file_path_local,
-            text_save_path=book_db_obj.extracted_text_path_local
+            s3_pdf_key=book_db_obj.file_path_local,          # Passing the S3 key
+            s3_text_key=book_db_obj.extracted_text_path_local # Passing the S3 key
         )
 
         return BookPublic.from_db_model(book_db_obj)
@@ -107,23 +111,42 @@ async def api_get_book_details(
     return BookPublic.from_db_model(book_db)
 
 
-@router.get("/{book_id}/pdf", response_class=FileResponse)
+# <<< CHANGED: Switched to StreamingResponse for S3 Download >>>
+# In backend/routers/book_router.py
+
+@router.get("/{book_id}/pdf")
 async def api_serve_book_pdf(
     book_id: Annotated[str, Path(description="The ID of the book PDF to retrieve")],
     current_user: Annotated[UserInDB, Depends(get_current_user)],
     db: Annotated[AsyncIOMotorDatabase, Depends(get_database)],
 ):
-    pdf_filepath = await book_service.get_book_pdf_filepath(db=db, book_id_str=book_id, user_id=current_user.id)
-    if not pdf_filepath:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="PDF file not found or access denied.")
+    # 1. Get S3 Key
+    s3_key = await book_service.get_book_pdf_filepath(db=db, book_id_str=book_id, user_id=current_user.id)
+    if not s3_key:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="PDF file not found.")
     
-    filename = os.path.basename(pdf_filepath)
-    
-    return FileResponse(
-        path=pdf_filepath, 
-        media_type='application/pdf', 
-        filename=filename
-    )
+    try:
+        # 2. Open Stream
+        file_obj = s3_client.s3.get_object(Bucket=s3_client.bucket, Key=s3_key)
+        file_stream = file_obj['Body']
+        filename = os.path.basename(s3_key)
+        
+        # 3. Stream with Caching Headers
+        # "max-age=31536000" tells the browser: "Keep this file for 1 year. Don't ask me again."
+        # "immutable" means: "This file will never change, so really, don't ask me again."
+        headers = {
+            "Content-Disposition": f"inline; filename={filename}",
+            "Cache-Control": "public, max-age=31536000, immutable" 
+        }
+
+        return StreamingResponse(
+            file_stream, 
+            media_type='application/pdf', 
+            headers=headers
+        )
+    except Exception as e:
+        print(f"S3 Download Error: {e}")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found in storage.")
 
 class BookTextContentResponse(BaseModel):
     id: str
@@ -182,9 +205,6 @@ async def api_get_glossary_for_page(
     current_user: Annotated[UserInDB, Depends(get_current_user)],
     db: Annotated[AsyncIOMotorDatabase, Depends(get_database)],
 ):
-    """
-    Retrieves the glossary terms for a specific page of a book.
-    """
     book_db = await book_service.get_book_by_id_for_user(
         db=db, book_id_str=book_id, user_id=current_user.id
     )
@@ -197,8 +217,6 @@ async def api_get_glossary_for_page(
     return terms
 
 
-# --- (MODIFIED) ---
-# This endpoint now fetches pre-processed topics from the database.
 @router.get(
     "/{book_id}/topics",
     response_model=List[BookTopicPublic], 
@@ -209,10 +227,6 @@ async def http_get_book_topics(
     db: AsyncIOMotorDatabase = Depends(get_database),
     current_user: UserInDB = Depends(get_current_user),
 ):
-    """
-    Retrieves a list of main topic titles (and their IDs) 
-    from the database that were extracted from the book's ToC.
-    """
     try:
         if not current_user.id:
                 raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User not authenticated")
@@ -232,8 +246,6 @@ async def http_get_book_topics(
         print(f"ERROR: Failed to get topics for book {book_id}: {e}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to retrieve topics from the database.")
 
-# --- NEW SEARCH ENDPOINT ---
-
 class BookSearchResult(BaseModel):
     page_number: int
     snippet: str
@@ -245,10 +257,6 @@ async def api_search_book_content(
     current_user: Annotated[UserInDB, Depends(get_current_user)],
     db: Annotated[AsyncIOMotorDatabase, Depends(get_database)],
 ):
-    """
-    Searches for text within the book PDF and returns matching pages with snippets.
-    """
-    # Ensure the service function 'search_book_pdf' exists in book_service.py
     results = await book_service.search_book_pdf(
         db=db, 
         book_id_str=book_id, 
