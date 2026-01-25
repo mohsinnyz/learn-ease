@@ -1,3 +1,4 @@
+//C:\Users\mohsi\Projects\learn-ease-fyp\frontend\src\components\book\StudyNotesModal.tsx
 "use client";
 
 import { useRef } from "react";
